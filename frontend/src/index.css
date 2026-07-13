@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --cream: #f7f3ee;
+  --cream-deep: #efe8df;
+  --beige: #e8ddd0;
+  --brown: #8a6f5a;
+  --brown-deep: #5c4638;
+  --rose: #b76e79;
+  --rose-deep: #9a5560;
+  --ink: #3d322c;
+  --muted: #7a6b60;
+  --line: #e4d8cc;
+  --surface: #fffcf9;
+}
+
+@theme inline {
+  --color-cream: var(--cream);
+  --color-cream-deep: var(--cream-deep);
+  --color-beige: var(--beige);
+  --color-brown: var(--brown);
+  --color-brown-deep: var(--brown-deep);
+  --color-rose: var(--rose);
+  --color-rose-deep: var(--rose-deep);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top right, rgba(183,110,121,0.08), transparent 45%), var(--cream);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: var(--font-display); }
+.card-soft {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  box-shadow: 0 10px 30px rgba(92,70,56,0.05);
+}
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  border-radius: 999px; background: var(--rose); color: #fff; border: 0;
+  font-size: .8rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  padding: .75rem 1.2rem; cursor: pointer; transition: .2s;
+}
+.btn-primary:hover { background: var(--rose-deep); }
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+  border-radius: 999px; background: transparent; color: var(--brown-deep);
+  border: 1px solid var(--line); font-size: .75rem; padding: .5rem .85rem; cursor: pointer;
+}
+.btn-ghost:hover { border-color: var(--rose); color: var(--rose-deep); }
+.field { display: flex; flex-direction: column; gap: .35rem; }
+.field label, .field > span:first-child {
+  font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.field input, .field select, .field textarea {
+  width: 100%; border: 1px solid var(--line); background: #fffcf9; border-radius: .8rem;
+  padding: .7rem .85rem; color: var(--ink); outline: none;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--rose); box-shadow: 0 0 0 3px rgba(183,110,121,.12);
+}

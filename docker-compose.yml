@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: closet-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: closet
+      POSTGRES_PASSWORD: closet
+      POSTGRES_DB: closet_sonhos
+    volumes:
+      - closet_pg_data:/var/lib/postgresql/data
+
+volumes:
+  closet_pg_data:
