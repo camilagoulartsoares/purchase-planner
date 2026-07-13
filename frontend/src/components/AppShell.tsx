@@ -24,10 +24,10 @@ export function AppShell({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[11px] font-semibold tracking-[0.16em] text-rose uppercase">
-                Uso pessoal
+                Painel interno
               </p>
               <Link to="/" className="font-display text-3xl font-semibold text-brown-deep">
-                Meu Closet dos Sonhos
+                Product Planner
               </Link>
               <p className="mt-1 text-sm text-muted">Olá, {user?.name}</p>
             </div>
@@ -40,7 +40,7 @@ export function AppShell({
           </div>
           <nav className="flex flex-wrap gap-2">
             <NavLink to="/" end className={linkClass}>
-              Peças
+              Registros
             </NavLink>
             <NavLink to="/marcas" className={linkClass}>
               Marcas

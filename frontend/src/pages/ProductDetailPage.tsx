@@ -5,6 +5,7 @@ import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
 import { ProductGallery } from "../components/ProductGallery";
 import { ProductFormModal } from "../components/ProductFormModal";
+import { ProductDetailSkeleton } from "../components/Skeletons";
 import { formatBRL, type Product } from "../types";
 
 export function ProductDetailPage() {
@@ -32,7 +33,7 @@ export function ProductDetailPage() {
   if (loading) {
     return (
       <AppShell>
-        <p className="text-muted">Carregando peça...</p>
+        <ProductDetailSkeleton />
       </AppShell>
     );
   }

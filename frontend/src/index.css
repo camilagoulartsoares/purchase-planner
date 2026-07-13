@@ -46,6 +46,20 @@ body {
   border-radius: 1.1rem;
   box-shadow: 0 10px 30px rgba(92,70,56,0.05);
 }
+.skeleton-line,
+.skeleton-block {
+  display: block;
+  border-radius: .7rem;
+  background: linear-gradient(90deg, rgba(232,221,208,.55), rgba(255,252,249,.95), rgba(232,221,208,.55));
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+.skeleton-line { min-height: .75rem; }
+.skeleton-block { min-height: 4rem; }
+@keyframes skeleton-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
   border-radius: 999px; background: var(--rose); color: #fff; border: 0;

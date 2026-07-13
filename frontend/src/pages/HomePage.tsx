@@ -12,6 +12,7 @@ import {
 import { ProductFormModal } from "../components/ProductFormModal";
 import { ProductCard } from "../components/ProductCard";
 import { AppShell } from "../components/AppShell";
+import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
 
 const emptyQuery = {
   search: "",
@@ -230,6 +231,10 @@ export function HomePage() {
         </button>
       }
     >
+      {loading && !summary ? (
+        <HomeSkeleton />
+      ) : (
+        <>
       {summary ? (
         <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -345,7 +350,7 @@ export function HomePage() {
       </section>
 
       {loading ? (
-        <p className="py-16 text-center text-muted">Carregando...</p>
+        <ProductGridSkeleton />
       ) : items.length === 0 ? (
         <div className="card-soft py-16 text-center">
           <p className="font-display text-2xl text-brown-deep">Nenhuma peça por aqui</p>
@@ -449,6 +454,8 @@ export function HomePage() {
           {toast}
         </div>
       ) : null}
+        </>
+      )}
     </AppShell>
   );
 }

@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
   const { login, user } = useAuth();
-  const [email, setEmail] = useState("camilagoulartsoares@yahoo.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -32,9 +32,9 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen place-items-center px-4">
       <form onSubmit={onSubmit} className="card-soft w-full max-w-md p-6 sm:p-8">
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-rose uppercase">Bem-vinda</p>
-        <h1 className="font-display mt-2 text-3xl font-semibold text-brown-deep">Entrar no closet</h1>
-        <p className="mt-2 text-sm text-muted">Organize com calma o que deseja comprar ao longo do tempo.</p>
+        <p className="text-[11px] font-semibold tracking-[0.16em] text-rose uppercase">Acesso</p>
+        <h1 className="font-display mt-2 text-3xl font-semibold text-brown-deep">Entrar no painel</h1>
+        <p className="mt-2 text-sm text-muted">Gerencie registros, imagens e filtros em um só lugar.</p>
         <div className="mt-6 grid gap-3">
           <label className="field">
             <span>E-mail</span>

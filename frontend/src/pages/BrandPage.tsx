@@ -4,6 +4,7 @@ import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormModal } from "../components/ProductFormModal";
+import { BrandPageSkeleton } from "../components/Skeletons";
 import { formatBRL, PRIORITIES, STATUSES, PRICE_BANDS, mediaUrl, type BrandSummary, type Product } from "../types";
 
 export function BrandPage() {
@@ -119,7 +120,7 @@ export function BrandPage() {
   if (loading) {
     return (
       <AppShell>
-        <p className="text-muted">Carregando marca...</p>
+        <BrandPageSkeleton />
       </AppShell>
     );
   }

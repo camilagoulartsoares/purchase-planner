@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Plus, X } from "lucide-react";
 import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
+import { BrandsSkeleton } from "../components/Skeletons";
 import { formatBRL, mediaUrl, type BrandSummary } from "../types";
 
 export function BrandsPage() {
@@ -87,7 +88,7 @@ export function BrandsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted">Carregando marcas...</p>
+        <BrandsSkeleton />
       ) : brands.length === 0 ? (
         <p className="text-muted">Nenhuma marca ainda. Adicione a primeira marca para começar.</p>
       ) : (
