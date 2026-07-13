@@ -25,6 +25,15 @@ const optionalMoney = z.preprocess(
   z.number().positive().optional().nullable(),
 );
 
+const optionalQueryNumber = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return undefined;
+    const n = toNumber(value);
+    return Number.isFinite(n) ? n : value;
+  },
+  z.number().optional(),
+);
+
 export const registerSchema = z.object({
   name: z.string().min(2, "Nome muito curto"),
   email: z.string().email("E-mail inválido"),
@@ -83,8 +92,8 @@ export const productQuerySchema = z.object({
   priority: z.string().optional(),
   status: z.string().optional(),
   promo: z.enum(["com", "sem", ""]).optional(),
-  minPrice: z.coerce.number().optional(),
-  maxPrice: z.coerce.number().optional(),
+  minPrice: optionalQueryNumber,
+  maxPrice: optionalQueryNumber,
   priceBand: z
     .enum([
       "",

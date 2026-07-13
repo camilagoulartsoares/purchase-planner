@@ -68,6 +68,24 @@ describe("API Closet", () => {
     );
   });
 
+  it("ignora filtros de preço vazios enviados pela tela inicial", async () => {
+    const res = await request(app)
+      .get("/api/products")
+      .query({
+        status: "Quero comprar",
+        minPrice: "",
+        maxPrice: "",
+        page: "1",
+        perPage: "12",
+      })
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.some((i: { id: string }) => i.id === productId)).toBe(
+      true,
+    );
+  });
+
   it("impede acesso ao produto de outro usuário", async () => {
     const res = await request(app)
       .get(`/api/products/${productId}`)
