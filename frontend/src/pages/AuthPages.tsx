@@ -18,8 +18,10 @@ export function LoginPage() {
     setError("");
     try {
       await login(email, password);
-    } catch {
-      setError("Não foi possível entrar. Verifique e-mail e senha.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Não foi possível entrar. Verifique e-mail e senha.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -69,8 +71,10 @@ export function RegisterPage() {
     setError("");
     try {
       await register(name, email, password);
-    } catch {
-      setError("Não foi possível criar a conta. Tente outro e-mail.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Não foi possível criar a conta.";
+      setError(message);
     } finally {
       setLoading(false);
     }

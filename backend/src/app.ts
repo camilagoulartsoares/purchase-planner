@@ -12,10 +12,24 @@ import { dashboardRoutes } from "./routes/dashboardRoutes.js";
 export function createApp() {
   const app = express();
 
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+
+  const isLocalDevOrigin = (origin: string) =>
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
   app.use(
     cors({
-      origin: env.frontendUrl,
+      origin(origin, callback) {
+        if (
+          !origin ||
+          origin === env.frontendUrl ||
+          (env.nodeEnv !== "production" && isLocalDevOrigin(origin))
+        ) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`CORS bloqueado para origem: ${origin}`));
+      },
       credentials: true,
     }),
   );
