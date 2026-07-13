@@ -2,6 +2,10 @@ import type { NextFunction, Request, Response } from "express";
 import { ok } from "../middlewares/errorHandler.js";
 import { brandService } from "../services/brandService.js";
 
+function param(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value || "";
+}
+
 export const brandController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
@@ -18,7 +22,7 @@ export const brandController = {
         typeof req.query.category === "string" ? req.query.category : undefined;
       const data = await brandService.getBySlug(
         req.user!.id,
-        req.params.slug,
+        param(req.params.slug),
         category,
       );
       return ok(res, data);

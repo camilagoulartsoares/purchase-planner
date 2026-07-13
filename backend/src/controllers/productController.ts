@@ -8,6 +8,10 @@ import {
 import { AppError, ok } from "../middlewares/errorHandler.js";
 import { productService } from "../services/productService.js";
 
+function param(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value || "";
+}
+
 function parseBody(raw: Record<string, unknown>) {
   const normalized = {
     ...raw,
@@ -46,7 +50,7 @@ export const productController = {
 
   async get(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await productService.getById(req.user!.id, req.params.id);
+      const data = await productService.getById(req.user!.id, param(req.params.id));
       return ok(res, data);
     } catch (err) {
       return next(err);
@@ -76,7 +80,7 @@ export const productController = {
       const body = parseBody(req.body);
       const data = await productService.update(
         req.user!.id,
-        req.params.id,
+        param(req.params.id),
         body,
         req.file,
         filesFrom(req),
@@ -95,7 +99,7 @@ export const productController = {
       const body = statusSchema.parse(req.body);
       const data = await productService.updateStatus(
         req.user!.id,
-        req.params.id,
+        param(req.params.id),
         body,
       );
       return ok(res, data);
@@ -106,7 +110,7 @@ export const productController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      await productService.remove(req.user!.id, req.params.id);
+      await productService.remove(req.user!.id, param(req.params.id));
       return ok(res, { deleted: true });
     } catch (err) {
       return next(err);
@@ -117,7 +121,7 @@ export const productController = {
     try {
       const data = await productService.toggleFavorite(
         req.user!.id,
-        req.params.id,
+        param(req.params.id),
       );
       return ok(res, data);
     } catch (err) {
