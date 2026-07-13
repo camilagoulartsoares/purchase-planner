@@ -104,6 +104,7 @@ export function HomePage() {
   const [items, setItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
   const [query, setQuery] = useState(emptyQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(emptyQuery);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -118,7 +119,7 @@ export function HomePage() {
     try {
       const [s, p, b] = await Promise.all([
         api.fetchSummary(),
-        api.fetchProducts(query),
+        api.fetchProducts(debouncedQuery),
         api.fetchBrands(),
       ]);
       setSummary(s);
@@ -130,11 +131,16 @@ export function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [debouncedQuery]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
     if (!toast) return;

@@ -20,6 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function createApp() {
   const app = express();
 
+  app.set("trust proxy", 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
   const isLocalDevOrigin = (origin: string) =>
@@ -66,9 +67,17 @@ export function createApp() {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 300,
+      max: 2000,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) =>
+        req.method === "OPTIONS" ||
+        req.path === "/api/health" ||
+        req.path.startsWith("/uploads"),
+      message: {
+        success: false,
+        message: "Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente.",
+      },
     }),
   );
 
