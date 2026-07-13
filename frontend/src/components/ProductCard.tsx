@@ -46,8 +46,8 @@ export function ProductCard({
   }, [menuOpen]);
 
   return (
-    <article className="card-soft overflow-hidden">
-      <div className="relative">
+    <article className="card-soft relative overflow-visible">
+      <div className="relative overflow-hidden rounded-t-[1.1rem]">
         <ProductGallery images={images} alt={product.name} compact />
         {onFavorite ? (
           <button
@@ -95,7 +95,7 @@ export function ProductCard({
               <MoreVertical size={16} />
             </button>
             {menuOpen ? (
-              <div className="absolute right-0 z-30 mt-1 w-48 rounded-xl border border-line bg-surface py-1 shadow-lg">
+              <div className="card-menu absolute right-0 z-40 mt-1 w-52 rounded-xl border border-line bg-surface py-1 shadow-lg">
                 {onEdit ? (
                   <button
                     type="button"
@@ -109,28 +109,28 @@ export function ProductCard({
                   </button>
                 ) : null}
                 {onStatus ? (
-                  <>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onStatus(product, "Desisti da compra");
+                    }}
+                  >
+                    Não quero mais
+                  </button>
+                ) : null}
+                {onMarkBought && product.status !== "Já comprei" ? (
                     <button
                       type="button"
                       className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
                       onClick={() => {
                         setMenuOpen(false);
-                        onStatus(product, "Esperando promoção");
+                        onMarkBought(product);
                       }}
                     >
-                      Esperar promoção
+                      Marcar como comprada
                     </button>
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onStatus(product, "Desisti da compra");
-                      }}
-                    >
-                      Não quero mais
-                    </button>
-                  </>
                 ) : null}
                 {onDelete ? (
                   <button

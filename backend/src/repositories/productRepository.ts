@@ -69,10 +69,12 @@ export const productRepository = {
     if (filters.status) where.status = filters.status;
 
     if (filters.search) {
+      const contains = { contains: filters.search, mode: "insensitive" as const };
       where.OR = [
-        { name: { contains: filters.search } },
-        { store: { contains: filters.search } },
-        { brand: { name: { contains: filters.search } } },
+        { name: contains },
+        { category: contains },
+        { store: contains },
+        { brand: { name: contains } },
       ];
     }
 

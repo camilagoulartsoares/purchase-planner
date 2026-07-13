@@ -16,14 +16,28 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
   const [index, setIndex] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const touchX = useRef<number | null>(null);
+  const current = list[Math.min(index, list.length - 1)];
+  const src = mediaUrl(current?.imageUrl);
+  const hasCarousel = list.length > 1;
 
   useEffect(() => {
     setIndex(0);
   }, [images]);
 
-  const current = list[Math.min(index, list.length - 1)];
-  const src = mediaUrl(current?.imageUrl);
-  const hasCarousel = list.length > 1;
+  useEffect(() => {
+    if (!zoomed) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setZoomed(false);
+      if (event.key === "ArrowLeft" && hasCarousel) {
+        setIndex((i) => (i - 1 + list.length) % list.length);
+      }
+      if (event.key === "ArrowRight" && hasCarousel) {
+        setIndex((i) => (i + 1) % list.length);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [hasCarousel, list.length, zoomed]);
 
   const prev = (e?: MouseEvent) => {
     e?.stopPropagation();
@@ -48,8 +62,8 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
   };
 
   const arrowClass = compact
-    ? "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/95 p-1 shadow"
-    : "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/90 p-1.5 shadow";
+    ? "gallery-arrow absolute top-1/2 z-10 -translate-y-1/2"
+    : "gallery-arrow absolute top-1/2 z-10 -translate-y-1/2";
 
   return (
     <>
@@ -89,9 +103,10 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           {src ? (
             <button
               type="button"
-              className="absolute right-2 bottom-2 z-10 rounded-full bg-surface/90 p-1.5 shadow"
+              className="gallery-zoom absolute right-2 bottom-2 z-20"
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 setZoomed(true);
               }}
               aria-label="Ampliar"
@@ -148,7 +163,10 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           <button
             type="button"
             className="absolute top-4 right-4 rounded-full bg-white/90 p-2"
-            onClick={() => setZoomed(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomed(false);
+            }}
             aria-label="Fechar"
           >
             <X size={18} />
@@ -158,20 +176,16 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
               <button
                 type="button"
                 className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prev();
-                }}
+                onClick={prev}
+                aria-label="Foto anterior"
               >
                 <ChevronLeft size={22} />
               </button>
               <button
                 type="button"
                 className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  next();
-                }}
+                onClick={next}
+                aria-label="Próxima foto"
               >
                 <ChevronRight size={22} />
               </button>

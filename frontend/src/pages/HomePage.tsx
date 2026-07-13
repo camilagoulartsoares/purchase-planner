@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { ChevronDown, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
@@ -38,24 +38,63 @@ const PRICE_STEP = 10;
 function SelectField({
   value,
   onChange,
-  children,
+  options,
   label,
   className = "",
 }: {
   value: string;
   onChange: (value: string) => void;
-  children: ReactNode;
+  options: { value: string; label: string }[];
   label: string;
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
   return (
-    <label className={`select-pretty ${className}`}>
+    <div className={`select-pretty ${className}`} ref={ref}>
       <span>{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {children}
-      </select>
-      <ChevronDown size={16} aria-hidden="true" />
-    </label>
+      <button
+        type="button"
+        className="select-pretty-trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{selected?.label}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="select-pretty-menu" role="listbox">
+          {options.map((option) => (
+            <button
+              key={option.value || "all"}
+              type="button"
+              className={`select-pretty-option ${option.value === value ? "is-selected" : ""}`}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              role="option"
+              aria-selected={option.value === value}
+            >
+              <span>{option.label}</span>
+              {option.value === value ? <Check size={14} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -65,7 +104,6 @@ export function HomePage() {
   const [items, setItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
   const [query, setQuery] = useState(emptyQuery);
-  const [view, setView] = useState<"cards" | "lista">("cards");
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -124,6 +162,23 @@ export function HomePage() {
   const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
 
   const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
+  const sortOptions = [
+    { value: "recentes", label: "Mais recentes" },
+    { value: "antigos", label: "Mais antigos" },
+    { value: "menor-preco", label: "Menor preço" },
+    { value: "maior-preco", label: "Maior preço" },
+    { value: "maior-desconto", label: "Maior desconto" },
+    { value: "nome", label: "Nome" },
+    { value: "marca", label: "Marca" },
+  ];
+  const brandOptions = [
+    { value: "", label: "Todas" },
+    ...brands.map((brand) => ({ value: brand.name, label: brand.name })),
+  ];
+  const categoryOptions = [
+    { value: "", label: "Todas" },
+    ...CATEGORIES.map((category) => ({ value: category, label: category })),
+  ];
 
   const onSave = async (form: FormData, id?: string) => {
     await api.saveProduct(form, id);
@@ -211,31 +266,9 @@ export function HomePage() {
             label="Ordenar"
             value={query.sort}
             onChange={(sort) => patch({ sort })}
+            options={sortOptions}
             className="min-w-[160px]"
-          >
-            <option value="recentes">Mais recentes</option>
-            <option value="antigos">Mais antigos</option>
-            <option value="menor-preco">Menor preço</option>
-            <option value="maior-preco">Maior preço</option>
-            <option value="maior-desconto">Maior desconto</option>
-            <option value="prioridade">Prioridade</option>
-            <option value="nome">Nome</option>
-            <option value="marca">Marca</option>
-          </SelectField>
-          <div className="flex rounded-full border border-line p-1">
-            <button
-              className={`rounded-full p-2 ${view === "cards" ? "bg-rose text-white" : ""}`}
-              onClick={() => setView("cards")}
-            >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              className={`rounded-full p-2 ${view === "lista" ? "bg-rose text-white" : ""}`}
-              onClick={() => setView("lista")}
-            >
-              <List size={16} />
-            </button>
-          </div>
+          />
           <button
             className="btn-ghost"
             onClick={resetFilters}
@@ -248,24 +281,14 @@ export function HomePage() {
             label="Marca"
             value={query.brand}
             onChange={(brand) => patch({ brand })}
-          >
-            <option value="">Todas</option>
-            {brands.map((b) => (
-              <option key={b.id} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          </SelectField>
+            options={brandOptions}
+          />
           <SelectField
             label="Categoria"
             value={query.category}
             onChange={(category) => patch({ category })}
-          >
-            <option value="">Todas</option>
-            {CATEGORIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </SelectField>
+            options={categoryOptions}
+          />
           <div className="price-filter">
             <div className="mb-3 flex items-center justify-between gap-3">
               <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
@@ -307,6 +330,10 @@ export function HomePage() {
               <span>{formatBRL(MIN_FILTER_PRICE)}</span>
               <span>{formatBRL(MAX_FILTER_PRICE)}+</span>
             </div>
+            <div className="price-values">
+              <span>Min. {formatBRL(priceMin)}</span>
+              <span>Max. {priceMax >= MAX_FILTER_PRICE ? `${formatBRL(MAX_FILTER_PRICE)}+` : formatBRL(priceMax)}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -319,7 +346,7 @@ export function HomePage() {
           <p className="mt-2 text-sm text-muted">Adicione algo quando quiser, no seu ritmo.</p>
         </div>
       ) : (
-        <div className={view === "cards" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "grid gap-3"}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
             <ProductCard
               key={item.id}
