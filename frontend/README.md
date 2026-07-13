@@ -1,10 +1,12 @@
 # Frontend
 
-Interface React para navegação, filtros, galeria de imagens, gerenciamento visual de produtos e marcas.
+Interface do projeto pessoal Purchase Planner.
+
+Deploy: https://purchase-planner.vercel.app
 
 ## Tecnologias
 
-- React 19
+- React
 - TypeScript
 - Vite
 - Tailwind CSS
@@ -14,15 +16,10 @@ Interface React para navegação, filtros, galeria de imagens, gerenciamento vis
 
 ## O Que Foi Feito
 
-- Rotas protegidas por autenticação.
-- Páginas de login e cadastro.
-- Home com indicadores, filtros e paginação.
-- Cards com galeria, favorito, ações e status.
-- Página de marcas.
-- Página individual por marca.
-- Página de detalhe do produto.
+- Rotas protegidas.
+- Dashboard e listagem principal.
+- Filtros e busca.
+- Cards com galeria e ações.
+- Páginas de marcas e detalhes.
 - Modal de criação e edição.
-- Upload e ordenação visual de imagens.
-- Dropdowns customizados.
-- Slider de faixa de preço.
-- Skeleton loading nas telas principais.
+- Skeleton loading.

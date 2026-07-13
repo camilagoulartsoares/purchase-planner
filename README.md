@@ -1,44 +1,34 @@
 # Purchase Planner
 
-Aplicação web full stack para organização visual de produtos, marcas, imagens, filtros e status internos.
+Projeto pessoal para organizar uma wishlist visual de produtos, marcas, imagens, filtros e status.
+
+Deploy: https://purchase-planner.vercel.app
 
 ## Tecnologias
 
-- React 19
+- React
 - TypeScript
 - Vite
 - Tailwind CSS
-- React Router
-- Axios
-- Lucide React
-- Node.js 22
-- Express 5
+- Node.js
+- Express
 - Prisma
 - PostgreSQL
 - Cloudinary
 - JWT
-- Multer
-- Zod
-- Docker Compose
+- Docker
 - Vercel
 - Render
 
 ## O Que Foi Feito
 
-- Autenticação com login, cadastro e sessão JWT.
-- Dashboard com indicadores gerais.
-- Cadastro, edição, exclusão e visualização de produtos.
-- Cadastro e listagem de marcas com logo.
-- Galeria de imagens por produto.
-- Upload local ou via Cloudinary.
-- Favoritos com feedback visual.
-- Filtros por status, marca, categoria, busca e faixa de preço.
-- Busca sem diferenciar maiúsculas/minúsculas.
-- Ordenação por preço, nome, marca, desconto e data.
-- Página por marca com categorias e filtros.
-- Página de detalhe com galeria ampliável.
-- Skeleton loading nas principais telas.
-- Paginação na listagem principal.
-- Backup e importação de dados.
-- Deploy do frontend na Vercel.
-- Deploy da API e banco PostgreSQL no Render.
+- Autenticação com sessão JWT.
+- Cadastro e edição de registros com imagens.
+- Organização por marcas e categorias.
+- Galeria com zoom e navegação.
+- Favoritos e status.
+- Filtros, busca e ordenação.
+- Skeleton loading.
+- API com persistência em PostgreSQL.
+- Upload de imagens com Cloudinary.
+- Deploy do frontend e backend.

@@ -2,6 +2,7 @@
   "name": "closet-frontend",
   "private": true,
   "version": "0.0.0",
+  "description": "Projeto pessoal para wishlist visual: https://purchase-planner.vercel.app",
   "type": "module",
   "scripts": {
     "dev": "vite",
