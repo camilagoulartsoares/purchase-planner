@@ -1,8 +1,10 @@
 import { AppError } from "../middlewares/errorHandler.js";
 import { brandRepository } from "../repositories/brandRepository.js";
+import { imageService } from "./imageService.js";
 import {
   BRAND_FILTER_CATEGORIES,
   effectivePrice,
+  slugify,
 } from "../utils/constants.js";
 
 function priceOf(p: {
@@ -32,13 +34,13 @@ function serializeBrand(
         p.category === "TOP/CORSET" ? "Tops e corsets" : p.category,
       ),
     ),
-  ].filter((c) =>
-    (BRAND_FILTER_CATEGORIES as readonly string[]).includes(c) ||
-    c === "Tops e corsets",
+  ].filter(
+    (c) =>
+      (BRAND_FILTER_CATEGORIES as readonly string[]).includes(c) ||
+      c === "Tops e corsets",
   );
 
-  // Keep order of BRAND_FILTER_CATEGORIES
-    const preferred = [
+  const preferred = [
     "Calças",
     "Vestidos",
     "Blusas",
@@ -120,7 +122,6 @@ export const brandService = {
   async list(userId: string) {
     const brands = await brandRepository.findByUser(userId);
     return brands
-      .filter((b) => b.products.length > 0)
       .map((b) => serializeBrand(b)!)
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   },
@@ -129,5 +130,51 @@ export const brandService = {
     const brand = await brandRepository.findBySlug(userId, slug);
     if (!brand) throw new AppError("Marca não encontrada", 404);
     return serializeBrand(brand, category || undefined);
+  },
+
+  async create(
+    userId: string,
+    name: string,
+    logoFile?: Express.Multer.File,
+  ) {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      throw new AppError("Informe o nome da marca", 400);
+    }
+    const slug = slugify(trimmed);
+    const existing = await brandRepository.findBySlug(userId, slug);
+    if (existing) {
+      throw new AppError("Essa marca já está cadastrada", 409);
+    }
+
+    let logoUrl: string | null = null;
+    let logoPublicId: string | null = null;
+    if (logoFile) {
+      const uploaded = await imageService.upload(logoFile);
+      logoUrl = uploaded.imageUrl;
+      logoPublicId = uploaded.imagePublicId;
+    }
+
+    const brand = await brandRepository.create({
+      userId,
+      name: trimmed,
+      slug,
+      logoUrl,
+      logoPublicId,
+    });
+
+    return {
+      id: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      logoUrl: brand.logoUrl,
+      productCount: 0,
+      categories: [] as string[],
+      allCategories: [] as string[],
+      minPrice: 0,
+      maxPrice: 0,
+      totalValue: 0,
+      products: [],
+    };
   },
 };

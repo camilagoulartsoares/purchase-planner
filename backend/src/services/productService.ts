@@ -163,6 +163,105 @@ export const productService = {
     );
 
     const newFiles = collectFiles(file, files);
+    const keepRaw = data.keepImageIds;
+    const hasKeepField =
+      keepRaw !== undefined && keepRaw !== null && String(keepRaw) !== "";
+
+    let keepIds: string[] | null = null;
+    if (hasKeepField) {
+      try {
+        const parsed =
+          typeof keepRaw === "string" ? JSON.parse(keepRaw) : keepRaw;
+        keepIds = Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        keepIds = String(keepRaw)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    }
+
+    // Modo galeria: keepImageIds informado → remove o que saiu e anexa novas
+    if (keepIds) {
+      const toRemove = existing.images.filter((img) => !keepIds!.includes(img.id));
+      for (const img of toRemove) {
+        await imageService.remove(img.imagePublicId);
+      }
+      await productRepository.deleteImagesByIds(
+        id,
+        toRemove.map((img) => img.id),
+      );
+
+      const remaining = existing.images.filter((img) => keepIds!.includes(img.id));
+      const uploads = await imageService.uploadMany(newFiles);
+      const startPos = remaining.length;
+      let createdNewIds: string[] = [];
+      if (uploads.length) {
+        await productRepository.addImages(
+          id,
+          uploads.map((img, index) => ({
+            imageUrl: img.imageUrl,
+            imagePublicId: img.imagePublicId,
+            position: startPos + index,
+            isMain: false,
+          })),
+        );
+        const after = await productRepository.listImages(id);
+        createdNewIds = after
+          .filter((img) => !keepIds!.includes(img.id))
+          .sort((a, b) => a.position - b.position)
+          .map((img) => img.id);
+      }
+
+      const all = await productRepository.listImages(id);
+      let mainId: string | undefined;
+      if (data.mainImageId != null && String(data.mainImageId)) {
+        mainId = String(data.mainImageId);
+      } else if (
+        data.mainNewIndex != null &&
+        String(data.mainNewIndex) !== "" &&
+        createdNewIds.length
+      ) {
+        const idx = Number(data.mainNewIndex);
+        if (Number.isFinite(idx) && createdNewIds[idx]) mainId = createdNewIds[idx];
+      } else {
+        mainId = all.find((i) => i.isMain)?.id || all[0]?.id;
+      }
+
+      if (mainId && all.some((i) => i.id === mainId)) {
+        await productRepository.setMainImage(id, mainId);
+      } else if (all[0]) {
+        await productRepository.setMainImage(id, all[0].id);
+      }
+
+      const finalImages = await productRepository.reindexImages(id);
+      const main = finalImages.find((i) => i.isMain) || finalImages[0] || null;
+
+      const product = await productRepository.update(id, {
+        brand: { connect: { id: brand.id } },
+        name: String(data.name),
+        category: String(data.category),
+        store: String(data.store),
+        originalPrice: Number(data.originalPrice),
+        promotionalPrice:
+          data.promotionalPrice != null && data.promotionalPrice !== ""
+            ? Number(data.promotionalPrice)
+            : null,
+        purchaseUrl: data.purchaseUrl ? String(data.purchaseUrl) : null,
+        color: data.color ? String(data.color) : null,
+        size: data.size ? String(data.size) : null,
+        priority: String(data.priority || "Quero"),
+        status: String(data.status || "Quero comprar"),
+        notes: data.notes ? String(data.notes) : null,
+        imageUrl: main?.imageUrl ?? null,
+        imagePublicId: main?.imagePublicId ?? null,
+      });
+
+      safeBackup("product-update");
+      return serialize(product);
+    }
+
+    // Compat: sem keepImageIds, comportamento antigo (substituir tudo se houver arquivos)
     let imageUrl = existing.imageUrl;
     let imagePublicId = existing.imagePublicId;
 

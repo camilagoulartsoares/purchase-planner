@@ -16,6 +16,16 @@ export const brandController = {
     }
   },
 
+  async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const name = String(req.body.name || "");
+      const data = await brandService.create(req.user!.id, name, req.file);
+      return ok(res, data, 201);
+    } catch (err) {
+      return next(err);
+    }
+  },
+
   async get(req: Request, res: Response, next: NextFunction) {
     try {
       const category =

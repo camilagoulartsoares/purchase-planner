@@ -81,7 +81,12 @@ export const productController = {
       const data = await productService.update(
         req.user!.id,
         param(req.params.id),
-        body,
+        {
+          ...body,
+          keepImageIds: req.body.keepImageIds,
+          mainImageId: req.body.mainImageId,
+          mainNewIndex: req.body.mainNewIndex,
+        },
         req.file,
         filesFrom(req),
       );

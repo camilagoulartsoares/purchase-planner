@@ -30,6 +30,16 @@ export const brandRepository = {
     return prisma.brand.findUnique({ where: { id } });
   },
 
+  create(data: {
+    userId: string;
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+    logoPublicId?: string | null;
+  }) {
+    return prisma.brand.create({ data });
+  },
+
   async findOrCreate(userId: string, name: string) {
     const trimmed = name.trim();
     const slug = slugify(trimmed);

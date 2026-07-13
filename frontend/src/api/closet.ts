@@ -39,6 +39,11 @@ export async function fetchBrands() {
   return res.data.data as BrandSummary[];
 }
 
+export async function createBrand(form: FormData) {
+  const res = await api.post("/brands", form);
+  return res.data.data as BrandSummary;
+}
+
 export async function fetchBrand(slug: string, category?: string) {
   const res = await api.get(`/brands/${slug}`, {
     params: category ? { category } : undefined,

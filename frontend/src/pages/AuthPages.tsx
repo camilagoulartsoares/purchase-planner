@@ -1,12 +1,14 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
   const { login, user } = useAuth();
   const [email, setEmail] = useState("camilagoulartsoares@yahoo.com");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +42,23 @@ export function LoginPage() {
           </label>
           <label className="field">
             <span>Senha</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-brown-deep"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </label>
           {error ? <p className="text-sm text-rose-deep">{error}</p> : null}
           <button className="btn-primary mt-2" disabled={loading}>
@@ -60,6 +78,7 @@ export function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -96,7 +115,24 @@ export function RegisterPage() {
           </label>
           <label className="field">
             <span>Senha</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                required
+                className="w-full pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-brown-deep"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </label>
           {error ? <p className="text-sm text-rose-deep">{error}</p> : null}
           <button className="btn-primary mt-2" disabled={loading}>

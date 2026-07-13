@@ -216,4 +216,61 @@ export const productRepository = {
       orderBy: { position: "asc" },
     });
   },
+
+  async deleteImagesByIds(productId: string, ids: string[]) {
+    if (!ids.length) return;
+    await prisma.productImage.deleteMany({
+      where: { productId, id: { in: ids } },
+    });
+  },
+
+  async addImages(
+    productId: string,
+    images: {
+      imageUrl: string;
+      imagePublicId: string;
+      position: number;
+      isMain: boolean;
+    }[],
+  ) {
+    if (!images.length) return;
+    await prisma.productImage.createMany({
+      data: images.map((img) => ({ ...img, productId })),
+    });
+  },
+
+  async setMainImage(productId: string, imageId: string) {
+    await prisma.productImage.updateMany({
+      where: { productId },
+      data: { isMain: false },
+    });
+    await prisma.productImage.updateMany({
+      where: { productId, id: imageId },
+      data: { isMain: true },
+    });
+  },
+
+  listImages(productId: string) {
+    return prisma.productImage.findMany({
+      where: { productId },
+      orderBy: { position: "asc" },
+    });
+  },
+
+  async reindexImages(productId: string) {
+    const images = await prisma.productImage.findMany({
+      where: { productId },
+      orderBy: [{ isMain: "desc" }, { position: "asc" }, { createdAt: "asc" }],
+    });
+    for (let i = 0; i < images.length; i++) {
+      await prisma.productImage.update({
+        where: { id: images[i].id },
+        data: { position: i },
+      });
+    }
+    return prisma.productImage.findMany({
+      where: { productId },
+      orderBy: { position: "asc" },
+    });
+  },
 };

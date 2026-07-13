@@ -24,7 +24,7 @@ export const authService = {
   },
 
   async login(input: { email: string; password: string }) {
-    const user = await userRepository.findByEmail(input.email.toLowerCase());
+    const user = await userRepository.findByEmail(input.email.trim().toLowerCase());
     if (!user) throw new AppError("Credenciais inválidas", 401);
 
     const valid = await bcrypt.compare(input.password, user.passwordHash);

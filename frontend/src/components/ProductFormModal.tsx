@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { X } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { CATEGORIES, PRIORITIES, STATUSES, mediaUrl, type Product } from "../types";
+
+type GalleryItem =
+  | { kind: "existing"; id: string; url: string; isMain: boolean }
+  | { kind: "new"; key: string; file: File; url: string; isMain: boolean };
 
 type Props = {
   open: boolean;
@@ -11,8 +15,7 @@ type Props = {
 };
 
 export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [files, setFiles] = useState<File[]>([]);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -49,9 +52,26 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         notes: initial.notes || "",
       });
       const existing =
-        initial.images?.map((i) => mediaUrl(i.imageUrl)) ||
-        (initial.imageUrl ? [mediaUrl(initial.imageUrl)] : []);
-      setPreviews(existing);
+        initial.images?.map((i) => ({
+          kind: "existing" as const,
+          id: i.id,
+          url: mediaUrl(i.imageUrl),
+          isMain: i.isMain,
+        })) ||
+        (initial.imageUrl
+          ? [
+              {
+                kind: "existing" as const,
+                id: "legacy-main",
+                url: mediaUrl(initial.imageUrl),
+                isMain: true,
+              },
+            ]
+          : []);
+      if (existing.length && !existing.some((i) => i.isMain)) {
+        existing[0].isMain = true;
+      }
+      setGallery(existing);
     } else {
       setForm({
         name: "",
@@ -67,9 +87,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         status: "Quero comprar",
         notes: "",
       });
-      setPreviews([]);
+      setGallery([]);
     }
-    setFiles([]);
     setError("");
   }, [open, initial]);
 
@@ -77,9 +96,36 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
 
   const onFiles = (list?: FileList | null) => {
     if (!list?.length) return;
-    const next = Array.from(list);
-    setFiles(next);
-    setPreviews(next.map((f) => URL.createObjectURL(f)));
+    const next = Array.from(list).map((file, index) => ({
+      kind: "new" as const,
+      key: `${file.name}-${file.size}-${Date.now()}-${index}`,
+      file,
+      url: URL.createObjectURL(file),
+      isMain: false,
+    }));
+    setGallery((prev) => {
+      const merged = [...prev, ...next];
+      if (!merged.some((i) => i.isMain) && merged[0]) {
+        merged[0] = { ...merged[0], isMain: true };
+      }
+      return merged;
+    });
+  };
+
+  const removeItem = (index: number) => {
+    setGallery((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length && !next.some((i) => i.isMain)) {
+        next[0] = { ...next[0], isMain: true };
+      }
+      return next;
+    });
+  };
+
+  const setMain = (index: number) => {
+    setGallery((prev) =>
+      prev.map((item, i) => ({ ...item, isMain: i === index })),
+    );
   };
 
   const submit = async (e: FormEvent) => {
@@ -105,7 +151,28 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           fd.append(k, v);
         }
       });
-      files.forEach((file) => fd.append("images", file));
+
+      if (initial?.id) {
+        const keepIds = gallery
+          .filter((i) => i.kind === "existing" && i.id !== "legacy-main")
+          .map((i) => (i as Extract<GalleryItem, { kind: "existing" }>).id);
+        fd.append("keepImageIds", JSON.stringify(keepIds));
+        const mainItem = gallery.find((i) => i.isMain);
+        if (mainItem?.kind === "existing" && mainItem.id !== "legacy-main") {
+          fd.append("mainImageId", mainItem.id);
+        } else if (mainItem?.kind === "new") {
+          const newItems = gallery.filter((i) => i.kind === "new");
+          const idx = newItems.findIndex(
+            (i) => (i as Extract<GalleryItem, { kind: "new" }>).key === mainItem.key,
+          );
+          if (idx >= 0) fd.append("mainNewIndex", String(idx));
+        }
+      }
+
+      gallery
+        .filter((i) => i.kind === "new")
+        .forEach((i) => fd.append("images", (i as Extract<GalleryItem, { kind: "new" }>).file));
+
       await onSave(fd, initial?.id);
       onClose();
     } catch (err) {
@@ -208,26 +275,57 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             />
           </label>
           <label className="field sm:col-span-2">
-            <span>Fotos (a primeira é a principal)</span>
+            <span>Adicionar fotos</span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
-              onChange={(e) => onFiles(e.target.files)}
+              onChange={(e) => {
+                onFiles(e.target.files);
+                e.target.value = "";
+              }}
             />
           </label>
-          {previews.length ? (
-            <div className="sm:col-span-2 flex gap-2 overflow-x-auto">
-              {previews.map((src, i) => (
-                <img
-                  key={src + i}
-                  src={src}
-                  alt=""
-                  className={`h-24 w-16 rounded-md object-cover ${i === 0 ? "ring-2 ring-rose" : ""}`}
-                />
-              ))}
+          {gallery.length ? (
+            <div className="sm:col-span-2">
+              <p className="mb-2 text-xs text-muted">
+                Toque na estrela para definir a principal. Use X para remover.
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {gallery.map((item, i) => (
+                  <div key={item.kind === "existing" ? item.id : item.key} className="relative shrink-0">
+                    <img
+                      src={item.url}
+                      alt=""
+                      className={`h-28 w-20 rounded-md object-cover ${
+                        item.isMain ? "ring-2 ring-rose" : "ring-1 ring-black/10"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      className="absolute left-1 top-1 rounded-full bg-white/90 p-1 text-brown-deep shadow"
+                      onClick={() => setMain(i)}
+                      title="Definir como principal"
+                      aria-label="Definir como principal"
+                    >
+                      <Star size={12} fill={item.isMain ? "currentColor" : "none"} />
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-rose-deep shadow"
+                      onClick={() => removeItem(i)}
+                      title="Remover foto"
+                      aria-label="Remover foto"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <p className="sm:col-span-2 text-sm text-muted">Nenhuma foto na galeria.</p>
+          )}
         </div>
 
         {error ? <p className="mt-3 text-sm text-rose-deep">{error}</p> : null}
