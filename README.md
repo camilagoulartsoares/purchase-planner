@@ -1,74 +1,80 @@
 # Meu Closet dos Sonhos
 
-Caderno digital pessoal para anotar peças que você pensa em comprar com o tempo — e registrar o que já entrou no seu dia a dia.
+Caderno digital pessoal — peças, preços e fotos salvos de forma permanente.
 
-Não é loja e não processa pagamento. Os dados ficam salvos no seu computador.
+## Filtros na marca Cotih
 
-## Precisa de Docker?
+Na página da marca aparecem só categorias com produtos, por exemplo:
 
-**Não.** Para uso em casa, o app usa **SQLite**: um arquivo local (`backend/prisma/dev.db`).  
-Você só precisa do **Node.js**.
+- Todos
+- Calças
+- Vestidos
+- **Tops e corsets**
 
-Docker / PostgreSQL são opcionais (para quem quiser outro banco depois).
+## Guardar dados FORA do PC da empresa
 
-## Como rodar em casa (sem Docker)
+Use **Docker + PostgreSQL** (banco em volume) e, de preferência, **Cloudinary** (fotos na nuvem).
 
-### 1. Instalar dependências (uma vez)
+### 1) Cloudinary (fotos na internet)
+
+1. Crie conta grátis: https://cloudinary.com  
+2. Copie Cloud Name, API Key e API Secret  
+3. Coloque no arquivo `.env` na raiz (veja `.env.docker.example`)
+
+Sem Cloudinary, as fotos ainda ficam no **volume Docker** `closet_uploads` (sobretudo se o servidor não for o PC da empresa).
+
+### 2) Subir tudo com Docker
+
+Na pasta do projeto:
 
 ```bash
-cd backend
-cp .env.example .env
-npm install
-npx prisma migrate dev --name init
-npm run db:seed
+cp .env.docker.example .env
+# edite .env com JWT_SECRET e Cloudinary
 
-cd ../frontend
-cp .env.example .env
-npm install
+docker compose up -d --build
 ```
 
-### 2. Subir backend e frontend
-
-Terminal 1 — API:
-```bash
-cd backend
-npm run dev
-```
-
-Terminal 2 — site:
-```bash
-cd frontend
-npm run dev
-```
-
-- Site: http://localhost:5173  
+- Site: http://localhost:8080  
 - API: http://localhost:3334  
 
-Conta de demonstração:
-- e-mail: `demo@closet.local`
-- senha: `demo1234`
+Os dados do banco ficam no volume `closet_pg_data` (não somem ao reiniciar o container).
 
-### Onde os dados ficam?
+### 3) Importar o que já existe no seu PC
 
-Em `backend/prisma/dev.db`.  
-Se você fizer backup desse arquivo, guarda usuários e peças.
-
-## Estrutura
-
-```
-/frontend
-/backend
-README.md
-```
-
-## Cloudinary (fotos)
-
-Em casa funciona sem Cloudinary (as imagens entram em modo local).  
-Se quiser hospedar fotos na nuvem depois, preencha as chaves no `backend/.env`.
-
-## Testes da API
+Se você já cadastrou peças localmente:
 
 ```bash
 cd backend
-npm test
+# com o Postgres do Docker ligado:
+npx prisma generate
+npx prisma db push
+npm run db:import
 ```
+
+O arquivo `backend/data/export-sqlite.json` traz usuários, marcas, produtos e fotos (caminhos).
+
+### 4) Acessar de qualquer lugar
+
+Opções:
+
+1. **VPS / nuvem** (DigitalOcean, Oracle Free, Railway, Render): rode o mesmo `docker compose` no servidor e abra a porta 8080 (ou use um domínio + HTTPS).  
+2. **Cloudinary preenchido**: fotos abrem de qualquer dispositivo.  
+3. **Backup**: `cd backend && npm run backup` e copie `backend/backups` + faça dump do Postgres no servidor.
+
+### Desenvolvimento local (sem build Docker do front)
+
+```bash
+docker compose up -d postgres
+cd backend && cp .env.example .env && npm i && npx prisma db push && npm run db:import && npm run dev
+cd frontend && npm i && npm run dev
+```
+
+Login:
+- `camilagoulartsoares@yahoo.com` / `demo1234`
+
+## Importante
+
+- Não dependa só do disco do PC da empresa.  
+- Postgres no Docker = preços e cadastros persistentes.  
+- Cloudinary = fotos acessíveis de casa, celular, etc.  
+- O seed **não apaga** produtos existentes.

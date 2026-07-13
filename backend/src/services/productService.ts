@@ -6,7 +6,16 @@ import {
 } from "../repositories/productRepository.js";
 import { brandRepository } from "../repositories/brandRepository.js";
 import { imageService } from "./imageService.js";
+import { backupService } from "./backupService.js";
 import { effectivePrice } from "../utils/constants.js";
+
+function safeBackup(reason: string) {
+  try {
+    backupService.create(reason);
+  } catch (err) {
+    console.warn("Falha ao criar backup automático", err);
+  }
+}
 
 function serialize(product: ProductWithRelations | null) {
   if (!product) return null;
@@ -47,6 +56,7 @@ function serialize(product: ProductWithRelations | null) {
     priority: product.priority,
     status: product.status,
     notes: product.notes,
+    isFavorite: Boolean(product.isFavorite),
     purchasedPrice:
       product.purchasedPrice != null ? Number(product.purchasedPrice) : null,
     purchasedAt: product.purchasedAt,
@@ -131,6 +141,7 @@ export const productService = {
         : undefined,
     });
 
+    safeBackup("product-create");
     return serialize(product);
   },
 
@@ -193,6 +204,7 @@ export const productService = {
       imagePublicId,
     });
 
+    safeBackup("product-update");
     return serialize(product);
   },
 
@@ -230,6 +242,7 @@ export const productService = {
       notes: payload.notes ?? existing.notes,
     });
 
+    safeBackup("product-status");
     return serialize(product);
   },
 
@@ -243,6 +256,18 @@ export const productService = {
     }
     await imageService.remove(existing.imagePublicId);
     await productRepository.delete(id);
+    safeBackup("product-delete");
+  },
+
+  async toggleFavorite(userId: string, id: string) {
+    const existing = await productRepository.findById(id);
+    if (!existing || existing.userId !== userId) {
+      throw new AppError("Produto não encontrado", 404);
+    }
+    const product = await productRepository.update(id, {
+      isFavorite: !existing.isFavorite,
+    });
+    return serialize(product);
   },
 
   async summary(userId: string) {

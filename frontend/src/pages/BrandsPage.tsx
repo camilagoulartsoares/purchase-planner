@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
-import { formatBRL, type BrandSummary } from "../types";
+import { formatBRL, mediaUrl, type BrandSummary } from "../types";
 
 export function BrandsPage() {
   const [brands, setBrands] = useState<BrandSummary[]>([]);
@@ -40,6 +40,15 @@ export function BrandsPage() {
               to={`/marcas/${brand.slug}`}
               className="card-soft block p-5 transition hover:-translate-y-0.5 hover:border-rose/40"
             >
+              {brand.logoUrl ? (
+                <div className="mb-4 flex h-14 items-center">
+                  <img
+                    src={mediaUrl(brand.logoUrl)}
+                    alt={`Logo ${brand.name}`}
+                    className="max-h-14 max-w-[160px] object-contain object-left"
+                  />
+                </div>
+              ) : null}
               <h2 className="font-display text-2xl font-semibold text-brown-deep">{brand.name}</h2>
               <p className="mt-2 text-sm text-muted">
                 {brand.productCount} {brand.productCount === 1 ? "produto" : "produtos"}

@@ -1,10 +1,10 @@
 export const CATEGORIES = [
   "Vestidos","Blusas","Camisas","Calças","Saias","Shorts","Conjuntos","Casacos",
-  "Moda fitness","Moda praia","Calçados","Bolsas","Acessórios","Outros",
+  "Tops e corsets","Bodies","Moda fitness","Moda praia","Calçados","Bolsas","Acessórios","Outros",
 ] as const;
 
 export const BRAND_FILTER_CATEGORIES = [
-  "Calças","Vestidos","Blusas","Saias","Shorts","Conjuntos","Casacos",
+  "Calças","Vestidos","Blusas","Tops e corsets","Bodies","Saias","Shorts","Conjuntos","Casacos",
   "Calçados","Bolsas","Acessórios",
 ] as const;
 
@@ -53,6 +53,7 @@ export type Product = {
   priority: string;
   status: string;
   notes?: string | null;
+  isFavorite?: boolean;
   purchasedPrice?: number | null;
   purchasedAt?: string | null;
   effectivePrice: number;
@@ -64,6 +65,7 @@ export type BrandSummary = {
   id: string;
   name: string;
   slug: string;
+  logoUrl?: string | null;
   productCount: number;
   categories: string[];
   allCategories: string[];

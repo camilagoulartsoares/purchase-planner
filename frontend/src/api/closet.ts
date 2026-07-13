@@ -64,3 +64,8 @@ export async function patchStatus(
 export async function deleteProduct(id: string) {
   await api.delete(`/products/${id}`);
 }
+
+export async function toggleFavorite(id: string) {
+  const res = await api.patch(`/products/${id}/favorite`);
+  return res.data.data as Product;
+}

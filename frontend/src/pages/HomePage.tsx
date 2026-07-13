@@ -277,6 +277,17 @@ export function HomePage() {
                 setFormOpen(true);
               }}
               onMarkBought={(p) => void onStatus(p, "Já comprei")}
+              onFavorite={async (p) => {
+                await api.toggleFavorite(p.id);
+                await load();
+              }}
+              onStatus={(p, status) => void onStatus(p, status)}
+              onDelete={async (p) => {
+                if (!window.confirm(`Excluir definitivamente "${p.name}"?`)) return;
+                await api.deleteProduct(p.id);
+                setToast("Peça removida");
+                await load();
+              }}
             />
           ))}
         </div>

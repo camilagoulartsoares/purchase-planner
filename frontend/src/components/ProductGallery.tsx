@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type TouchEvent, type MouseEvent } from "react";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import { mediaUrl } from "../types";
 
@@ -23,52 +23,65 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
 
   const current = list[Math.min(index, list.length - 1)];
   const src = mediaUrl(current?.imageUrl);
+  const hasCarousel = list.length > 1;
 
-  const prev = () => setIndex((i) => (i - 1 + list.length) % list.length);
-  const next = () => setIndex((i) => (i + 1) % list.length);
+  const prev = (e?: MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    setIndex((i) => (i - 1 + list.length) % list.length);
+  };
+  const next = (e?: MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    setIndex((i) => (i + 1) % list.length);
+  };
 
   const onTouchStart = (e: TouchEvent) => {
     touchX.current = e.changedTouches[0]?.clientX ?? null;
   };
   const onTouchEnd = (e: TouchEvent) => {
-    if (touchX.current == null || list.length < 2) return;
+    if (touchX.current == null || !hasCarousel) return;
     const dx = (e.changedTouches[0]?.clientX ?? 0) - touchX.current;
-    if (dx > 40) prev();
-    if (dx < -40) next();
+    if (dx > 40) setIndex((i) => (i - 1 + list.length) % list.length);
+    if (dx < -40) setIndex((i) => (i + 1) % list.length);
     touchX.current = null;
   };
+
+  const arrowClass = compact
+    ? "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/95 p-1 shadow"
+    : "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/90 p-1.5 shadow";
 
   return (
     <>
       <div className={`relative overflow-hidden bg-cream-deep ${className}`}>
         <div
-          className="relative aspect-[3/4] w-full"
+          className="relative aspect-[3/4] w-full select-none"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
           {src ? (
-            <img src={src} alt={alt} className="h-full w-full object-cover" />
+            <img src={src} alt={alt} className="h-full w-full object-cover" draggable={false} />
           ) : (
             <div className="grid h-full place-items-center text-sm text-muted">Sem foto</div>
           )}
 
-          {list.length > 1 && !compact ? (
+          {hasCarousel ? (
             <>
               <button
                 type="button"
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/90 p-1.5 shadow"
+                className={`${arrowClass} left-2`}
                 onClick={prev}
                 aria-label="Foto anterior"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={compact ? 16 : 18} />
               </button>
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/90 p-1.5 shadow"
+                className={`${arrowClass} right-2`}
                 onClick={next}
                 aria-label="Próxima foto"
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={compact ? 16 : 18} />
               </button>
             </>
           ) : null}
@@ -76,22 +89,30 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           {src ? (
             <button
               type="button"
-              className="absolute right-2 bottom-2 rounded-full bg-surface/90 p-1.5 shadow"
-              onClick={() => setZoomed(true)}
+              className="absolute right-2 bottom-2 z-10 rounded-full bg-surface/90 p-1.5 shadow"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomed(true);
+              }}
               aria-label="Ampliar"
             >
               <ZoomIn size={16} />
             </button>
           ) : null}
 
-          {list.length > 1 ? (
-            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+          {hasCarousel ? (
+            <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
               {list.map((img, i) => (
                 <button
                   key={img.id || i}
                   type="button"
-                  className={`h-1.5 w-1.5 rounded-full ${i === index ? "bg-rose" : "bg-white/80"}`}
-                  onClick={() => setIndex(i)}
+                  className={`h-1.5 rounded-full transition ${
+                    i === index ? "w-4 bg-rose" : "w-1.5 bg-white/80"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIndex(i);
+                  }}
                   aria-label={`Foto ${i + 1}`}
                 />
               ))}
@@ -99,7 +120,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           ) : null}
         </div>
 
-        {!compact && list.length > 1 ? (
+        {!compact && hasCarousel ? (
           <div className="flex gap-2 overflow-x-auto p-2">
             {list.map((img, i) => (
               <button
@@ -132,7 +153,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           >
             <X size={18} />
           </button>
-          {list.length > 1 ? (
+          {hasCarousel ? (
             <>
               <button
                 type="button"

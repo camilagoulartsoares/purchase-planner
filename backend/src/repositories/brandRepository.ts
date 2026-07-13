@@ -32,17 +32,33 @@ export const brandRepository = {
 
   async findOrCreate(userId: string, name: string) {
     const trimmed = name.trim();
-    const existing = await prisma.brand.findFirst({
-      where: { userId, name: trimmed },
-    });
-    if (existing) return existing;
+    const slug = slugify(trimmed);
 
-    let slug = slugify(trimmed);
-    const clash = await prisma.brand.findFirst({ where: { userId, slug } });
-    if (clash) slug = `${slug}-${Date.now().toString(36)}`;
+    // Same slug = same brand (Cotih / COTIH / cotih)
+    const bySlug = await prisma.brand.findFirst({
+      where: { userId, slug },
+    });
+    if (bySlug) return bySlug;
+
+    const all = await prisma.brand.findMany({ where: { userId } });
+    const byName = all.find(
+      (b) => b.name.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (byName) return byName;
 
     return prisma.brand.create({
-      data: { userId, name: trimmed, slug },
+      data: {
+        userId,
+        name: trimmed,
+        slug,
+      },
     });
+  },
+
+  update(
+    id: string,
+    data: { name?: string; logoUrl?: string | null; logoPublicId?: string | null },
+  ) {
+    return prisma.brand.update({ where: { id }, data });
   },
 };

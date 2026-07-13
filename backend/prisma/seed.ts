@@ -7,7 +7,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.resolve(__dirname, "../uploads");
+const uploadsDir = path.resolve(__dirname, "../data/uploads");
 const seedAssets = path.resolve(__dirname, "seed-assets/cotih");
 
 function ensureDir(dir: string) {
@@ -58,13 +58,21 @@ async function main() {
 }
 
 async function seedCotihForUser(userId: string) {
+  const logo = copySeedImage("logo.png", "cotih-logo.png");
+
   const brand = await prisma.brand.upsert({
     where: { userId_slug: { userId, slug: "cotih" } },
-    update: { name: "Cotih" },
+    update: {
+      name: "Cotih",
+      logoUrl: logo.imageUrl,
+      logoPublicId: logo.imagePublicId,
+    },
     create: {
       userId,
       name: "Cotih",
       slug: "cotih",
+      logoUrl: logo.imageUrl,
+      logoPublicId: logo.imagePublicId,
     },
   });
 
@@ -76,39 +84,76 @@ async function seedCotihForUser(userId: string) {
     },
   });
 
-  if (existingKim) return;
+  if (!existingKim) {
+    const img1 = copySeedImage("01-main.jpg", "cotih-kim-01.jpg");
+    const img2 = copySeedImage("02.jpg", "cotih-kim-02.jpg");
+    const img3 = copySeedImage("03.jpg", "cotih-kim-03.jpg");
 
-  const img1 = copySeedImage("01-main.jpg", "cotih-kim-01.jpg");
-  const img2 = copySeedImage("02.jpg", "cotih-kim-02.jpg");
-  const img3 = copySeedImage("03.jpg", "cotih-kim-03.jpg");
-
-  await prisma.product.create({
-    data: {
-      userId,
-      brandId: brand.id,
-      name: "Calça Cargo Jeans Kim",
-      category: "Calças",
-      store: "Cotih",
-      originalPrice: 309.9,
-      promotionalPrice: 309.9,
-      purchaseUrl:
-        "https://www.cotih.com.br/produtos/calca-cargo-jeans-kim-gk18i/",
-      imageUrl: img1.imageUrl,
-      imagePublicId: img1.imagePublicId,
-      priority: "Quero",
-      status: "Quero comprar",
-      notes:
-        "Calça cargo jeans com modelagem reta ampla e bolsos utilitários.",
-      images: {
-        create: [
-          { ...img1, position: 0, isMain: true },
-          { ...img2, position: 1, isMain: false },
-          { ...img3, position: 2, isMain: false },
-        ],
+    await prisma.product.create({
+      data: {
+        userId,
+        brandId: brand.id,
+        name: "Calça Cargo Jeans Kim",
+        category: "Calças",
+        store: "Cotih",
+        originalPrice: 309.9,
+        promotionalPrice: 309.9,
+        purchaseUrl:
+          "https://www.cotih.com.br/produtos/calca-cargo-jeans-kim-gk18i/",
+        imageUrl: img1.imageUrl,
+        imagePublicId: img1.imagePublicId,
+        priority: "Quero",
+        status: "Quero comprar",
+        notes:
+          "Calça cargo jeans com modelagem reta ampla e bolsos utilitários.",
+        images: {
+          create: [
+            { ...img1, position: 0, isMain: true },
+            { ...img2, position: 1, isMain: false },
+            { ...img3, position: 2, isMain: false },
+          ],
+        },
       },
+    });
+    console.log(`Calça Cargo Jeans Kim cadastrada para usuário ${userId}`);
+  }
+
+  const existingAura = await prisma.product.findFirst({
+    where: {
+      userId,
+      name: "Vestido Aura",
+      brandId: brand.id,
     },
   });
-  console.log(`Calça Cargo Jeans Kim cadastrada para usuário ${userId}`);
+
+  if (!existingAura) {
+    const a1 = copySeedImage("aura-01.jpg", "cotih-aura-01.jpg");
+    const a2 = copySeedImage("aura-02.jpg", "cotih-aura-02.jpg");
+    await prisma.product.create({
+      data: {
+        userId,
+        brandId: brand.id,
+        name: "Vestido Aura",
+        category: "Vestidos",
+        store: "Cotih",
+        originalPrice: 244.95,
+        promotionalPrice: 244.95,
+        purchaseUrl: "https://www.cotih.com.br/produtos/vestido-aura/",
+        imageUrl: a1.imageUrl,
+        imagePublicId: a1.imagePublicId,
+        priority: "Quero",
+        status: "Quero comprar",
+        notes: "Vestido longo preto com amarração no pescoço.",
+        images: {
+          create: [
+            { ...a1, position: 0, isMain: true },
+            { ...a2, position: 1, isMain: false },
+          ],
+        },
+      },
+    });
+    console.log(`Vestido Aura cadastrado para usuário ${userId}`);
+  }
 }
 
 main()

@@ -113,6 +113,18 @@ export const productController = {
     }
   },
 
+  async toggleFavorite(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await productService.toggleFavorite(
+        req.user!.id,
+        req.params.id,
+      );
+      return ok(res, data);
+    } catch (err) {
+      return next(err);
+    }
+  },
+
   async summary(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await productService.summary(req.user!.id);

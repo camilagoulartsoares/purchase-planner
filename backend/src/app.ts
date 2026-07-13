@@ -12,6 +12,8 @@ import { productRoutes } from "./routes/productRoutes.js";
 import { dashboardRoutes } from "./routes/dashboardRoutes.js";
 import { brandRoutes } from "./routes/brandRoutes.js";
 import { uploadsDir } from "./services/imageService.js";
+import { backupService } from "./services/backupService.js";
+import { cloudinaryConfigured } from "./config/env.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,14 +25,31 @@ export function createApp() {
   const isLocalDevOrigin = (origin: string) =>
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
+  const allowedOrigins = new Set(
+    [
+      env.frontendUrl,
+      ...(process.env.FRONTEND_URLS || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ].filter(Boolean),
+  );
+
+  const isAllowedOrigin = (origin: string) => {
+    if (allowedOrigins.has(origin)) return true;
+    if (env.nodeEnv !== "production" && isLocalDevOrigin(origin)) return true;
+    try {
+      if (/\.vercel\.app$/i.test(new URL(origin).hostname)) return true;
+    } catch {
+      return false;
+    }
+    return false;
+  };
+
   app.use(
     cors({
       origin(origin, callback) {
-        if (
-          !origin ||
-          origin === env.frontendUrl ||
-          (env.nodeEnv !== "production" && isLocalDevOrigin(origin))
-        ) {
+        if (!origin || isAllowedOrigin(origin)) {
           callback(null, true);
           return;
         }
@@ -54,7 +73,32 @@ export function createApp() {
   );
 
   app.get("/api/health", (_req, res) => {
-    res.json({ success: true, data: { status: "ok" } });
+    res.json({
+      success: true,
+      data: {
+        status: "ok",
+        persistence: {
+          database: process.env.DATABASE_URL?.startsWith("postgres")
+            ? "postgresql"
+            : "sqlite-local",
+          photos: cloudinaryConfigured() ? "cloudinary" : "disk-volume",
+          dataDir: "backend/data",
+          backupsDir: "backend/backups",
+        },
+      },
+    });
+  });
+
+  app.post("/api/backup", (_req, res) => {
+    try {
+      const folder = backupService.create("api");
+      res.json({ success: true, data: { folder } });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        message: err instanceof Error ? err.message : "Falha no backup",
+      });
+    }
   });
 
   app.use("/api/auth", authRoutes);

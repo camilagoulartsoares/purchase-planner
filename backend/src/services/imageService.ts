@@ -1,23 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { cloudinary } from "../config/cloudinary.js";
 import { cloudinaryConfigured, env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
+import { uploadsDir, backupService } from "./backupService.js";
 
 export type UploadedImage = {
   imageUrl: string;
   imagePublicId: string;
 };
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const uploadsDir = path.resolve(__dirname, "../../uploads");
-
 function ensureUploadsDir() {
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
+  backupService.ensureDataDirs();
 }
+
+export { uploadsDir };
 
 export const imageService = {
   async upload(file: Express.Multer.File): Promise<UploadedImage> {

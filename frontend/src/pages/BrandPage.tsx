@@ -4,7 +4,7 @@ import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormModal } from "../components/ProductFormModal";
-import { formatBRL, PRIORITIES, STATUSES, PRICE_BANDS, type BrandSummary, type Product } from "../types";
+import { formatBRL, PRIORITIES, STATUSES, PRICE_BANDS, mediaUrl, type BrandSummary, type Product } from "../types";
 
 export function BrandPage() {
   const { slug = "", category: categoryParam } = useParams();
@@ -17,7 +17,7 @@ export function BrandPage() {
   const [buying, setBuying] = useState<Product | null>(null);
   const [paid, setPaid] = useState("");
 
-  const category = categoryParam || searchParams.get("categoria") || "";
+  const category = searchParams.get("categoria") || categoryParam || "";
   const status = searchParams.get("status") || "";
   const priority = searchParams.get("prioridade") || "";
   const priceBand = searchParams.get("faixa") || "";
@@ -41,10 +41,30 @@ export function BrandPage() {
     void load();
   }, [load]);
 
+  const categoryChips = useMemo(() => {
+    if (!brand) return [];
+    const preferred = ["Calças", "Vestidos", "Blusas", "Tops e corsets", "Bodies", "Saias", "Shorts", "Conjuntos", "Casacos", "Calçados", "Bolsas", "Acessórios"];
+    const present = new Set(brand.allCategories || brand.categories || []);
+    const chips = preferred.filter((c) => present.has(c));
+    // include any other category that exists on products
+    for (const c of present) {
+      if (!chips.includes(c)) chips.push(c);
+    }
+    // merge TOP/CORSET display under Tops e corsets if both somehow exist
+    return chips.filter((c) => c !== "TOP/CORSET" || !present.has("Tops e corsets"));
+  }, [brand]);
+
   const products = useMemo(() => {
     if (!brand) return [];
     let list = [...brand.products];
-    if (category) list = list.filter((p) => p.category === category);
+    if (category) {
+      list = list.filter((p) => {
+        if (category === "Tops e corsets") {
+          return p.category === "Tops e corsets" || p.category === "TOP/CORSET";
+        }
+        return p.category === category;
+      });
+    }
     if (status) list = list.filter((p) => p.status === status);
     if (priority) list = list.filter((p) => p.priority === priority);
     if (minPrice) list = list.filter((p) => p.effectivePrice >= Number(minPrice));
@@ -69,8 +89,14 @@ export function BrandPage() {
       }
     }
     list.sort((a, b) => {
-      if (sort === "menor-preco") return a.effectivePrice - b.effectivePrice;
-      if (sort === "maior-preco") return b.effectivePrice - a.effectivePrice;
+      if (sort === "menor-preco" || sort === "maior-preco") {
+        const byPrice =
+          sort === "menor-preco"
+            ? a.effectivePrice - b.effectivePrice
+            : b.effectivePrice - a.effectivePrice;
+        if (byPrice !== 0) return byPrice;
+        return a.name.localeCompare(b.name, "pt-BR");
+      }
       return a.name.localeCompare(b.name, "pt-BR");
     });
     return list;
@@ -84,8 +110,10 @@ export function BrandPage() {
   };
 
   const goCategory = (cat: string) => {
-    if (!cat) navigate(`/marcas/${slug}`);
-    else navigate(`/marcas/${slug}/${encodeURIComponent(cat)}`);
+    const next = new URLSearchParams(searchParams);
+    if (cat) next.set("categoria", cat);
+    else next.delete("categoria");
+    navigate(`/marcas/${slug}${next.toString() ? `?${next}` : ""}`);
   };
 
   if (loading) {
@@ -124,7 +152,16 @@ export function BrandPage() {
       </nav>
 
       <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold text-brown-deep">{brand.name}</h1>
+        <div className="flex flex-wrap items-center gap-4">
+          {brand.logoUrl ? (
+            <img
+              src={mediaUrl(brand.logoUrl)}
+              alt={`Logo ${brand.name}`}
+              className="h-12 max-w-[180px] object-contain"
+            />
+          ) : null}
+          <h1 className="font-display text-4xl font-semibold text-brown-deep">{brand.name}</h1>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="card-soft p-4">
             <p className="text-xs uppercase tracking-wide text-muted">Produtos</p>
@@ -153,16 +190,19 @@ export function BrandPage() {
         >
           Todos
         </button>
-        {brand.categories.map((cat) => (
+        {categoryChips.map((cat) => (
           <button
             key={cat}
             type="button"
             className={`rounded-full px-3 py-1.5 text-sm ${
-              category === cat ? "bg-rose text-white" : "bg-cream-deep text-brown-deep"
+              category === cat ||
+              (cat === "Tops e corsets" && category === "TOP/CORSET")
+                ? "bg-rose text-white"
+                : "bg-cream-deep text-brown-deep"
             }`}
-            onClick={() => goCategory(cat)}
+            onClick={() => goCategory(cat === "TOP/CORSET" ? "Tops e corsets" : cat)}
           >
-            {cat}
+            {cat === "TOP/CORSET" ? "Tops e corsets" : cat}
           </button>
         ))}
       </div>
@@ -233,6 +273,19 @@ export function BrandPage() {
               onMarkBought={(p) => {
                 setBuying(p);
                 setPaid(String(p.effectivePrice));
+              }}
+              onFavorite={async (p) => {
+                await api.toggleFavorite(p.id);
+                await load();
+              }}
+              onStatus={async (p, status) => {
+                await api.patchStatus(p.id, { status });
+                await load();
+              }}
+              onDelete={async (p) => {
+                if (!window.confirm(`Excluir definitivamente "${p.name}"?`)) return;
+                await api.deleteProduct(p.id);
+                await load();
               }}
             />
           ))}

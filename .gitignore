@@ -9,4 +9,9 @@ coverage/
 backend/generated/
 frontend/dist/
 uploads/
+backend/data/closet.db
+backend/data/closet.db-journal
+backend/data/uploads/
+backend/data/export-sqlite.json
+backend/backups/
 .vite/

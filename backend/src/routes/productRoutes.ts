@@ -35,4 +35,5 @@ productRoutes.get("/:id", productController.get);
 productRoutes.post("/", imagesUpload, normalizeFiles, productController.create);
 productRoutes.put("/:id", imagesUpload, normalizeFiles, productController.update);
 productRoutes.patch("/:id/status", productController.patchStatus);
+productRoutes.patch("/:id/favorite", productController.toggleFavorite);
 productRoutes.delete("/:id", productController.remove);

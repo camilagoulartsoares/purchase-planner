@@ -3,14 +3,58 @@ services:
     image: postgres:16-alpine
     container_name: closet-postgres
     restart: unless-stopped
-    ports:
-      - "5433:5432"
     environment:
       POSTGRES_USER: closet
       POSTGRES_PASSWORD: closet
       POSTGRES_DB: closet_sonhos
     volumes:
       - closet_pg_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U closet -d closet_sonhos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: closet-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3334
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      DATABASE_URL: postgresql://closet:closet@postgres:5432/closet_sonhos?schema=public
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao-closet-2026}
+      JWT_EXPIRES_IN: 7d
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_FOLDER: closet-sonhos
+      MAX_FILE_SIZE_MB: 8
+    volumes:
+      - closet_uploads:/app/data/uploads
+      - closet_backups:/app/backups
+    ports:
+      - "3334:3334"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3334/api}
+    container_name: closet-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
 
 volumes:
   closet_pg_data:
+  closet_uploads:
+  closet_backups:

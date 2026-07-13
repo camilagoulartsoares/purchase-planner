@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,14 +19,16 @@ model User {
 }
 
 model Brand {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  slug      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  products  Product[]
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String
+  logoUrl       String?
+  logoPublicId  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  products      Product[]
 
   @@unique([userId, name])
   @@unique([userId, slug])
@@ -52,6 +54,7 @@ model Product {
   priority         String         @default("Quero")
   status           String         @default("Quero comprar")
   notes            String?
+  isFavorite       Boolean        @default(false)
   purchasedPrice   Decimal?
   purchasedAt      DateTime?
   createdAt        DateTime       @default(now())

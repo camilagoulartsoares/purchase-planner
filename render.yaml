@@ -1,0 +1,42 @@
+# Exported via Blueprint Spec, v1
+services:
+  - type: web
+    name: closet-sonhos-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma db push && node dist/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLOUDINARY_FOLDER
+        value: closet-sonhos
+      - key: MAX_FILE_SIZE_MB
+        value: "8"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: closet-sonhos-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+databases:
+  - name: closet-sonhos-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"

@@ -11,6 +11,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "backup": "tsx scripts/backup.ts",
+    "backup:list": "tsx scripts/backup.ts list",
+    "backup:restore": "tsx scripts/backup.ts restore",
+    "db:import": "tsx scripts/import-dump.ts",
     "test": "vitest run"
   },
   "prisma": {

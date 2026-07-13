@@ -27,20 +27,41 @@ function serializeBrand(
 
   const prices = products.map(priceOf);
   const categoriesPresent = [
-    ...new Set(brand.products.map((p) => p.category)),
+    ...new Set(
+      brand.products.map((p) =>
+        p.category === "TOP/CORSET" ? "Tops e corsets" : p.category,
+      ),
+    ),
   ].filter((c) =>
-    (BRAND_FILTER_CATEGORIES as readonly string[]).includes(c),
+    (BRAND_FILTER_CATEGORIES as readonly string[]).includes(c) ||
+    c === "Tops e corsets",
   );
 
   // Keep order of BRAND_FILTER_CATEGORIES
-  const categories = BRAND_FILTER_CATEGORIES.filter((c) =>
-    categoriesPresent.includes(c),
-  );
+    const preferred = [
+    "Calças",
+    "Vestidos",
+    "Blusas",
+    "Tops e corsets",
+    "Bodies",
+    "Saias",
+    "Shorts",
+    "Conjuntos",
+    "Casacos",
+    "Calçados",
+    "Bolsas",
+    "Acessórios",
+  ];
+  const categories = preferred.filter((c) => categoriesPresent.includes(c));
+  for (const c of categoriesPresent) {
+    if (!categories.includes(c)) categories.push(c);
+  }
 
   return {
     id: brand.id,
     name: brand.name,
     slug: brand.slug,
+    logoUrl: brand.logoUrl,
     productCount: products.length,
     categories,
     allCategories: [...new Set(brand.products.map((p) => p.category))],
@@ -75,6 +96,7 @@ function serializeBrand(
       priority: p.priority,
       status: p.status,
       notes: p.notes,
+      isFavorite: Boolean((p as { isFavorite?: boolean }).isFavorite),
       effectivePrice: priceOf(p),
       discountPercent: (() => {
         const o = Number(p.originalPrice);

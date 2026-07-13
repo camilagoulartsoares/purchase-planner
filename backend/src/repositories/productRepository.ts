@@ -119,10 +119,18 @@ export const productRepository = {
         bp != null && bp < bo ? Math.round(((bo - bp) / bo) * 100) : 0;
 
       switch (filters.sort) {
-        case "menor-preco":
-          return ae - be;
-        case "maior-preco":
-          return be - ae;
+        case "menor-preco": {
+          const byPrice = ae - be;
+          return byPrice !== 0
+            ? byPrice
+            : a.name.localeCompare(b.name, "pt-BR");
+        }
+        case "maior-preco": {
+          const byPrice = be - ae;
+          return byPrice !== 0
+            ? byPrice
+            : a.name.localeCompare(b.name, "pt-BR");
+        }
         case "maior-desconto":
           return bd - ad;
         case "antigos":
