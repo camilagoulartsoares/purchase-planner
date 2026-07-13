@@ -52,13 +52,16 @@ export function ProductCard({
         {onFavorite ? (
           <button
             type="button"
-            className="absolute top-2 right-2 z-20 rounded-full bg-surface/95 p-2 shadow"
+            className={`favorite-btn absolute top-2 right-2 z-20 ${
+              product.isFavorite ? "is-favorite" : ""
+            }`}
             onClick={() => onFavorite(product)}
             aria-label={product.isFavorite ? "Remover dos favoritos" : "Favoritar"}
+            title={product.isFavorite ? "Remover dos favoritos" : "Favoritar"}
           >
             <Heart
-              size={16}
-              className={product.isFavorite ? "fill-rose text-rose" : "text-brown-deep"}
+              size={18}
+              className={product.isFavorite ? "fill-white text-white" : "text-brown-deep"}
             />
           </button>
         ) : null}

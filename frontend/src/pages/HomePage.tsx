@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { LayoutGrid, List } from "lucide-react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { ChevronDown, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
-  PRIORITIES,
   STATUSES,
-  PRICE_BANDS,
   formatBRL,
   type BrandSummary,
   type Product,
@@ -27,11 +25,39 @@ const emptyQuery = {
   promo: "",
   minPrice: "",
   maxPrice: "",
-  priceBand: "",
   sort: "recentes",
   page: 1,
   perPage: 12,
 };
+
+const VISIBLE_STATUSES = STATUSES.filter((s) => s !== "Esperando promoção");
+const MIN_FILTER_PRICE = 0;
+const MAX_FILTER_PRICE = 2000;
+const PRICE_STEP = 10;
+
+function SelectField({
+  value,
+  onChange,
+  children,
+  label,
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <label className={`select-pretty ${className}`}>
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {children}
+      </select>
+      <ChevronDown size={16} aria-hidden="true" />
+    </label>
+  );
+}
 
 export function HomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -81,6 +107,24 @@ export function HomePage() {
   const patch = (partial: Partial<typeof query>) =>
     setQuery((q) => ({ ...q, ...partial, page: partial.page ?? 1 }));
 
+  const priceMin = query.minPrice === "" ? MIN_FILTER_PRICE : Number(query.minPrice);
+  const priceMax = query.maxPrice === "" ? MAX_FILTER_PRICE : Number(query.maxPrice);
+
+  const setPriceMin = (value: number) => {
+    const next = Math.min(value, priceMax - PRICE_STEP);
+    patch({ minPrice: next <= MIN_FILTER_PRICE ? "" : String(next) });
+  };
+
+  const setPriceMax = (value: number) => {
+    const next = Math.max(value, priceMin + PRICE_STEP);
+    patch({ maxPrice: next >= MAX_FILTER_PRICE ? "" : String(next) });
+  };
+
+  const priceStart = ((priceMin - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
+  const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
+
+  const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
+
   const onSave = async (form: FormData, id?: string) => {
     await api.saveProduct(form, id);
     setToast(id ? "Peça atualizada" : "Peça adicionada");
@@ -126,14 +170,12 @@ export function HomePage() {
       }
     >
       {summary ? (
-        <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ["Desejados", String(summary.wantCount)],
             ["Comprados", String(summary.boughtCount)],
             ["Total desejos", formatBRL(summary.wishTotal)],
             ["Total gasto", formatBRL(summary.spentTotal)],
-            ["Economizado", formatBRL(summary.savedTotal)],
-            ["Esperando promoção", String(summary.waitingCount)],
           ].map(([label, value]) => (
             <article key={label} className="card-soft p-4">
               <p className="text-[11px] font-semibold tracking-[0.1em] text-muted uppercase">{label}</p>
@@ -144,7 +186,7 @@ export function HomePage() {
       ) : null}
 
       <div className="mb-4 flex gap-2 overflow-x-auto">
-        {STATUSES.map((s) => (
+        {VISIBLE_STATUSES.map((s) => (
           <button
             key={s}
             className={`shrink-0 rounded-full px-4 py-2 text-sm ${
@@ -157,18 +199,19 @@ export function HomePage() {
         ))}
       </div>
 
-      <section className="card-soft mb-6 space-y-3 p-4">
-        <div className="flex flex-wrap gap-2">
+      <section className="card-soft mb-6 space-y-4 p-4">
+        <div className="flex flex-wrap items-center gap-2">
           <input
-            className="min-w-[200px] flex-1 rounded-full border border-line px-4 py-2 text-sm"
+            className="filter-input min-w-[220px] flex-1"
             placeholder="Buscar nome, marca ou loja"
             value={query.search}
             onChange={(e) => patch({ search: e.target.value })}
           />
-          <select
-            className="rounded-full border border-line px-3 py-2 text-sm"
+          <SelectField
+            label="Ordenar"
             value={query.sort}
-            onChange={(e) => patch({ sort: e.target.value })}
+            onChange={(sort) => patch({ sort })}
+            className="min-w-[160px]"
           >
             <option value="recentes">Mais recentes</option>
             <option value="antigos">Mais antigos</option>
@@ -178,7 +221,7 @@ export function HomePage() {
             <option value="prioridade">Prioridade</option>
             <option value="nome">Nome</option>
             <option value="marca">Marca</option>
-          </select>
+          </SelectField>
           <div className="flex rounded-full border border-line p-1">
             <button
               className={`rounded-full p-2 ${view === "cards" ? "bg-rose text-white" : ""}`}
@@ -195,67 +238,76 @@ export function HomePage() {
           </div>
           <button
             className="btn-ghost"
-            onClick={() => setQuery({ ...emptyQuery, status: query.status })}
+            onClick={resetFilters}
           >
             Limpar filtros
           </button>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <select
-            className="rounded-xl border border-line px-3 py-2 text-sm"
+        <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1.5fr]">
+          <SelectField
+            label="Marca"
             value={query.brand}
-            onChange={(e) => patch({ brand: e.target.value })}
+            onChange={(brand) => patch({ brand })}
           >
-            <option value="">Marca</option>
+            <option value="">Todas</option>
             {brands.map((b) => (
               <option key={b.id} value={b.name}>
                 {b.name}
               </option>
             ))}
-          </select>
-          <select
-            className="rounded-xl border border-line px-3 py-2 text-sm"
+          </SelectField>
+          <SelectField
+            label="Categoria"
             value={query.category}
-            onChange={(e) => patch({ category: e.target.value })}
+            onChange={(category) => patch({ category })}
           >
-            <option value="">Categoria</option>
+            <option value="">Todas</option>
             {CATEGORIES.map((c) => (
               <option key={c}>{c}</option>
             ))}
-          </select>
-          <select
-            className="rounded-xl border border-line px-3 py-2 text-sm"
-            value={query.priority}
-            onChange={(e) => patch({ priority: e.target.value })}
-          >
-            <option value="">Prioridade</option>
-            {PRIORITIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            className="rounded-xl border border-line px-3 py-2 text-sm"
-            value={query.priceBand}
-            onChange={(e) => patch({ priceBand: e.target.value })}
-          >
-            {PRICE_BANDS.map((b) => (
-              <option key={b.value} value={b.value}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-          <input
-            className="rounded-xl border border-line px-3 py-2 text-sm"
-            placeholder="Preço mín."
-            value={query.minPrice}
-            onChange={(e) => patch({ minPrice: e.target.value })}
-          />
-          <input
-            className="rounded-xl border border-line px-3 py-2 text-sm"
-            placeholder="Preço máx."
-            value={query.maxPrice}
-            onChange={(e) => patch({ maxPrice: e.target.value })}
-          />
+          </SelectField>
+          <div className="price-filter">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+                <SlidersHorizontal size={14} /> Preço
+              </span>
+              <strong className="text-sm text-brown-deep">
+                {formatBRL(priceMin)} - {priceMax >= MAX_FILTER_PRICE ? `+${formatBRL(MAX_FILTER_PRICE)}` : formatBRL(priceMax)}
+              </strong>
+            </div>
+            <div
+              className="range-wrap"
+              style={
+                {
+                  "--range-start": `${priceStart}%`,
+                  "--range-end": `${priceEnd}%`,
+                } as CSSProperties
+              }
+            >
+              <input
+                type="range"
+                min={MIN_FILTER_PRICE}
+                max={MAX_FILTER_PRICE}
+                step={PRICE_STEP}
+                value={priceMin}
+                onChange={(e) => setPriceMin(Number(e.target.value))}
+                aria-label="Preço mínimo"
+              />
+              <input
+                type="range"
+                min={MIN_FILTER_PRICE}
+                max={MAX_FILTER_PRICE}
+                step={PRICE_STEP}
+                value={priceMax}
+                onChange={(e) => setPriceMax(Number(e.target.value))}
+                aria-label="Preço máximo"
+              />
+            </div>
+            <div className="mt-2 flex justify-between text-[11px] font-semibold text-muted">
+              <span>{formatBRL(MIN_FILTER_PRICE)}</span>
+              <span>{formatBRL(MAX_FILTER_PRICE)}+</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -278,7 +330,13 @@ export function HomePage() {
               }}
               onMarkBought={(p) => void onStatus(p, "Já comprei")}
               onFavorite={async (p) => {
+                setItems((current) =>
+                  current.map((item) =>
+                    item.id === p.id ? { ...item, isFavorite: !item.isFavorite } : item,
+                  ),
+                );
                 await api.toggleFavorite(p.id);
+                setToast(p.isFavorite ? "Removida dos favoritos" : "Adicionada aos favoritos");
                 await load();
               }}
               onStatus={(p, status) => void onStatus(p, status)}
