@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -25,8 +25,8 @@ model Product {
   category         String
   brand            String
   store            String
-  originalPrice    Decimal   @db.Decimal(12, 2)
-  promotionalPrice Decimal?  @db.Decimal(12, 2)
+  originalPrice    Decimal
+  promotionalPrice Decimal?
   purchaseUrl      String?
   imageUrl         String?
   imagePublicId    String?
@@ -35,7 +35,7 @@ model Product {
   priority         String    @default("Quero")
   status           String    @default("Quero comprar")
   notes            String?
-  purchasedPrice   Decimal?  @db.Decimal(12, 2)
+  purchasedPrice   Decimal?
   purchasedAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt

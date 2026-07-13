@@ -1,93 +1,74 @@
 # Meu Closet dos Sonhos
 
-Aplicação pessoal para registrar peças que você pensa em comprar ao longo do tempo — e também as que já entrou na sua rotina.
+Caderno digital pessoal para anotar peças que você pensa em comprar com o tempo — e registrar o que já entrou no seu dia a dia.
 
-Não é uma loja. Não processa pagamento. Serve apenas como um caderno digital do seu próprio closet: anotar o que deseja, acompanhar preços com calma e lembrar o que já foi escolhido.
+Não é loja e não processa pagamento. Os dados ficam salvos no seu computador.
 
-## Estrutura
+## Precisa de Docker?
 
-```
-/frontend   React + Vite + TypeScript + Tailwind
-/backend    Node.js + Express + Prisma + PostgreSQL
-docker-compose.yml
-```
+**Não.** Para uso em casa, o app usa **SQLite**: um arquivo local (`backend/prisma/dev.db`).  
+Você só precisa do **Node.js**.
 
-## Pré-requisitos
+Docker / PostgreSQL são opcionais (para quem quiser outro banco depois).
 
-- Node.js 20+
-- Docker (para o PostgreSQL)
-- Conta Cloudinary (opcional em desenvolvimento; sem ela, o upload usa fallback local)
+## Como rodar em casa (sem Docker)
 
-## Configuração
-
-### 1. Banco de dados
-
-```bash
-docker compose up -d
-```
-
-PostgreSQL fica em `localhost:5433` (usuário/senha/db: `closet`).
-
-### 2. Backend
+### 1. Instalar dependências (uma vez)
 
 ```bash
 cd backend
 cp .env.example .env
-# ajuste JWT_SECRET e, se quiser, as chaves do Cloudinary
 npm install
-npx prisma migrate dev
+npx prisma migrate dev --name init
 npm run db:seed
+
+cd ../frontend
+cp .env.example .env
+npm install
+```
+
+### 2. Subir backend e frontend
+
+Terminal 1 — API:
+```bash
+cd backend
 npm run dev
 ```
 
-API em `http://localhost:3334`.
+Terminal 2 — site:
+```bash
+cd frontend
+npm run dev
+```
 
-Conta de demonstração do seed:
+- Site: http://localhost:5173  
+- API: http://localhost:3334  
 
+Conta de demonstração:
 - e-mail: `demo@closet.local`
 - senha: `demo1234`
 
-### 3. Frontend
+### Onde os dados ficam?
 
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
+Em `backend/prisma/dev.db`.  
+Se você fizer backup desse arquivo, guarda usuários e peças.
+
+## Estrutura
+
+```
+/frontend
+/backend
+README.md
 ```
 
-App em `http://localhost:5173`.
+## Cloudinary (fotos)
 
-## Variáveis de ambiente
+Em casa funciona sem Cloudinary (as imagens entram em modo local).  
+Se quiser hospedar fotos na nuvem depois, preencha as chaves no `backend/.env`.
 
-Veja:
-
-- `backend/.env.example`
-- `frontend/.env.example`
-
-Nunca versione senhas, tokens ou chaves reais.
-
-## Funcionalidades
-
-- Cadastro e login com JWT
-- Cada pessoa vê apenas as próprias peças
-- CRUD de produtos com foto (Multer + Cloudinary)
-- Filtros, busca, ordenação e paginação na API
-- Link externo “Comprar na loja” (abre a página da marca; sem checkout interno)
-- Status: quero comprar, esperando promoção, já comprei, desisti
-
-## Testes
+## Testes da API
 
 ```bash
 cd backend
 npm test
 ```
-
-## Produção
-
-```bash
-cd backend && npm run build && npm start
-cd frontend && npm run build
-```
-
-Sirva o `frontend/dist` com o servidor estático de sua preferência e aponte `VITE_API_URL` para a API.

@@ -54,11 +54,14 @@ export const productRepository = {
     if (filters.status) where.status = filters.status;
 
     if (filters.search) {
+      const q = filters.search.toLowerCase();
       where.OR = [
-        { name: { contains: filters.search, mode: "insensitive" } },
-        { brand: { contains: filters.search, mode: "insensitive" } },
-        { store: { contains: filters.search, mode: "insensitive" } },
+        { name: { contains: filters.search } },
+        { brand: { contains: filters.search } },
+        { store: { contains: filters.search } },
       ];
+      // SQLite: refine case-insensitively after query if needed
+      void q;
     }
 
     // Fetch then filter by effective price / promo in memory for Decimal accuracy
