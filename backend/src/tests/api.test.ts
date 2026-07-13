@@ -11,7 +11,9 @@ describe("API Closet", () => {
   let productId = "";
 
   beforeAll(async () => {
+    await prisma.productImage.deleteMany();
     await prisma.product.deleteMany();
+    await prisma.brand.deleteMany();
     await prisma.user.deleteMany();
   });
 

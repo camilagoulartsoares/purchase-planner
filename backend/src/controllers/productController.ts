@@ -23,6 +23,11 @@ function parseBody(raw: Record<string, unknown>) {
   return productBodySchema.parse(normalized);
 }
 
+function filesFrom(req: Request) {
+  const many = req.files as Express.Multer.File[] | undefined;
+  return many?.length ? many : undefined;
+}
+
 export const productController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
@@ -55,6 +60,7 @@ export const productController = {
         req.user!.id,
         body,
         req.file,
+        filesFrom(req),
       );
       return ok(res, data, 201);
     } catch (err) {
@@ -73,6 +79,7 @@ export const productController = {
         req.params.id,
         body,
         req.file,
+        filesFrom(req),
       );
       return ok(res, data);
     } catch (err) {

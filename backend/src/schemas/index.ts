@@ -1,7 +1,29 @@
 import { z } from "zod";
-import { CATEGORIES, PRIORITIES, STATUSES, isHttpUrl } from "../utils/constants.js";
+import {
+  CATEGORIES,
+  PRIORITIES,
+  STATUSES,
+  isHttpUrl,
+  toNumber,
+} from "../utils/constants.js";
 
-const money = z.coerce.number().positive("Informe um valor válido");
+const money = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return value;
+    const n = toNumber(value);
+    return Number.isFinite(n) ? n : value;
+  },
+  z.number().positive("Informe um valor válido"),
+);
+
+const optionalMoney = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return null;
+    const n = toNumber(value);
+    return Number.isFinite(n) ? n : value;
+  },
+  z.number().positive().optional().nullable(),
+);
 
 export const registerSchema = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -21,7 +43,7 @@ export const productBodySchema = z
     brand: z.string().min(1),
     store: z.string().min(1),
     originalPrice: money,
-    promotionalPrice: z.coerce.number().positive().optional().nullable(),
+    promotionalPrice: optionalMoney,
     purchaseUrl: z
       .string()
       .optional()
@@ -54,6 +76,7 @@ export const productQuerySchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
+  brandSlug: z.string().optional(),
   store: z.string().optional(),
   color: z.string().optional(),
   size: z.string().optional(),

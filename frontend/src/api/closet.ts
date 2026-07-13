@@ -1,5 +1,5 @@
 import api from "./client";
-import type { Product, ProductQuery, Summary, User } from "../types";
+import type { BrandSummary, Product, ProductQuery, Summary, User } from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
   const res = await api.post("/auth/register", data);
@@ -27,6 +27,23 @@ export async function fetchProducts(params: ProductQuery) {
     items: Product[];
     meta: { total: number; page: number; perPage: number; totalPages: number };
   };
+}
+
+export async function fetchProduct(id: string) {
+  const res = await api.get(`/products/${id}`);
+  return res.data.data as Product;
+}
+
+export async function fetchBrands() {
+  const res = await api.get("/brands");
+  return res.data.data as BrandSummary[];
+}
+
+export async function fetchBrand(slug: string, category?: string) {
+  const res = await api.get(`/brands/${slug}`, {
+    params: category ? { category } : undefined,
+  });
+  return res.data.data as BrandSummary;
 }
 
 export async function saveProduct(form: FormData, id?: string) {

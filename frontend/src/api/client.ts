@@ -13,13 +13,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const apiMessage = error.response?.data?.message as string | undefined;
+
+    if (status === 401) {
       localStorage.removeItem("closet_token");
-      if (!window.location.pathname.startsWith("/login")) {
+      const onAuthPage =
+        window.location.pathname.startsWith("/login") ||
+        window.location.pathname.startsWith("/register");
+      if (!onAuthPage) {
         window.location.href = "/login";
       }
     }
-    return Promise.reject(error);
+
+    return Promise.reject(
+      new Error(apiMessage || error.message || "Erro na requisição"),
+    );
   },
 );
 

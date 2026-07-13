@@ -1,3 +1,14 @@
+export function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "marca";
+}
+
 export const CATEGORIES = [
   "Vestidos",
   "Blusas",
@@ -13,6 +24,20 @@ export const CATEGORIES = [
   "Bolsas",
   "Acessórios",
   "Outros",
+] as const;
+
+/** Categories shown as brand-page filters (only those with products appear). */
+export const BRAND_FILTER_CATEGORIES = [
+  "Calças",
+  "Vestidos",
+  "Blusas",
+  "Saias",
+  "Shorts",
+  "Conjuntos",
+  "Casacos",
+  "Calçados",
+  "Bolsas",
+  "Acessórios",
 ] as const;
 
 export const PRIORITIES = ["Quero muito", "Quero", "Talvez"] as const;

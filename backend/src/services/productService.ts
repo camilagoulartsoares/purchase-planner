@@ -2,11 +2,13 @@ import { AppError } from "../middlewares/errorHandler.js";
 import {
   productRepository,
   type ProductFilters,
+  type ProductWithRelations,
 } from "../repositories/productRepository.js";
+import { brandRepository } from "../repositories/brandRepository.js";
 import { imageService } from "./imageService.js";
 import { effectivePrice } from "../utils/constants.js";
 
-function serialize(product: Awaited<ReturnType<typeof productRepository.findById>>) {
+function serialize(product: ProductWithRelations | null) {
   if (!product) return null;
   const original = Number(product.originalPrice);
   const promo =
@@ -17,16 +19,54 @@ function serialize(product: Awaited<ReturnType<typeof productRepository.findById
       ? Math.round(((original - promo) / original) * 100)
       : 0;
 
+  const images = (product.images || []).map((img) => ({
+    id: img.id,
+    imageUrl: img.imageUrl,
+    imagePublicId: img.imagePublicId,
+    position: img.position,
+    isMain: img.isMain,
+  }));
+
+  const main =
+    images.find((i) => i.isMain) || images[0] || null;
+
   return {
-    ...product,
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    brand: product.brand.name,
+    brandId: product.brandId,
+    brandSlug: product.brand.slug,
+    store: product.store,
     originalPrice: original,
     promotionalPrice: promo,
+    purchaseUrl: product.purchaseUrl,
+    imageUrl: main?.imageUrl || product.imageUrl,
+    color: product.color,
+    size: product.size,
+    priority: product.priority,
+    status: product.status,
+    notes: product.notes,
     purchasedPrice:
       product.purchasedPrice != null ? Number(product.purchasedPrice) : null,
+    purchasedAt: product.purchasedAt,
+    images,
     effectivePrice: price,
     discountPercent: discount,
     hasPromo: discount > 0,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
   };
+}
+
+function collectFiles(
+  file?: Express.Multer.File,
+  files?: Express.Multer.File[],
+) {
+  const list: Express.Multer.File[] = [];
+  if (files?.length) list.push(...files);
+  else if (file) list.push(file);
+  return list;
 }
 
 export const productService = {
@@ -50,21 +90,21 @@ export const productService = {
     userId: string,
     data: Record<string, unknown>,
     file?: Express.Multer.File,
+    files?: Express.Multer.File[],
   ) {
-    let imageUrl: string | undefined;
-    let imagePublicId: string | undefined;
+    const brand = await brandRepository.findOrCreate(
+      userId,
+      String(data.brand),
+    );
 
-    if (file) {
-      const uploaded = await imageService.upload(file);
-      imageUrl = uploaded.imageUrl;
-      imagePublicId = uploaded.imagePublicId;
-    }
+    const uploads = await imageService.uploadMany(collectFiles(file, files));
+    const main = uploads[0];
 
     const product = await productRepository.create({
       user: { connect: { id: userId } },
+      brand: { connect: { id: brand.id } },
       name: String(data.name),
       category: String(data.category),
-      brand: String(data.brand),
       store: String(data.store),
       originalPrice: Number(data.originalPrice),
       promotionalPrice:
@@ -77,8 +117,18 @@ export const productService = {
       priority: String(data.priority || "Quero"),
       status: String(data.status || "Quero comprar"),
       notes: data.notes ? String(data.notes) : null,
-      imageUrl,
-      imagePublicId,
+      imageUrl: main?.imageUrl,
+      imagePublicId: main?.imagePublicId,
+      images: uploads.length
+        ? {
+            create: uploads.map((img, index) => ({
+              imageUrl: img.imageUrl,
+              imagePublicId: img.imagePublicId,
+              position: index,
+              isMain: index === 0,
+            })),
+          }
+        : undefined,
     });
 
     return serialize(product);
@@ -89,26 +139,44 @@ export const productService = {
     id: string,
     data: Record<string, unknown>,
     file?: Express.Multer.File,
+    files?: Express.Multer.File[],
   ) {
     const existing = await productRepository.findById(id);
     if (!existing || existing.userId !== userId) {
       throw new AppError("Produto não encontrado", 404);
     }
 
+    const brand = await brandRepository.findOrCreate(
+      userId,
+      String(data.brand),
+    );
+
+    const newFiles = collectFiles(file, files);
     let imageUrl = existing.imageUrl;
     let imagePublicId = existing.imagePublicId;
 
-    if (file) {
-      const uploaded = await imageService.upload(file);
-      await imageService.remove(existing.imagePublicId);
-      imageUrl = uploaded.imageUrl;
-      imagePublicId = uploaded.imagePublicId;
+    if (newFiles.length) {
+      for (const img of existing.images) {
+        await imageService.remove(img.imagePublicId);
+      }
+      const uploads = await imageService.uploadMany(newFiles);
+      await productRepository.replaceImages(
+        id,
+        uploads.map((img, index) => ({
+          imageUrl: img.imageUrl,
+          imagePublicId: img.imagePublicId,
+          position: index,
+          isMain: index === 0,
+        })),
+      );
+      imageUrl = uploads[0].imageUrl;
+      imagePublicId = uploads[0].imagePublicId;
     }
 
     const product = await productRepository.update(id, {
+      brand: { connect: { id: brand.id } },
       name: String(data.name),
       category: String(data.category),
-      brand: String(data.brand),
       store: String(data.store),
       originalPrice: Number(data.originalPrice),
       promotionalPrice:
@@ -169,6 +237,9 @@ export const productService = {
     const existing = await productRepository.findById(id);
     if (!existing || existing.userId !== userId) {
       throw new AppError("Produto não encontrado", 404);
+    }
+    for (const img of existing.images) {
+      await imageService.remove(img.imagePublicId);
     }
     await imageService.remove(existing.imagePublicId);
     await productRepository.delete(id);

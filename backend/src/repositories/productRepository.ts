@@ -6,6 +6,7 @@ export type ProductFilters = {
   search?: string;
   category?: string;
   brand?: string;
+  brandSlug?: string;
   store?: string;
   color?: string;
   size?: string;
@@ -19,6 +20,15 @@ export type ProductFilters = {
   page: number;
   perPage: number;
 };
+
+const productInclude = {
+  brand: true,
+  images: { orderBy: { position: "asc" as const } },
+} satisfies Prisma.ProductInclude;
+
+export type ProductWithRelations = Prisma.ProductGetPayload<{
+  include: typeof productInclude;
+}>;
 
 function bandRange(band?: string): { min?: number; max?: number } {
   switch (band) {
@@ -46,7 +56,12 @@ export const productRepository = {
     const where: Prisma.ProductWhereInput = { userId };
 
     if (filters.category) where.category = filters.category;
-    if (filters.brand) where.brand = filters.brand;
+    if (filters.brand) {
+      where.brand = { name: filters.brand };
+    }
+    if (filters.brandSlug) {
+      where.brand = { ...(where.brand as object), slug: filters.brandSlug };
+    }
     if (filters.store) where.store = filters.store;
     if (filters.color) where.color = filters.color;
     if (filters.size) where.size = filters.size;
@@ -54,29 +69,26 @@ export const productRepository = {
     if (filters.status) where.status = filters.status;
 
     if (filters.search) {
-      const q = filters.search.toLowerCase();
       where.OR = [
         { name: { contains: filters.search } },
-        { brand: { contains: filters.search } },
         { store: { contains: filters.search } },
+        { brand: { name: { contains: filters.search } } },
       ];
-      // SQLite: refine case-insensitively after query if needed
-      void q;
     }
 
-    // Fetch then filter by effective price / promo in memory for Decimal accuracy
-    // but still scoped by userId - for small/medium lists. For proper SQL we'd use raw.
-    // Given requirement for backend filtering, we apply price filters after load of user products
-    // matching basic where, then paginate.
-    const all = await prisma.product.findMany({ where, orderBy: { createdAt: "desc" } });
+    const all = await prisma.product.findMany({
+      where,
+      include: productInclude,
+      orderBy: { createdAt: "desc" },
+    });
 
     const band = bandRange(filters.priceBand);
     let list = all.filter((p) => {
       const original = Number(p.originalPrice);
-      const promo = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
+      const promo =
+        p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
       const price = effectivePrice(original, promo);
-      const hasPromo =
-        promo != null && promo > 0 && promo < original;
+      const hasPromo = promo != null && promo > 0 && promo < original;
 
       if (filters.promo === "com" && !hasPromo) return false;
       if (filters.promo === "sem" && hasPromo) return false;
@@ -118,9 +130,11 @@ export const productRepository = {
         case "nome":
           return a.name.localeCompare(b.name, "pt-BR");
         case "marca":
-          return a.brand.localeCompare(b.brand, "pt-BR");
+          return a.brand.name.localeCompare(b.brand.name, "pt-BR");
         case "prioridade":
-          return (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0);
+          return (
+            (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0)
+          );
         case "recentes":
         default:
           return b.createdAt.getTime() - a.createdAt.getTime();
@@ -143,15 +157,25 @@ export const productRepository = {
   },
 
   findById(id: string) {
-    return prisma.product.findUnique({ where: { id } });
+    return prisma.product.findUnique({
+      where: { id },
+      include: productInclude,
+    });
   },
 
   create(data: Prisma.ProductCreateInput) {
-    return prisma.product.create({ data });
+    return prisma.product.create({
+      data,
+      include: productInclude,
+    });
   },
 
   update(id: string, data: Prisma.ProductUpdateInput) {
-    return prisma.product.update({ where: { id }, data });
+    return prisma.product.update({
+      where: { id },
+      data,
+      include: productInclude,
+    });
   },
 
   delete(id: string) {
@@ -159,6 +183,29 @@ export const productRepository = {
   },
 
   findAllByUser(userId: string) {
-    return prisma.product.findMany({ where: { userId } });
+    return prisma.product.findMany({
+      where: { userId },
+      include: productInclude,
+    });
+  },
+
+  async replaceImages(
+    productId: string,
+    images: {
+      imageUrl: string;
+      imagePublicId: string;
+      position: number;
+      isMain: boolean;
+    }[],
+  ) {
+    await prisma.productImage.deleteMany({ where: { productId } });
+    if (!images.length) return [];
+    await prisma.productImage.createMany({
+      data: images.map((img) => ({ ...img, productId })),
+    });
+    return prisma.productImage.findMany({
+      where: { productId },
+      orderBy: { position: "asc" },
+    });
   },
 };

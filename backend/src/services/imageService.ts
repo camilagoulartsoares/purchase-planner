@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { cloudinary } from "../config/cloudinary.js";
 import { cloudinaryConfigured, env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
@@ -7,15 +10,26 @@ export type UploadedImage = {
   imagePublicId: string;
 };
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const uploadsDir = path.resolve(__dirname, "../../uploads");
+
+function ensureUploadsDir() {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+}
+
 export const imageService = {
   async upload(file: Express.Multer.File): Promise<UploadedImage> {
     if (!cloudinaryConfigured()) {
-      // Dev fallback: data URL not ideal for production; store a placeholder path marker
-      // Prefer configuring Cloudinary. For local demo without Cloudinary, use base64 data URI temporary.
-      const base64 = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+      ensureUploadsDir();
+      const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filename = `${Date.now()}-${safe}`;
+      const fullPath = path.join(uploadsDir, filename);
+      fs.writeFileSync(fullPath, file.buffer);
       return {
-        imageUrl: base64,
-        imagePublicId: `local/${Date.now()}-${file.originalname}`,
+        imageUrl: `/uploads/${filename}`,
+        imagePublicId: `local/${filename}`,
       };
     }
 
@@ -39,8 +53,22 @@ export const imageService = {
     });
   },
 
+  async uploadMany(files: Express.Multer.File[]): Promise<UploadedImage[]> {
+    const out: UploadedImage[] = [];
+    for (const file of files) {
+      out.push(await this.upload(file));
+    }
+    return out;
+  },
+
   async remove(publicId?: string | null) {
-    if (!publicId || publicId.startsWith("local/")) return;
+    if (!publicId) return;
+    if (publicId.startsWith("local/")) {
+      const filename = publicId.slice("local/".length);
+      const fullPath = path.join(uploadsDir, filename);
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+      return;
+    }
     if (!cloudinaryConfigured()) return;
     try {
       await cloudinary.uploader.destroy(publicId);
