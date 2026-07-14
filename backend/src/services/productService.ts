@@ -28,13 +28,18 @@ function serialize(product: ProductWithRelations | null) {
       ? Math.round(((original - promo) / original) * 100)
       : 0;
 
-  const images = (product.images || []).map((img) => ({
-    id: img.id,
-    imageUrl: img.imageUrl,
-    imagePublicId: img.imagePublicId,
-    position: img.position,
-    isMain: img.isMain,
-  }));
+  const images = (product.images || [])
+    .map((img) => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      imagePublicId: img.imagePublicId,
+      position: img.position,
+      isMain: img.isMain,
+    }))
+    .sort((a, b) => {
+      if (a.isMain !== b.isMain) return a.isMain ? -1 : 1;
+      return a.position - b.position;
+    });
 
   const main =
     images.find((i) => i.isMain) || images[0] || null;

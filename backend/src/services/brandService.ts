@@ -16,6 +16,15 @@ function priceOf(p: {
   return effectivePrice(o, pr);
 }
 
+function sortedImages<T extends { isMain: boolean; position: number }>(
+  images: T[],
+) {
+  return [...images].sort((a, b) => {
+    if (a.isMain !== b.isMain) return a.isMain ? -1 : 1;
+    return a.position - b.position;
+  });
+}
+
 function serializeBrand(
   brand: Awaited<ReturnType<typeof brandRepository.findBySlug>>,
   categoryFilter?: string,
@@ -70,51 +79,52 @@ function serializeBrand(
     minPrice: prices.length ? Math.min(...prices) : 0,
     maxPrice: prices.length ? Math.max(...prices) : 0,
     totalValue: prices.reduce((s, n) => s + n, 0),
-    products: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      brand: brand.name,
-      brandId: brand.id,
-      brandSlug: brand.slug,
-      store: p.store,
-      originalPrice: Number(p.originalPrice),
-      promotionalPrice:
-        p.promotionalPrice != null ? Number(p.promotionalPrice) : null,
-      purchaseUrl: p.purchaseUrl,
-      imageUrl:
-        p.images.find((i) => i.isMain)?.imageUrl ||
-        p.images[0]?.imageUrl ||
-        p.imageUrl,
-      images: p.images.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-        imagePublicId: img.imagePublicId,
-        position: img.position,
-        isMain: img.isMain,
-      })),
-      color: p.color,
-      size: p.size,
-      priority: p.priority,
-      status: p.status,
-      notes: p.notes,
-      isFavorite: Boolean((p as { isFavorite?: boolean }).isFavorite),
-      effectivePrice: priceOf(p),
-      discountPercent: (() => {
-        const o = Number(p.originalPrice);
-        const pr =
-          p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-        return pr != null && pr < o
-          ? Math.round(((o - pr) / o) * 100)
-          : 0;
-      })(),
-      hasPromo: (() => {
-        const o = Number(p.originalPrice);
-        const pr =
-          p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-        return pr != null && pr < o;
-      })(),
-    })),
+    products: products.map((p) => {
+      const images = sortedImages(p.images);
+
+      return {
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        brand: brand.name,
+        brandId: brand.id,
+        brandSlug: brand.slug,
+        store: p.store,
+        originalPrice: Number(p.originalPrice),
+        promotionalPrice:
+          p.promotionalPrice != null ? Number(p.promotionalPrice) : null,
+        purchaseUrl: p.purchaseUrl,
+        imageUrl: images[0]?.imageUrl || p.imageUrl,
+        images: images.map((img) => ({
+          id: img.id,
+          imageUrl: img.imageUrl,
+          imagePublicId: img.imagePublicId,
+          position: img.position,
+          isMain: img.isMain,
+        })),
+        color: p.color,
+        size: p.size,
+        priority: p.priority,
+        status: p.status,
+        notes: p.notes,
+        isFavorite: Boolean((p as { isFavorite?: boolean }).isFavorite),
+        effectivePrice: priceOf(p),
+        discountPercent: (() => {
+          const o = Number(p.originalPrice);
+          const pr =
+            p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
+          return pr != null && pr < o
+            ? Math.round(((o - pr) / o) * 100)
+            : 0;
+        })(),
+        hasPromo: (() => {
+          const o = Number(p.originalPrice);
+          const pr =
+            p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
+          return pr != null && pr < o;
+        })(),
+      };
+    }),
   };
 }
 

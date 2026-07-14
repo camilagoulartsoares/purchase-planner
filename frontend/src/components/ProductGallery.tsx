@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type TouchEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type TouchEvent, type MouseEvent } from "react";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import { mediaUrl } from "../types";
 
-type Img = { imageUrl: string; id?: string };
+type Img = { imageUrl: string; id?: string; isMain?: boolean; position?: number };
 
 type Props = {
   images: Img[];
@@ -12,7 +12,13 @@ type Props = {
 };
 
 export function ProductGallery({ images, alt, className = "", compact }: Props) {
-  const list = images.length ? images : [{ imageUrl: "" }];
+  const list = useMemo(() => {
+    if (!images.length) return [{ imageUrl: "" }];
+    return [...images].sort((a, b) => {
+      if (Boolean(a.isMain) !== Boolean(b.isMain)) return a.isMain ? -1 : 1;
+      return (a.position ?? 0) - (b.position ?? 0);
+    });
+  }, [images]);
   const [index, setIndex] = useState(0);
   const [zoomed, setZoomed] = useState(false);
   const touchX = useRef<number | null>(null);
