@@ -110,6 +110,7 @@ export function HomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [brands, setBrands] = useState<BrandSummary[]>([]);
   const [items, setItems] = useState<Product[]>([]);
+  const [plannerItems, setPlannerItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
   const [query, setQuery] = useState(emptyQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(emptyQuery);
@@ -129,13 +130,28 @@ export function HomePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p, b] = await Promise.all([
+      const fetchPlannerItems = async () => {
+        const first = await api.fetchProducts({ ...debouncedQuery, page: 1, perPage: 50 });
+        if (first.meta.totalPages <= 1) return first.items;
+
+        const rest = await Promise.all(
+          Array.from({ length: first.meta.totalPages - 1 }, (_, index) =>
+            api.fetchProducts({ ...debouncedQuery, page: index + 2, perPage: 50 }),
+          ),
+        );
+
+        return [...first.items, ...rest.flatMap((page) => page.items)];
+      };
+
+      const [s, p, b, plannerProducts] = await Promise.all([
         api.fetchSummary(),
         api.fetchProducts(debouncedQuery),
         api.fetchBrands(),
+        fetchPlannerItems(),
       ]);
       setSummary(s);
       setItems(p.items);
+      setPlannerItems(plannerProducts);
       setMeta(p.meta);
       setBrands(b);
     } catch {
@@ -184,7 +200,7 @@ export function HomePage() {
   const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
 
   const planner = useMemo(() => {
-    const wanted = items.filter((item) => item.status !== "Já comprei" && item.status !== "Desisti da compra");
+    const wanted = plannerItems.filter((item) => item.status !== "Já comprei" && item.status !== "Desisti da compra");
     const total = wanted.reduce((sum, item) => sum + item.effectivePrice, 0);
     const onBudget = wanted
       .filter((item) => item.effectivePrice <= monthlyBudget)
@@ -217,7 +233,7 @@ export function HomePage() {
       budgetUse,
       withinBudgetCount: onBudget.length,
     };
-  }, [items, monthlyBudget]);
+  }, [plannerItems, monthlyBudget]);
 
   const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
   const sortOptions = [
