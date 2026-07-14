@@ -86,6 +86,35 @@ describe("API Closet", () => {
     );
   });
 
+  it("filtra produtos favoritos", async () => {
+    const before = await request(app)
+      .get("/api/products")
+      .query({ favorite: "true" })
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(before.status).toBe(200);
+    expect(before.body.data.items.some((i: { id: string }) => i.id === productId)).toBe(
+      false,
+    );
+
+    const toggled = await request(app)
+      .patch(`/api/products/${productId}/favorite`)
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(toggled.status).toBe(200);
+    expect(toggled.body.data.isFavorite).toBe(true);
+
+    const after = await request(app)
+      .get("/api/products")
+      .query({ favorite: "true" })
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(after.status).toBe(200);
+    expect(after.body.data.items.some((i: { id: string }) => i.id === productId)).toBe(
+      true,
+    );
+  });
+
   it("impede acesso ao produto de outro usuário", async () => {
     const res = await request(app)
       .get(`/api/products/${productId}`)

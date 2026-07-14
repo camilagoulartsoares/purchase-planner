@@ -73,6 +73,15 @@ body {
   border: 1px solid var(--line); font-size: .75rem; padding: .5rem .85rem; cursor: pointer;
 }
 .btn-ghost:hover { border-color: var(--rose); color: var(--rose-deep); }
+.filter-chip-active {
+  border-color: var(--rose);
+  background: var(--rose);
+  color: #fff;
+}
+.filter-chip-active:hover {
+  background: var(--rose-deep);
+  color: #fff;
+}
 .filter-input,
 .select-pretty-trigger {
   width: 100%;

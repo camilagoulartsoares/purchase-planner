@@ -34,6 +34,16 @@ const optionalQueryNumber = z.preprocess(
   z.number().optional(),
 );
 
+const optionalQueryBoolean = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return undefined;
+    if (value === "true" || value === true) return true;
+    if (value === "false" || value === false) return false;
+    return value;
+  },
+  z.boolean().optional(),
+);
+
 export const registerSchema = z.object({
   name: z.string().min(2, "Nome muito curto"),
   email: z.string().email("E-mail inválido"),
@@ -91,6 +101,7 @@ export const productQuerySchema = z.object({
   size: z.string().optional(),
   priority: z.string().optional(),
   status: z.string().optional(),
+  favorite: optionalQueryBoolean,
   promo: z.enum(["com", "sem", ""]).optional(),
   minPrice: optionalQueryNumber,
   maxPrice: optionalQueryNumber,

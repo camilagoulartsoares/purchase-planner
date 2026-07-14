@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, Gem, PiggyBank, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Gem, Heart, PiggyBank, SlidersHorizontal, Sparkles } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
@@ -23,6 +23,7 @@ const emptyQuery = {
   size: "",
   priority: "",
   status: "Quero comprar",
+  favorite: false,
   promo: "",
   minPrice: "",
   maxPrice: "",
@@ -432,6 +433,15 @@ export function HomePage() {
             options={sortOptions}
             className="min-w-[160px]"
           />
+          <button
+            type="button"
+            className={`btn-ghost ${query.favorite ? "filter-chip-active" : ""}`}
+            onClick={() => patch({ favorite: !query.favorite })}
+            aria-pressed={query.favorite}
+          >
+            <Heart size={14} className={query.favorite ? "fill-white" : ""} />
+            Favoritos
+          </button>
           <button
             className="btn-ghost"
             onClick={resetFilters}

@@ -97,6 +97,7 @@ export type ProductQuery = {
   size?: string;
   priority?: string;
   status?: string;
+  favorite?: boolean;
   promo?: string;
   minPrice?: string;
   maxPrice?: string;

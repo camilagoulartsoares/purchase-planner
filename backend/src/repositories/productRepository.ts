@@ -12,6 +12,7 @@ export type ProductFilters = {
   size?: string;
   priority?: string;
   status?: string;
+  favorite?: boolean;
   promo?: "com" | "sem" | "";
   minPrice?: number;
   maxPrice?: number;
@@ -67,6 +68,7 @@ export const productRepository = {
     if (filters.size) where.size = filters.size;
     if (filters.priority) where.priority = filters.priority;
     if (filters.status) where.status = filters.status;
+    if (filters.favorite) where.isFavorite = true;
 
     if (filters.search) {
       const contains = { contains: filters.search, mode: "insensitive" as const };
