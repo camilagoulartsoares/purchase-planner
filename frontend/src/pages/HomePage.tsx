@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Check, ChevronDown, Gem, PiggyBank, SlidersHorizontal, Sparkles } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
@@ -35,6 +35,13 @@ const VISIBLE_STATUSES = STATUSES.filter((s) => s !== "Esperando promoção");
 const MIN_FILTER_PRICE = 0;
 const MAX_FILTER_PRICE = 2000;
 const PRICE_STEP = 10;
+const DEFAULT_BUDGET = 400;
+
+const priorityScore: Record<string, number> = {
+  "Quero muito": 3,
+  Quero: 2,
+  Talvez: 1,
+};
 
 function SelectField({
   value,
@@ -114,6 +121,10 @@ export function HomePage() {
   const [paid, setPaid] = useState("");
   const [buyDate, setBuyDate] = useState(new Date().toISOString().slice(0, 10));
   const [buyNotes, setBuyNotes] = useState("");
+  const [monthlyBudget, setMonthlyBudget] = useState(() => {
+    const stored = window.localStorage.getItem("purchase-planner-budget");
+    return stored ? Number(stored) || DEFAULT_BUDGET : DEFAULT_BUDGET;
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,6 +160,10 @@ export function HomePage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  useEffect(() => {
+    window.localStorage.setItem("purchase-planner-budget", String(monthlyBudget));
+  }, [monthlyBudget]);
+
   const patch = (partial: Partial<typeof query>) =>
     setQuery((q) => ({ ...q, ...partial, page: partial.page ?? 1 }));
 
@@ -167,6 +182,42 @@ export function HomePage() {
 
   const priceStart = ((priceMin - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
   const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
+
+  const planner = useMemo(() => {
+    const wanted = items.filter((item) => item.status !== "Já comprei" && item.status !== "Desisti da compra");
+    const total = wanted.reduce((sum, item) => sum + item.effectivePrice, 0);
+    const onBudget = wanted
+      .filter((item) => item.effectivePrice <= monthlyBudget)
+      .sort((a, b) => {
+        const aScore =
+          (priorityScore[a.priority] || 0) * 100 +
+          a.discountPercent * 2 +
+          (a.isFavorite ? 25 : 0) -
+          a.effectivePrice / 30;
+        const bScore =
+          (priorityScore[b.priority] || 0) * 100 +
+          b.discountPercent * 2 +
+          (b.isFavorite ? 25 : 0) -
+          b.effectivePrice / 30;
+        return bScore - aScore;
+      });
+    const topPick = onBudget[0] || wanted[0] || null;
+    const categories = wanted.reduce<Record<string, number>>((acc, item) => {
+      acc[item.category] = (acc[item.category] || 0) + item.effectivePrice;
+      return acc;
+    }, {});
+    const focusCategory = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+    const budgetUse = monthlyBudget > 0 ? Math.min(100, (total / monthlyBudget) * 100) : 100;
+
+    return {
+      wantedCount: wanted.length,
+      total,
+      topPick,
+      focusCategory,
+      budgetUse,
+      withinBudgetCount: onBudget.length,
+    };
+  }, [items, monthlyBudget]);
 
   const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
   const sortOptions = [
@@ -250,6 +301,84 @@ export function HomePage() {
           ))}
         </section>
       ) : null}
+
+      <section className="planner-panel mb-6">
+        <div className="planner-panel-main">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="planner-kicker">
+                <Sparkles size={15} /> Planejador inteligente
+              </p>
+              <h2 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
+                {planner.topPick ? "A compra que mais faz sentido agora" : "Sua próxima compra começa aqui"}
+              </h2>
+            </div>
+            <div className="planner-budget-control">
+              <label htmlFor="monthly-budget">Orçamento</label>
+              <input
+                id="monthly-budget"
+                type="number"
+                min="0"
+                step="25"
+                value={monthlyBudget}
+                onChange={(event) => setMonthlyBudget(Math.max(0, Number(event.target.value) || 0))}
+              />
+            </div>
+          </div>
+
+          {planner.topPick ? (
+            <div className="planner-pick">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.1em] text-muted uppercase">
+                  {planner.topPick.brand} · {planner.topPick.category}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-ink">{planner.topPick.name}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {planner.topPick.priority} por {formatBRL(planner.topPick.effectivePrice)}
+                  {planner.topPick.discountPercent > 0
+                    ? `, com ${planner.topPick.discountPercent}% de desconto`
+                    : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setBuying(planner.topPick);
+                  setPaid(String(planner.topPick.effectivePrice));
+                }}
+              >
+                Registrar compra
+              </button>
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-muted">
+              Quando houver peças na lista, este painel aponta a melhor compra dentro do seu orçamento.
+            </p>
+          )}
+        </div>
+
+        <div className="planner-panel-side">
+          <article>
+            <span><PiggyBank size={16} /> Lista atual</span>
+            <strong>{formatBRL(planner.total)}</strong>
+            <div className="planner-meter" aria-hidden="true">
+              <span style={{ width: `${planner.budgetUse}%` }} />
+            </div>
+          </article>
+          <article>
+            <span><Gem size={16} /> Cabem no orçamento</span>
+            <strong>
+              {planner.withinBudgetCount} de {planner.wantedCount}
+            </strong>
+            <small>
+              {planner.focusCategory
+                ? `${planner.focusCategory[0]} concentra ${formatBRL(planner.focusCategory[1])}`
+                : "Sem categoria dominante ainda"}
+            </small>
+          </article>
+        </div>
+      </section>
 
       <div className="mb-4 flex gap-2 overflow-x-auto">
         {VISIBLE_STATUSES.map((s) => (

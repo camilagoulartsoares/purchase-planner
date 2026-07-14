@@ -248,6 +248,112 @@ body {
   font-size: .72rem;
   font-weight: 700;
 }
+.planner-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(17rem, .55fr);
+  gap: .9rem;
+}
+.planner-panel-main,
+.planner-panel-side article {
+  border: 1px solid rgba(69, 128, 119, .22);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255,252,249,.94), rgba(239,248,245,.9)),
+    var(--surface);
+  box-shadow: 0 18px 42px rgba(64, 93, 88, .11);
+}
+.planner-panel-main {
+  padding: 1.1rem;
+}
+.planner-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  color: #3e8076;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.planner-budget-control {
+  display: grid;
+  gap: .25rem;
+  min-width: 8.5rem;
+}
+.planner-budget-control label {
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.planner-budget-control input {
+  width: 100%;
+  border: 1px solid rgba(69, 128, 119, .32);
+  border-radius: 8px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+  font-weight: 800;
+  padding: .65rem .75rem;
+  outline: none;
+}
+.planner-budget-control input:focus {
+  border-color: #3e8076;
+  box-shadow: 0 0 0 3px rgba(62,128,118,.13);
+}
+.planner-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  border-radius: 8px;
+  background: rgba(255,255,255,.72);
+  padding: .9rem;
+}
+.planner-panel-side {
+  display: grid;
+  gap: .9rem;
+}
+.planner-panel-side article {
+  display: grid;
+  align-content: start;
+  gap: .55rem;
+  padding: 1rem;
+}
+.planner-panel-side span {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  color: #3e8076;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.planner-panel-side strong {
+  color: var(--brown-deep);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.planner-panel-side small {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.35;
+}
+.planner-meter {
+  height: .45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(69,128,119,.13);
+}
+.planner-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3e8076, #b76e79);
+}
 .favorite-btn {
   display: grid;
   width: 2.25rem;
@@ -300,4 +406,24 @@ body {
 }
 .field input:focus, .field select:focus, .field textarea:focus {
   border-color: var(--rose); box-shadow: 0 0 0 3px rgba(183,110,121,.12);
+}
+
+@media (max-width: 900px) {
+  .planner-panel {
+    grid-template-columns: 1fr;
+  }
+  .planner-panel-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .planner-panel-main > div:first-child,
+  .planner-pick {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .planner-panel-side {
+    grid-template-columns: 1fr;
+  }
 }
