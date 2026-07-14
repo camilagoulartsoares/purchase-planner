@@ -201,19 +201,19 @@ export function HomePage() {
           b.effectivePrice / 30;
         return bScore - aScore;
       });
-    const topPick = onBudget[0] || wanted[0] || null;
-    const categories = wanted.reduce<Record<string, number>>((acc, item) => {
-      acc[item.category] = (acc[item.category] || 0) + item.effectivePrice;
-      return acc;
-    }, {});
-    const focusCategory = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+    const topPick = onBudget[0] || null;
+    const cheapest = wanted.length
+      ? wanted.reduce((current, item) =>
+          item.effectivePrice < current.effectivePrice ? item : current,
+        )
+      : null;
     const budgetUse = monthlyBudget > 0 ? Math.min(100, (total / monthlyBudget) * 100) : 100;
 
     return {
       wantedCount: wanted.length,
       total,
       topPick,
-      focusCategory,
+      cheapest,
       budgetUse,
       withinBudgetCount: onBudget.length,
     };
@@ -310,7 +310,9 @@ export function HomePage() {
                 <Sparkles size={15} /> Planejador inteligente
               </p>
               <h2 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
-                {planner.topPick ? "A compra que mais faz sentido agora" : "Sua próxima compra começa aqui"}
+                {planner.topPick
+                  ? "A compra que mais faz sentido agora"
+                  : `Nada até ${formatBRL(monthlyBudget)}`}
               </h2>
             </div>
             <div className="planner-budget-control">
@@ -353,7 +355,9 @@ export function HomePage() {
             </div>
           ) : (
             <p className="mt-5 text-sm text-muted">
-              Quando houver peças na lista, este painel aponta a melhor compra dentro do seu orçamento.
+              {planner.cheapest
+                ? `A peça mais barata da lista custa ${formatBRL(planner.cheapest.effectivePrice)}. Aumente o orçamento para ver uma sugestão.`
+                : "Quando houver peças na lista, este painel aponta a melhor compra dentro do seu orçamento."}
             </p>
           )}
         </div>
@@ -372,9 +376,9 @@ export function HomePage() {
               {planner.withinBudgetCount} de {planner.wantedCount}
             </strong>
             <small>
-              {planner.focusCategory
-                ? `${planner.focusCategory[0]} concentra ${formatBRL(planner.focusCategory[1])}`
-                : "Sem categoria dominante ainda"}
+              {planner.withinBudgetCount > 0
+                ? `Até ${formatBRL(monthlyBudget)}, com base na lista atual`
+                : `Nenhuma peça até ${formatBRL(monthlyBudget)}`}
             </small>
           </article>
         </div>
