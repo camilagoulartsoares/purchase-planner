@@ -335,11 +335,14 @@ export function HomePage() {
               <label htmlFor="monthly-budget">Orçamento</label>
               <input
                 id="monthly-budget"
-                type="number"
-                min="0"
-                step="25"
-                value={monthlyBudget}
-                onChange={(event) => setMonthlyBudget(Math.max(0, Number(event.target.value) || 0))}
+                type="text"
+                inputMode="numeric"
+                value={String(monthlyBudget)}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, "");
+                  const normalized = digits.replace(/^0+(?=\d)/, "");
+                  setMonthlyBudget(normalized ? Number(normalized) : 0);
+                }}
               />
             </div>
           </div>
