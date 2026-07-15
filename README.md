@@ -29,6 +29,7 @@ Deploy: https://purchase-planner.vercel.app
 - Favoritos e status.
 - Filtros, busca e ordenação.
 - Planejador inteligente de próxima compra.
+- Combo sugerido com a melhor combinação de peças dentro do orçamento.
 - Skeleton loading.
 - API com persistência em PostgreSQL.
 - Upload de imagens com Cloudinary.
@@ -47,8 +48,9 @@ Passo a passo do que ele faz:
 5. Ele dá mais peso para peças com prioridade alta, favoritas e com desconto.
 6. Ele escolhe uma peça como recomendação principal em **A compra que mais faz sentido agora**.
 7. Se você concordar com a sugestão, pode clicar em **Registrar compra** direto pelo painel.
-8. O painel também mostra o valor total da lista atual e uma barra visual para comparar esse total com o orçamento.
-9. Ele mostra quantas peças cabem no orçamento.
-10. Ele aponta qual categoria está concentrando mais dinheiro, por exemplo vestidos, calças ou bolsas.
+8. Quando mais de uma peça faz sentido, ele monta um **Combo sugerido** com a melhor combinação dentro do orçamento.
+9. O combo mostra o valor total planejado, quanto sobra do orçamento e as principais peças escolhidas.
+10. O painel também mostra o valor total da lista atual e uma barra visual para comparar esse total com o orçamento.
+11. Ele mostra quantas peças cabem no orçamento.
 
-Em resumo: antes o app mostrava a wishlist; agora ele também ajuda a tomar uma decisão de compra mais organizada.
+Em resumo: antes o app mostrava a wishlist; agora ele também ajuda a tomar uma decisão de compra mais organizada, incluindo uma sugestão principal e um combo otimizado para aproveitar melhor o orçamento.
