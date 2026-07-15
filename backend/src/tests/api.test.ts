@@ -136,15 +136,15 @@ describe("API Closet", () => {
       store: "Loja Y",
       originalPrice: "260",
       promotionalPrice: "200",
-      shippingPrice: "25",
+      shippingPrice: "25,22",
       priority: "Quero",
       status: "Quero comprar",
     });
 
     expect(created.status).toBe(201);
     expect(created.body.data).toMatchObject({
-      shippingPrice: 25,
-      effectivePrice: 225,
+      shippingPrice: 25.22,
+      effectivePrice: 225.22,
       discountPercent: 23,
     });
   });
@@ -159,7 +159,7 @@ describe("API Closet", () => {
       wantCount: 3,
       boughtCount: 0,
       waitingCount: 0,
-      wishTotal: 555,
+      wishTotal: 555.22,
       spentTotal: 0,
       savedTotal: 190,
       counts: {
@@ -227,7 +227,7 @@ describe("API Closet", () => {
     expect(summary.body.data).toMatchObject({
       wantCount: 2,
       boughtCount: 1,
-      wishTotal: 405,
+      wishTotal: 405.22,
       spentTotal: 140,
       savedTotal: 190,
       counts: {

@@ -14,6 +14,28 @@ type Props = {
   onSave: (form: FormData, id?: string) => Promise<void>;
 };
 
+const moneyFields = ["originalPrice", "promotionalPrice", "shippingPrice"] as const;
+
+function sanitizeMoneyInput(value: string) {
+  return value
+    .replace(/[^\d,.]/g, "")
+    .replace(/([,.])(?=.*[,.])/g, "");
+}
+
+function normalizeMoney(value: string) {
+  const raw = sanitizeMoneyInput(value);
+  if (!raw) return "";
+  const comma = raw.lastIndexOf(",");
+  const dot = raw.lastIndexOf(".");
+  const separator = comma > dot ? "," : dot > -1 ? "." : "";
+  if (!separator) return raw.replace(/[,.]/g, "");
+
+  const index = raw.lastIndexOf(separator);
+  const integer = raw.slice(0, index).replace(/[,.]/g, "");
+  const decimal = raw.slice(index + 1);
+  return `${integer || "0"}.${decimal}`;
+}
+
 function ModalSelect({
   label,
   value,
@@ -192,6 +214,10 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
     );
   };
 
+  const setMoney = (field: (typeof moneyFields)[number], value: string) => {
+    setForm((current) => ({ ...current, [field]: sanitizeMoneyInput(value) }));
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.brand.trim() || !form.store.trim() || !form.originalPrice) {
@@ -206,10 +232,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
     setError("");
     try {
       const fd = new FormData();
-      const normalizeMoney = (v: string) =>
-        v.trim() ? v.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".") : v;
       Object.entries(form).forEach(([k, v]) => {
-        if (k === "originalPrice" || k === "promotionalPrice" || k === "shippingPrice") {
+        if ((moneyFields as readonly string[]).includes(k)) {
           fd.append(k, normalizeMoney(v));
         } else {
           fd.append(k, v);
@@ -280,23 +304,26 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <label className="field">
             <span>Preço original</span>
             <input
+              inputMode="decimal"
               value={form.originalPrice}
-              onChange={(e) => setForm({ ...form, originalPrice: e.target.value })}
+              onChange={(e) => setMoney("originalPrice", e.target.value)}
             />
           </label>
           <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
             <label className="field">
               <span>Preço atual / promo</span>
               <input
+                inputMode="decimal"
                 value={form.promotionalPrice}
-                onChange={(e) => setForm({ ...form, promotionalPrice: e.target.value })}
+                onChange={(e) => setMoney("promotionalPrice", e.target.value)}
               />
             </label>
             <label className="field">
               <span>Frete</span>
               <input
+                inputMode="decimal"
                 value={form.shippingPrice}
-                onChange={(e) => setForm({ ...form, shippingPrice: e.target.value })}
+                onChange={(e) => setMoney("shippingPrice", e.target.value)}
               />
             </label>
           </div>

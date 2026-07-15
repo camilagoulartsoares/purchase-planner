@@ -65,7 +65,15 @@ export function isHttpUrl(value: string) {
 export function toNumber(value: unknown): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
-    const cleaned = value.replace(/[R$\s.]/g, "").replace(",", ".");
+    const raw = value.replace(/[R$\s]/g, "");
+    const comma = raw.lastIndexOf(",");
+    const dot = raw.lastIndexOf(".");
+    const decimalSeparator = comma > dot ? "," : dot > -1 ? "." : "";
+    const cleaned = decimalSeparator
+      ? `${raw
+          .slice(0, raw.lastIndexOf(decimalSeparator))
+          .replace(/[.,]/g, "")}.${raw.slice(raw.lastIndexOf(decimalSeparator) + 1)}`
+      : raw.replace(/[.,]/g, "");
     const n = Number(cleaned);
     return Number.isFinite(n) ? n : NaN;
   }
