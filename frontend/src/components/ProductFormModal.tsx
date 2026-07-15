@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Star, X } from "lucide-react";
+import { Check, ChevronDown, Star, X } from "lucide-react";
 import { CATEGORIES, PRIORITIES, STATUSES, mediaUrl, type Product } from "../types";
 
 type GalleryItem =
@@ -13,6 +13,66 @@ type Props = {
   onClose: () => void;
   onSave: (form: FormData, id?: string) => Promise<void>;
 };
+
+function ModalSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div className="modal-select" ref={ref}>
+      <span>{label}</span>
+      <button
+        type="button"
+        className="modal-select-trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{value}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="modal-select-menu" role="listbox">
+          {options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`modal-select-option ${option === value ? "is-selected" : ""}`}
+              onClick={() => {
+                onChange(option);
+                setOpen(false);
+              }}
+              role="option"
+              aria-selected={option === value}
+            >
+              <span>{option}</span>
+              {option === value ? <Check size={14} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
@@ -203,16 +263,12 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <span>Marca</span>
             <input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
           </label>
-          <label className="field">
-            <span>Categoria</span>
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ModalSelect
+            label="Categoria"
+            value={form.category}
+            options={CATEGORIES}
+            onChange={(category) => setForm({ ...form, category })}
+          />
           <label className="field">
             <span>Loja</span>
             <input value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
@@ -246,26 +302,18 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <span>Tamanho</span>
             <input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
           </label>
-          <label className="field">
-            <span>Prioridade</span>
-            <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Status</span>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ModalSelect
+            label="Prioridade"
+            value={form.priority}
+            options={PRIORITIES}
+            onChange={(priority) => setForm({ ...form, priority })}
+          />
+          <ModalSelect
+            label="Status"
+            value={form.status}
+            options={STATUSES}
+            onChange={(status) => setForm({ ...form, status })}
+          />
           <label className="field sm:col-span-2">
             <span>Observações</span>
             <textarea
