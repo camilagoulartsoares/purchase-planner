@@ -54,6 +54,8 @@ function serialize(product: ProductWithRelations | null) {
     store: product.store,
     originalPrice: original,
     promotionalPrice: promo,
+    shippingPrice:
+      product.shippingPrice != null ? Number(product.shippingPrice) : null,
     purchaseUrl: product.purchaseUrl,
     imageUrl: main?.imageUrl || product.imageUrl,
     color: product.color,
@@ -125,6 +127,10 @@ export const productService = {
       promotionalPrice:
         data.promotionalPrice != null && data.promotionalPrice !== ""
           ? Number(data.promotionalPrice)
+          : null,
+      shippingPrice:
+        data.shippingPrice != null && data.shippingPrice !== ""
+          ? Number(data.shippingPrice)
           : null,
       purchaseUrl: data.purchaseUrl ? String(data.purchaseUrl) : null,
       color: data.color ? String(data.color) : null,
@@ -252,6 +258,10 @@ export const productService = {
           data.promotionalPrice != null && data.promotionalPrice !== ""
             ? Number(data.promotionalPrice)
             : null,
+        shippingPrice:
+          data.shippingPrice != null && data.shippingPrice !== ""
+            ? Number(data.shippingPrice)
+            : null,
         purchaseUrl: data.purchaseUrl ? String(data.purchaseUrl) : null,
         color: data.color ? String(data.color) : null,
         size: data.size ? String(data.size) : null,
@@ -297,6 +307,10 @@ export const productService = {
       promotionalPrice:
         data.promotionalPrice != null && data.promotionalPrice !== ""
           ? Number(data.promotionalPrice)
+          : null,
+      shippingPrice:
+        data.shippingPrice != null && data.shippingPrice !== ""
+          ? Number(data.shippingPrice)
           : null,
       purchaseUrl: data.purchaseUrl ? String(data.purchaseUrl) : null,
       color: data.color ? String(data.color) : null,

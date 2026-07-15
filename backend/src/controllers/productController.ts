@@ -19,6 +19,10 @@ function parseBody(raw: Record<string, unknown>) {
       raw.promotionalPrice === "" || raw.promotionalPrice == null
         ? null
         : raw.promotionalPrice,
+    shippingPrice:
+      raw.shippingPrice === "" || raw.shippingPrice == null
+        ? null
+        : raw.shippingPrice,
     purchaseUrl:
       raw.purchaseUrl === "" || raw.purchaseUrl == null
         ? null

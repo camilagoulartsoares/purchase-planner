@@ -25,6 +25,15 @@ const optionalMoney = z.preprocess(
   z.number().positive().optional().nullable(),
 );
 
+const optionalNonNegativeMoney = z.preprocess(
+  (value) => {
+    if (value === "" || value == null) return null;
+    const n = toNumber(value);
+    return Number.isFinite(n) ? n : value;
+  },
+  z.number().nonnegative().optional().nullable(),
+);
+
 const optionalQueryNumber = z.preprocess(
   (value) => {
     if (value === "" || value == null) return undefined;
@@ -63,6 +72,7 @@ export const productBodySchema = z
     store: z.string().min(1),
     originalPrice: money,
     promotionalPrice: optionalMoney,
+    shippingPrice: optionalNonNegativeMoney,
     purchaseUrl: z
       .string()
       .optional()

@@ -93,6 +93,8 @@ function serializeBrand(
         originalPrice: Number(p.originalPrice),
         promotionalPrice:
           p.promotionalPrice != null ? Number(p.promotionalPrice) : null,
+        shippingPrice:
+          p.shippingPrice != null ? Number(p.shippingPrice) : null,
         purchaseUrl: p.purchaseUrl,
         imageUrl: images[0]?.imageUrl || p.imageUrl,
         images: images.map((img) => ({

@@ -45,6 +45,7 @@ export type Product = {
   store: string;
   originalPrice: number;
   promotionalPrice: number | null;
+  shippingPrice: number | null;
   purchaseUrl?: string | null;
   imageUrl?: string | null;
   images?: ProductImage[];

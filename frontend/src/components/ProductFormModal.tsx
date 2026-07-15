@@ -85,6 +85,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
     store: "",
     originalPrice: "",
     promotionalPrice: "",
+    shippingPrice: "",
     purchaseUrl: "",
     color: "",
     size: "",
@@ -104,6 +105,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         originalPrice: String(initial.originalPrice),
         promotionalPrice:
           initial.promotionalPrice != null ? String(initial.promotionalPrice) : "",
+        shippingPrice:
+          initial.shippingPrice != null ? String(initial.shippingPrice) : "",
         purchaseUrl: initial.purchaseUrl || "",
         color: initial.color || "",
         size: initial.size || "",
@@ -140,6 +143,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         store: "",
         originalPrice: "",
         promotionalPrice: "",
+        shippingPrice: "",
         purchaseUrl: "",
         color: "",
         size: "",
@@ -205,7 +209,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       const normalizeMoney = (v: string) =>
         v.trim() ? v.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".") : v;
       Object.entries(form).forEach(([k, v]) => {
-        if (k === "originalPrice" || k === "promotionalPrice") {
+        if (k === "originalPrice" || k === "promotionalPrice" || k === "shippingPrice") {
           fd.append(k, normalizeMoney(v));
         } else {
           fd.append(k, v);
@@ -280,13 +284,22 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
               onChange={(e) => setForm({ ...form, originalPrice: e.target.value })}
             />
           </label>
-          <label className="field">
-            <span>Preço atual / promo</span>
-            <input
-              value={form.promotionalPrice}
-              onChange={(e) => setForm({ ...form, promotionalPrice: e.target.value })}
-            />
-          </label>
+          <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+            <label className="field">
+              <span>Preço atual / promo</span>
+              <input
+                value={form.promotionalPrice}
+                onChange={(e) => setForm({ ...form, promotionalPrice: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>Frete</span>
+              <input
+                value={form.shippingPrice}
+                onChange={(e) => setForm({ ...form, shippingPrice: e.target.value })}
+              />
+            </label>
+          </div>
           <label className="field sm:col-span-2">
             <span>Link para compra</span>
             <input

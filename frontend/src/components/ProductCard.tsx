@@ -82,6 +82,11 @@ export function ProductCard({
             <p className="mt-1 text-lg font-semibold text-ink">
               {formatBRL(product.effectivePrice)}
             </p>
+            {product.shippingPrice != null ? (
+              <p className="mt-1 text-xs font-semibold text-muted">
+                Frete {formatBRL(product.shippingPrice)}
+              </p>
+            ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>
           </div>
 

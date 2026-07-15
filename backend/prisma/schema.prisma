@@ -46,6 +46,7 @@ model Product {
   store            String
   originalPrice    Decimal
   promotionalPrice Decimal?
+  shippingPrice    Decimal?
   purchaseUrl      String?
   imageUrl         String?
   imagePublicId    String?

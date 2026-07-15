@@ -88,12 +88,23 @@ export function ProductDetailPage() {
           </p>
           <h1 className="font-display mt-2 text-4xl font-semibold text-brown-deep">{product.name}</h1>
           <p className="mt-3 text-2xl font-semibold">{formatBRL(product.effectivePrice)}</p>
+          {product.shippingPrice != null ? (
+            <p className="mt-1 text-sm font-semibold text-muted">
+              Frete {formatBRL(product.shippingPrice)}
+            </p>
+          ) : null}
 
           <dl className="mt-6 grid gap-3 text-sm">
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-muted">Loja</dt>
               <dd>{product.store}</dd>
             </div>
+            {product.shippingPrice != null ? (
+              <div className="flex justify-between border-b border-line py-2">
+                <dt className="text-muted">Frete</dt>
+                <dd>{formatBRL(product.shippingPrice)}</dd>
+              </div>
+            ) : null}
             {product.color ? (
               <div className="flex justify-between border-b border-line py-2">
                 <dt className="text-muted">Cor</dt>
