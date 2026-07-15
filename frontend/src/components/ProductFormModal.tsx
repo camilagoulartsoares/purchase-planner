@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, ChevronDown, Star, X } from "lucide-react";
-import { CATEGORIES, PRIORITIES, STATUSES, mediaUrl, type Product } from "../types";
+import { CATEGORIES, PRIORITIES, STATUSES, formatBRL, mediaUrl, type Product } from "../types";
 
 type GalleryItem =
   | { kind: "existing"; id: string; url: string; isMain: boolean }
@@ -34,6 +34,13 @@ function normalizeMoney(value: string) {
   const integer = raw.slice(0, index).replace(/[,.]/g, "");
   const decimal = raw.slice(index + 1);
   return `${integer || "0"}.${decimal}`;
+}
+
+function moneyNumber(value: string) {
+  const normalized = normalizeMoney(value);
+  if (!normalized) return 0;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function ModalSelect({
@@ -218,6 +225,16 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
     setForm((current) => ({ ...current, [field]: sanitizeMoneyInput(value) }));
   };
 
+  const originalPrice = moneyNumber(form.originalPrice);
+  const promotionalPrice = moneyNumber(form.promotionalPrice);
+  const shippingPrice = moneyNumber(form.shippingPrice);
+  const basePrice =
+    promotionalPrice > 0 && originalPrice > 0 && promotionalPrice < originalPrice
+      ? promotionalPrice
+      : originalPrice;
+  const totalWithShipping = basePrice + shippingPrice;
+  const showTotalPreview = basePrice > 0 || shippingPrice > 0;
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.brand.trim() || !form.store.trim() || !form.originalPrice) {
@@ -304,7 +321,11 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <label className="field">
             <span>Preço original</span>
             <input
+              type="text"
               inputMode="decimal"
+              pattern="[0-9.,]*"
+              autoComplete="off"
+              placeholder="Ex: 129,90"
               value={form.originalPrice}
               onChange={(e) => setMoney("originalPrice", e.target.value)}
             />
@@ -313,7 +334,11 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <label className="field">
               <span>Preço atual / promo</span>
               <input
+                type="text"
                 inputMode="decimal"
+                pattern="[0-9.,]*"
+                autoComplete="off"
+                placeholder="Ex: 99,90"
                 value={form.promotionalPrice}
                 onChange={(e) => setMoney("promotionalPrice", e.target.value)}
               />
@@ -321,12 +346,22 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <label className="field">
               <span>Frete</span>
               <input
+                type="text"
                 inputMode="decimal"
+                pattern="[0-9.,]*"
+                autoComplete="off"
+                placeholder="Ex: 25,22"
                 value={form.shippingPrice}
                 onChange={(e) => setMoney("shippingPrice", e.target.value)}
               />
             </label>
           </div>
+          {showTotalPreview ? (
+            <div className="price-total-preview sm:col-span-2">
+              <span>Total com frete</span>
+              <strong>{formatBRL(totalWithShipping)}</strong>
+            </div>
+          ) : null}
           <label className="field sm:col-span-2">
             <span>Link para compra</span>
             <input
