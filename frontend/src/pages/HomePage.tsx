@@ -44,6 +44,12 @@ const priorityScore: Record<string, number> = {
   Talvez: 1,
 };
 
+const plannerItemScore = (item: Product) =>
+  (priorityScore[item.priority] || 0) * 1000 +
+  item.discountPercent * 12 +
+  (item.isFavorite ? 180 : 0) +
+  Math.max(0, 220 - item.effectivePrice / 5);
+
 function SelectField({
   value,
   onChange,
@@ -206,30 +212,51 @@ export function HomePage() {
     const onBudget = wanted
       .filter((item) => item.effectivePrice <= monthlyBudget)
       .sort((a, b) => {
-        const aScore =
-          (priorityScore[a.priority] || 0) * 100 +
-          a.discountPercent * 2 +
-          (a.isFavorite ? 25 : 0) -
-          a.effectivePrice / 30;
-        const bScore =
-          (priorityScore[b.priority] || 0) * 100 +
-          b.discountPercent * 2 +
-          (b.isFavorite ? 25 : 0) -
-          b.effectivePrice / 30;
-        return bScore - aScore;
+        return plannerItemScore(b) - plannerItemScore(a);
       });
     const topPick = onBudget[0] || null;
+    const planCandidates = onBudget.slice(0, 18);
+    const shoppingPlan = planCandidates.reduce(
+      (best, item) => {
+        const price = item.effectivePrice;
+        const score = plannerItemScore(item);
+        const nextPlans = best.plans
+          .filter((plan) => plan.spent + price <= monthlyBudget)
+          .map((plan) => ({
+            items: [...plan.items, item],
+            spent: plan.spent + price,
+            score: plan.score + score,
+          }));
+        const plans = [...best.plans, ...nextPlans];
+        const winner = plans.reduce((current, plan) => {
+          if (plan.score !== current.score) return plan.score > current.score ? plan : current;
+          if (plan.items.length !== current.items.length) {
+            return plan.items.length > current.items.length ? plan : current;
+          }
+          return plan.spent > current.spent ? plan : current;
+        }, best.winner);
+
+        return { plans, winner };
+      },
+      {
+        plans: [{ items: [] as Product[], spent: 0, score: 0 }],
+        winner: { items: [] as Product[], spent: 0, score: 0 },
+      },
+    ).winner;
     const cheapest = wanted.length
       ? wanted.reduce((current, item) =>
           item.effectivePrice < current.effectivePrice ? item : current,
         )
       : null;
     const budgetUse = monthlyBudget > 0 ? Math.min(100, (total / monthlyBudget) * 100) : 100;
+    const planRemainder = Math.max(0, monthlyBudget - shoppingPlan.spent);
 
     return {
       wantedCount: wanted.length,
       total,
       topPick,
+      shoppingPlan,
+      planRemainder,
       cheapest,
       budgetUse,
       withinBudgetCount: onBudget.length,
@@ -380,6 +407,32 @@ export function HomePage() {
                 : "Quando houver peças na lista, este painel aponta a melhor compra dentro do seu orçamento."}
             </p>
           )}
+
+          {planner.shoppingPlan.items.length > 1 ? (
+            <div className="planner-shopping-plan">
+              <div className="planner-shopping-plan-head">
+                <div>
+                  <p>Combo sugerido</p>
+                  <strong>{formatBRL(planner.shoppingPlan.spent)}</strong>
+                </div>
+                <span>Sobra {formatBRL(planner.planRemainder)}</span>
+              </div>
+              <div className="planner-shopping-list">
+                {planner.shoppingPlan.items.slice(0, 4).map((item) => (
+                  <div key={item.id} className="planner-shopping-item">
+                    <span>{item.name}</span>
+                    <strong>{formatBRL(item.effectivePrice)}</strong>
+                  </div>
+                ))}
+              </div>
+              {planner.shoppingPlan.items.length > 4 ? (
+                <p className="planner-shopping-extra">
+                  +{planner.shoppingPlan.items.length - 4} peça
+                  {planner.shoppingPlan.items.length - 4 > 1 ? "s" : ""} no combo
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="planner-panel-side">
