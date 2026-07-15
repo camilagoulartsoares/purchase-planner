@@ -21,6 +21,7 @@ describe("API Closet", () => {
       .field("store", data.store)
       .field("originalPrice", data.originalPrice)
       .field("promotionalPrice", data.promotionalPrice || "")
+      .field("shippingPrice", data.shippingPrice || "")
       .field("priority", data.priority)
       .field("status", data.status);
 
@@ -127,6 +128,27 @@ describe("API Closet", () => {
     });
   });
 
+  it("soma frete no preço efetivo quando informado", async () => {
+    const created = await createProduct(tokenA, {
+      name: "Bolsa tiracolo",
+      category: "Bolsas",
+      brand: "Aurora",
+      store: "Loja Y",
+      originalPrice: "260",
+      promotionalPrice: "200",
+      shippingPrice: "25",
+      priority: "Quero",
+      status: "Quero comprar",
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      shippingPrice: 25,
+      effectivePrice: 225,
+      discountPercent: 23,
+    });
+  });
+
   it("resume wishlist com totais, economia e contadores por status", async () => {
     const summary = await request(app)
       .get("/api/dashboard/summary")
@@ -134,14 +156,14 @@ describe("API Closet", () => {
 
     expect(summary.status).toBe(200);
     expect(summary.body.data).toMatchObject({
-      wantCount: 2,
+      wantCount: 3,
       boughtCount: 0,
       waitingCount: 0,
-      wishTotal: 330,
+      wishTotal: 555,
       spentTotal: 0,
       savedTotal: 190,
       counts: {
-        "Quero comprar": 2,
+        "Quero comprar": 3,
         "Esperando promoção": 0,
         "Já comprei": 0,
         "Desisti da compra": 0,
@@ -203,13 +225,13 @@ describe("API Closet", () => {
 
     expect(summary.status).toBe(200);
     expect(summary.body.data).toMatchObject({
-      wantCount: 1,
+      wantCount: 2,
       boughtCount: 1,
-      wishTotal: 180,
+      wishTotal: 405,
       spentTotal: 140,
       savedTotal: 190,
       counts: {
-        "Quero comprar": 1,
+        "Quero comprar": 2,
         "Já comprei": 1,
       },
     });

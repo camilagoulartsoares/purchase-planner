@@ -75,14 +75,19 @@ export function toNumber(value: unknown): number {
 export function effectivePrice(
   originalPrice: number,
   promotionalPrice: number | null | undefined,
+  shippingPrice?: number | null,
 ) {
+  const shipping =
+    shippingPrice != null && Number.isFinite(shippingPrice) && shippingPrice > 0
+      ? shippingPrice
+      : 0;
   if (
     promotionalPrice != null &&
     Number.isFinite(promotionalPrice) &&
     promotionalPrice > 0 &&
     promotionalPrice < originalPrice
   ) {
-    return promotionalPrice;
+    return promotionalPrice + shipping;
   }
-  return originalPrice;
+  return originalPrice + shipping;
 }

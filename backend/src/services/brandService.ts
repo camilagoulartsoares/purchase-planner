@@ -10,10 +10,12 @@ import {
 function priceOf(p: {
   originalPrice: unknown;
   promotionalPrice: unknown;
+  shippingPrice?: unknown;
 }) {
   const o = Number(p.originalPrice);
   const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-  return effectivePrice(o, pr);
+  const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+  return effectivePrice(o, pr, shipping);
 }
 
 function sortedImages<T extends { isMain: boolean; position: number }>(

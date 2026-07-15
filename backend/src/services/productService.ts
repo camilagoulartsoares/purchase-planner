@@ -22,7 +22,9 @@ function serialize(product: ProductWithRelations | null) {
   const original = Number(product.originalPrice);
   const promo =
     product.promotionalPrice != null ? Number(product.promotionalPrice) : null;
-  const price = effectivePrice(original, promo);
+  const shipping =
+    product.shippingPrice != null ? Number(product.shippingPrice) : null;
+  const price = effectivePrice(original, promo, shipping);
   const discount =
     promo != null && promo < original
       ? Math.round(((original - promo) / original) * 100)
@@ -54,8 +56,7 @@ function serialize(product: ProductWithRelations | null) {
     store: product.store,
     originalPrice: original,
     promotionalPrice: promo,
-    shippingPrice:
-      product.shippingPrice != null ? Number(product.shippingPrice) : null,
+    shippingPrice: shipping,
     purchaseUrl: product.purchaseUrl,
     imageUrl: main?.imageUrl || product.imageUrl,
     color: product.color,
@@ -400,14 +401,16 @@ export const productService = {
     const wishTotal = desired.reduce((sum, p) => {
       const o = Number(p.originalPrice);
       const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      return sum + effectivePrice(o, pr);
+      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      return sum + effectivePrice(o, pr, shipping);
     }, 0);
 
     const spentTotal = bought.reduce((sum, p) => {
       if (p.purchasedPrice != null) return sum + Number(p.purchasedPrice);
       const o = Number(p.originalPrice);
       const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      return sum + effectivePrice(o, pr);
+      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      return sum + effectivePrice(o, pr, shipping);
     }, 0);
 
     const savedTotal = products.reduce((sum, p) => {

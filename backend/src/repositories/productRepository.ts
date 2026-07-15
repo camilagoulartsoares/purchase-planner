@@ -91,7 +91,8 @@ export const productRepository = {
       const original = Number(p.originalPrice);
       const promo =
         p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      const price = effectivePrice(original, promo);
+      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      const price = effectivePrice(original, promo, shipping);
       const hasPromo = promo != null && promo > 0 && promo < original;
 
       if (filters.promo === "com" && !hasPromo) return false;
@@ -115,8 +116,10 @@ export const productRepository = {
       const ap = a.promotionalPrice != null ? Number(a.promotionalPrice) : null;
       const bo = Number(b.originalPrice);
       const bp = b.promotionalPrice != null ? Number(b.promotionalPrice) : null;
-      const ae = effectivePrice(ao, ap);
-      const be = effectivePrice(bo, bp);
+      const as = a.shippingPrice != null ? Number(a.shippingPrice) : null;
+      const bs = b.shippingPrice != null ? Number(b.shippingPrice) : null;
+      const ae = effectivePrice(ao, ap, as);
+      const be = effectivePrice(bo, bp, bs);
       const ad =
         ap != null && ap < ao ? Math.round(((ao - ap) / ao) * 100) : 0;
       const bd =

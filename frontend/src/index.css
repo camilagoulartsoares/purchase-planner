@@ -39,6 +39,31 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154,85,96,.7) rgba(247,243,238,.78);
+}
+
+*::-webkit-scrollbar {
+  width: .7rem;
+  height: .7rem;
+}
+
+*::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(247,243,238,.78);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(247,243,238,.92);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(183,110,121,.9), rgba(92,70,56,.72));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--rose-deep), rgba(92,70,56,.9));
+}
+
 .font-display { font-family: var(--font-display); }
 .card-soft {
   background: var(--surface);
@@ -153,6 +178,7 @@ body {
   background: var(--surface);
   padding: .35rem;
   box-shadow: 0 18px 40px rgba(92,70,56,.16);
+  scrollbar-gutter: stable;
 }
 .select-pretty-option {
   display: flex;
@@ -238,6 +264,7 @@ body {
   background: var(--surface);
   padding: .35rem;
   box-shadow: 0 18px 40px rgba(92,70,56,.16);
+  scrollbar-gutter: stable;
 }
 .modal-select-option {
   display: flex;
@@ -346,6 +373,9 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(17rem, .55fr);
   gap: .9rem;
+}
+.modal-form-scroll {
+  scrollbar-gutter: stable;
 }
 .planner-panel-main,
 .planner-panel-side article {

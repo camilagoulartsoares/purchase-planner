@@ -248,7 +248,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <form onSubmit={submit} className="card-soft max-h-[92vh] w-full max-w-2xl overflow-y-auto p-6">
+      <form onSubmit={submit} className="modal-form-scroll card-soft max-h-[92vh] w-full max-w-2xl overflow-y-auto p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-2xl font-semibold text-brown-deep">
             {initial ? "Editar peça" : "Adicionar peça"}
