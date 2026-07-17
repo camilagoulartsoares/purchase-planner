@@ -1,6 +1,7 @@
 # Purchase Planner
 
 Projeto pessoal para organizar uma wishlist visual de produtos, marcas, imagens, filtros e status.
+Repositorio dividido entre `frontend` e `backend`.
 
 Deploy: https://purchase-planner.vercel.app
 
