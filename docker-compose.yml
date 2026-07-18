@@ -28,7 +28,7 @@ services:
       PORT: 3334
       NODE_ENV: production
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
-      DATABASE_URL: postgresql://closet:closet@postgres:5432/closet_sonhos?schema=public
+      DATABASE_URL: postgresql://closet:closet@postgres:5432/closet_sonhos?schema=public&connection_limit=3&pool_timeout=10&connect_timeout=10
       JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao-closet-2026}
       JWT_EXPIRES_IN: 7d
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}

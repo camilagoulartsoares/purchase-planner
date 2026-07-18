@@ -6,6 +6,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
+import { checkDatabaseConnection } from "./config/prisma.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { productRoutes } from "./routes/productRoutes.js";
@@ -72,7 +73,7 @@ export function createApp() {
       legacyHeaders: false,
       skip: (req) =>
         req.method === "OPTIONS" ||
-        req.path === "/api/health" ||
+        req.path.startsWith("/api/health") ||
         req.path.startsWith("/uploads"),
       message: {
         success: false,
@@ -81,21 +82,61 @@ export function createApp() {
     }),
   );
 
-  app.get("/api/health", (_req, res) => {
-    res.json({
-      success: true,
-      data: {
-        status: "ok",
-        persistence: {
-          database: process.env.DATABASE_URL?.startsWith("postgres")
-            ? "postgresql"
-            : "sqlite-local",
-          photos: cloudinaryConfigured() ? "cloudinary" : "disk-volume",
-          dataDir: "backend/data",
-          backupsDir: "backend/backups",
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await checkDatabaseConnection();
+      return res.json({
+        success: true,
+        data: {
+          status: "ok",
+          persistence: {
+            database: "connected",
+            photos: cloudinaryConfigured() ? "cloudinary" : "disk-volume",
+            dataDir: "backend/data",
+            backupsDir: "backend/backups",
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.error("[health] falha ao validar /api/health", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      return res.status(503).json({
+        success: false,
+        data: {
+          status: "degraded",
+          persistence: {
+            database: "disconnected",
+            photos: cloudinaryConfigured() ? "cloudinary" : "disk-volume",
+            dataDir: "backend/data",
+            backupsDir: "backend/backups",
+          },
+        },
+        error: error instanceof Error ? error.message : "Database unavailable",
+      });
+    }
+  });
+
+  app.get("/api/health/db", async (_req, res) => {
+    try {
+      await checkDatabaseConnection();
+      return res.json({
+        success: true,
+        database: "connected",
+      });
+    } catch (error) {
+      console.error("[health] falha ao validar /api/health/db", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      return res.status(503).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Database unavailable",
+      });
+    }
   });
 
   app.post("/api/backup", (_req, res) => {

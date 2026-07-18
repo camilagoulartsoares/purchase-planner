@@ -2,6 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3334/api",
+  timeout: 20000,
 });
 
 api.interceptors.request.use((config) => {
@@ -13,6 +14,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error) => {
+    if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
+      return Promise.reject(
+        new Error("A API demorou mais de 20 segundos para responder."),
+      );
+    }
+
     const status = error.response?.status;
     const apiMessage = error.response?.data?.message as string | undefined;
 

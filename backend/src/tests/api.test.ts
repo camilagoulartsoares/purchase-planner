@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../config/prisma.js";
@@ -26,15 +26,30 @@ describe("API Closet", () => {
       .field("status", data.status);
 
   beforeAll(async () => {
+    await prisma.$connect();
     await prisma.productImage.deleteMany();
     await prisma.product.deleteMany();
     await prisma.brand.deleteMany();
     await prisma.user.deleteMany();
   });
 
-  it("cadastra e autentica usuário", async () => {
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("responde health do banco", async () => {
+    const res = await request(app).get("/api/health/db");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      database: "connected",
+    });
+  });
+
+  it("cadastra e autentica usuÃ¡rio", async () => {
     const reg = await request(app).post("/api/auth/register").send({
-      name: "Usuária A",
+      name: "UsuÃ¡ria A",
       email: "a@test.com",
       password: "senha123",
     });
@@ -42,7 +57,7 @@ describe("API Closet", () => {
     tokenA = reg.body.data.token;
 
     const regB = await request(app).post("/api/auth/register").send({
-      name: "Usuária B",
+      name: "UsuÃ¡ria B",
       email: "b@test.com",
       password: "senha123",
     });
@@ -56,7 +71,18 @@ describe("API Closet", () => {
     expect(login.body.data.token).toBeTruthy();
   });
 
-  it("cria produto e aplica filtro de preço", async () => {
+  it("retorna 401 para login invÃ¡lido", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      email: "a@test.com",
+      password: "senha-errada",
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe("Credenciais invalidas");
+  });
+
+  it("cria produto e aplica filtro de preÃ§o", async () => {
     const created = await createProduct(tokenA, {
       name: "Saia plissada",
       category: "Saias",
@@ -82,7 +108,7 @@ describe("API Closet", () => {
     );
   });
 
-  it("ignora filtros de preço vazios enviados pela tela inicial", async () => {
+  it("ignora filtros de preÃ§o vazios enviados pela tela inicial", async () => {
     const res = await request(app)
       .get("/api/products")
       .query({
@@ -128,7 +154,7 @@ describe("API Closet", () => {
     });
   });
 
-  it("soma frete no preço efetivo quando informado", async () => {
+  it("soma frete no preÃ§o efetivo quando informado", async () => {
     const created = await createProduct(tokenA, {
       name: "Bolsa tiracolo",
       category: "Bolsas",
@@ -164,8 +190,8 @@ describe("API Closet", () => {
       savedTotal: 190,
       counts: {
         "Quero comprar": 3,
-        "Esperando promoção": 0,
-        "Já comprei": 0,
+        "Esperando promoÃ§Ã£o": 0,
+        "JÃ¡ comprei": 0,
         "Desisti da compra": 0,
       },
     });
@@ -205,7 +231,7 @@ describe("API Closet", () => {
       .patch(`/api/products/${discountedProductId}/status`)
       .set("Authorization", `Bearer ${tokenA}`)
       .send({
-        status: "Já comprei",
+        status: "JÃ¡ comprei",
         purchasedPrice: 140,
         purchasedAt: "2026-07-15",
         notes: "Compra registrada pelo planner",
@@ -214,7 +240,7 @@ describe("API Closet", () => {
     expect(bought.status).toBe(200);
     expect(bought.body.data).toMatchObject({
       id: discountedProductId,
-      status: "Já comprei",
+      status: "JÃ¡ comprei",
       purchasedPrice: 140,
       notes: "Compra registrada pelo planner",
     });
@@ -232,12 +258,12 @@ describe("API Closet", () => {
       savedTotal: 190,
       counts: {
         "Quero comprar": 2,
-        "Já comprei": 1,
+        "JÃ¡ comprei": 1,
       },
     });
   });
 
-  it("impede acesso ao produto de outro usuário", async () => {
+  it("impede acesso ao produto de outro usuÃ¡rio", async () => {
     const res = await request(app)
       .get(`/api/products/${productId}`)
       .set("Authorization", `Bearer ${tokenB}`);

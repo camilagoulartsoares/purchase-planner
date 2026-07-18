@@ -1,10 +1,43 @@
 import "dotenv/config";
 
+function withDatabaseTimeouts(rawUrl: string) {
+  if (!rawUrl) return rawUrl;
+
+  try {
+    const url = new URL(rawUrl);
+    const defaults = {
+      connection_limit: "3",
+      pool_timeout: "10",
+      connect_timeout: "10",
+    };
+
+    for (const [key, value] of Object.entries(defaults)) {
+      if (!url.searchParams.has(key)) {
+        url.searchParams.set(key, value);
+      }
+    }
+
+    return url.toString();
+  } catch (error) {
+    console.error("[env] DATABASE_URL invalida", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return rawUrl;
+  }
+}
+
+const databaseUrl = withDatabaseTimeouts(process.env.DATABASE_URL || "");
+
+if (databaseUrl) {
+  process.env.DATABASE_URL = databaseUrl;
+}
+
 export const env = {
   port: Number(process.env.PORT || 3333),
   nodeEnv: process.env.NODE_ENV || "development",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
-  databaseUrl: process.env.DATABASE_URL || "",
+  databaseUrl,
   jwtSecret: process.env.JWT_SECRET || "dev-secret",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   cloudinary: {

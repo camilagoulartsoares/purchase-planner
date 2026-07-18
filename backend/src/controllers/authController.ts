@@ -15,9 +15,30 @@ export const authController = {
   },
 
   async login(req: Request, res: Response, next: NextFunction) {
+    const startedAt = Date.now();
+    res.once("finish", () => {
+      console.info("[auth.login] resposta finalizada", {
+        statusCode: res.statusCode,
+        durationMs: Date.now() - startedAt,
+      });
+    });
+
     try {
+      console.info("[auth.login] inicio do login", {
+        method: req.method,
+        path: req.originalUrl,
+        origin: req.get("origin") || null,
+        cfRay: req.get("cf-ray") || null,
+      });
+      console.info("[auth.login] validacao do payload - inicio");
       const body = loginSchema.parse(req.body);
+      console.info("[auth.login] validacao do payload - fim", {
+        email: body.email.trim().toLowerCase(),
+      });
       const data = await authService.login(body);
+      console.info("[auth.login] resposta enviada", {
+        userId: data.user.id,
+      });
       return ok(res, data);
     } catch (err) {
       return next(err);
