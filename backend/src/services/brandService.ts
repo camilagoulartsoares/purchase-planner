@@ -11,11 +11,32 @@ function priceOf(p: {
   originalPrice: unknown;
   promotionalPrice: unknown;
   shippingPrice?: unknown;
-}) {
+}, brandShipping?: number | null) {
   const o = Number(p.originalPrice);
   const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-  const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+  const shipping =
+    p.shippingPrice != null ? Number(p.shippingPrice) : (brandShipping ?? null);
   return effectivePrice(o, pr, shipping);
+}
+
+function findBrandShipping(
+  products: { shippingPrice: unknown; createdAt: Date }[],
+) {
+  const entries = products
+    .map((product) => ({
+      shippingPrice:
+        product.shippingPrice != null ? Number(product.shippingPrice) : null,
+      createdAt: product.createdAt,
+    }))
+    .filter(
+      (product): product is { shippingPrice: number; createdAt: Date } =>
+        product.shippingPrice != null &&
+        Number.isFinite(product.shippingPrice) &&
+        product.shippingPrice > 0,
+    )
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  return entries[0]?.shippingPrice ?? null;
 }
 
 function sortedImages<T extends { isMain: boolean; position: number }>(
@@ -38,7 +59,8 @@ function serializeBrand(
     products = products.filter((p) => p.category === categoryFilter);
   }
 
-  const prices = products.map(priceOf);
+  const brandShipping = findBrandShipping(brand.products);
+  const prices = products.map((product) => priceOf(product, brandShipping));
   const categoriesPresent = [
     ...new Set(
       brand.products.map((p) =>
@@ -97,6 +119,12 @@ function serializeBrand(
           p.promotionalPrice != null ? Number(p.promotionalPrice) : null,
         shippingPrice:
           p.shippingPrice != null ? Number(p.shippingPrice) : null,
+        effectiveShippingPrice:
+          p.shippingPrice != null ? Number(p.shippingPrice) : brandShipping,
+        shippingInherited:
+          p.shippingPrice == null &&
+          brandShipping != null &&
+          brandShipping > 0,
         purchaseUrl: p.purchaseUrl,
         imageUrl: images[0]?.imageUrl || p.imageUrl,
         images: images.map((img) => ({
@@ -112,7 +140,7 @@ function serializeBrand(
         status: p.status,
         notes: p.notes,
         isFavorite: Boolean((p as { isFavorite?: boolean }).isFavorite),
-        effectivePrice: priceOf(p),
+        effectivePrice: priceOf(p, brandShipping),
         discountPercent: (() => {
           const o = Number(p.originalPrice);
           const pr =

@@ -52,6 +52,37 @@ function bandRange(band?: string): { min?: number; max?: number } {
   }
 }
 
+function buildBrandShippingMap(
+  products: {
+    brandId: string;
+    shippingPrice: Prisma.Decimal | number | null;
+    createdAt: Date;
+  }[],
+) {
+  const grouped = new Map<
+    string,
+    { shippingPrice: number; createdAt: Date }[]
+  >();
+
+  for (const product of products) {
+    if (product.shippingPrice == null) continue;
+    const shipping = Number(product.shippingPrice);
+    if (!Number.isFinite(shipping) || shipping <= 0) continue;
+
+    const current = grouped.get(product.brandId) || [];
+    current.push({ shippingPrice: shipping, createdAt: product.createdAt });
+    grouped.set(product.brandId, current);
+  }
+
+  const brandShipping = new Map<string, number>();
+  for (const [brandId, entries] of grouped.entries()) {
+    entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    brandShipping.set(brandId, entries[0].shippingPrice);
+  }
+
+  return brandShipping;
+}
+
 export const productRepository = {
   async findMany(userId: string, filters: ProductFilters) {
     const where: Prisma.ProductWhereInput = { userId };
@@ -80,18 +111,30 @@ export const productRepository = {
       ];
     }
 
-    const all = await prisma.product.findMany({
-      where,
-      include: productInclude,
-      orderBy: { createdAt: "desc" },
-    });
-
     const band = bandRange(filters.priceBand);
+
+    const [all, allUserProducts] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: productInclude,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.product.findMany({
+        where: { userId },
+        select: { brandId: true, shippingPrice: true, createdAt: true },
+      }),
+    ]);
+
+    const brandShipping = buildBrandShippingMap(allUserProducts);
+
     let list = all.filter((p) => {
       const original = Number(p.originalPrice);
       const promo =
         p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      const shipping =
+        p.shippingPrice != null
+          ? Number(p.shippingPrice)
+          : (brandShipping.get(p.brandId) ?? null);
       const price = effectivePrice(original, promo, shipping);
       const hasPromo = promo != null && promo > 0 && promo < original;
 
@@ -116,8 +159,14 @@ export const productRepository = {
       const ap = a.promotionalPrice != null ? Number(a.promotionalPrice) : null;
       const bo = Number(b.originalPrice);
       const bp = b.promotionalPrice != null ? Number(b.promotionalPrice) : null;
-      const as = a.shippingPrice != null ? Number(a.shippingPrice) : null;
-      const bs = b.shippingPrice != null ? Number(b.shippingPrice) : null;
+      const as =
+        a.shippingPrice != null
+          ? Number(a.shippingPrice)
+          : (brandShipping.get(a.brandId) ?? null);
+      const bs =
+        b.shippingPrice != null
+          ? Number(b.shippingPrice)
+          : (brandShipping.get(b.brandId) ?? null);
       const ae = effectivePrice(ao, ap, as);
       const be = effectivePrice(bo, bp, bs);
       const ad =

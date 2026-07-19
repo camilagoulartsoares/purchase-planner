@@ -55,6 +55,7 @@ export function ProductDetailPage() {
       : product.imageUrl
         ? [{ imageUrl: product.imageUrl }]
         : [];
+  const shipping = product.effectiveShippingPrice ?? product.shippingPrice;
 
   const buyLabel = product.brand ? `Comprar na ${product.brand}` : "Comprar na loja";
 
@@ -88,9 +89,10 @@ export function ProductDetailPage() {
           </p>
           <h1 className="font-display mt-2 text-4xl font-semibold text-brown-deep">{product.name}</h1>
           <p className="mt-3 text-2xl font-semibold">{formatBRL(product.effectivePrice)}</p>
-          {product.shippingPrice != null ? (
+          {shipping != null ? (
             <p className="mt-1 text-sm font-semibold text-muted">
-              Frete {formatBRL(product.shippingPrice)}
+              {product.shippingInherited ? "Frete da marca " : "Frete "}
+              {formatBRL(shipping)}
             </p>
           ) : null}
 
@@ -99,10 +101,12 @@ export function ProductDetailPage() {
               <dt className="text-muted">Loja</dt>
               <dd>{product.store}</dd>
             </div>
-            {product.shippingPrice != null ? (
+            {shipping != null ? (
               <div className="flex justify-between border-b border-line py-2">
-                <dt className="text-muted">Frete</dt>
-                <dd>{formatBRL(product.shippingPrice)}</dd>
+                <dt className="text-muted">
+                  {product.shippingInherited ? "Frete da marca" : "Frete"}
+                </dt>
+                <dd>{formatBRL(shipping)}</dd>
               </div>
             ) : null}
             {product.color ? (

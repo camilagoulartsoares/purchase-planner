@@ -17,14 +17,44 @@ function safeBackup(reason: string) {
   }
 }
 
-function serialize(product: ProductWithRelations | null) {
+function buildBrandShippingMap(products: ProductWithRelations[]) {
+  const grouped = new Map<
+    string,
+    { shippingPrice: number; createdAt: Date }[]
+  >();
+
+  for (const product of products) {
+    if (product.shippingPrice == null) continue;
+    const shipping = Number(product.shippingPrice);
+    if (!Number.isFinite(shipping) || shipping <= 0) continue;
+
+    const current = grouped.get(product.brandId) || [];
+    current.push({ shippingPrice: shipping, createdAt: product.createdAt });
+    grouped.set(product.brandId, current);
+  }
+
+  const brandShipping = new Map<string, number>();
+  for (const [brandId, entries] of grouped.entries()) {
+    entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    brandShipping.set(brandId, entries[0].shippingPrice);
+  }
+
+  return brandShipping;
+}
+
+function serialize(
+  product: ProductWithRelations | null,
+  brandShipping = new Map<string, number>(),
+) {
   if (!product) return null;
   const original = Number(product.originalPrice);
   const promo =
     product.promotionalPrice != null ? Number(product.promotionalPrice) : null;
-  const shipping =
+  const ownShipping =
     product.shippingPrice != null ? Number(product.shippingPrice) : null;
-  const price = effectivePrice(original, promo, shipping);
+  const effectiveShipping =
+    ownShipping ?? brandShipping.get(product.brandId) ?? null;
+  const price = effectivePrice(original, promo, effectiveShipping);
   const discount =
     promo != null && promo < original
       ? Math.round(((original - promo) / original) * 100)
@@ -56,7 +86,10 @@ function serialize(product: ProductWithRelations | null) {
     store: product.store,
     originalPrice: original,
     promotionalPrice: promo,
-    shippingPrice: shipping,
+    shippingPrice: ownShipping,
+    effectiveShippingPrice: effectiveShipping,
+    shippingInherited:
+      ownShipping == null && effectiveShipping != null && effectiveShipping > 0,
     purchaseUrl: product.purchaseUrl,
     imageUrl: main?.imageUrl || product.imageUrl,
     color: product.color,
@@ -90,8 +123,11 @@ function collectFiles(
 export const productService = {
   async list(userId: string, filters: ProductFilters) {
     const result = await productRepository.findMany(userId, filters);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
     return {
-      items: result.items.map((p) => serialize(p)!),
+      items: result.items.map((p) => serialize(p, brandShipping)!),
       meta: result.meta,
     };
   },
@@ -101,7 +137,10 @@ export const productService = {
     if (!product || product.userId !== userId) {
       throw new AppError("Produto não encontrado", 404);
     }
-    return serialize(product);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
+    return serialize(product, brandShipping);
   },
 
   async create(
@@ -154,7 +193,10 @@ export const productService = {
     });
 
     safeBackup("product-create");
-    return serialize(product);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
+    return serialize(product, brandShipping);
   },
 
   async update(
@@ -274,7 +316,10 @@ export const productService = {
       });
 
       safeBackup("product-update");
-      return serialize(product);
+      const brandShipping = buildBrandShippingMap(
+        await productRepository.findAllByUser(userId),
+      );
+      return serialize(product, brandShipping);
     }
 
     // Compat: sem keepImageIds, comportamento antigo (substituir tudo se houver arquivos)
@@ -324,7 +369,10 @@ export const productService = {
     });
 
     safeBackup("product-update");
-    return serialize(product);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
+    return serialize(product, brandShipping);
   },
 
   async updateStatus(
@@ -362,7 +410,10 @@ export const productService = {
     });
 
     safeBackup("product-status");
-    return serialize(product);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
+    return serialize(product, brandShipping);
   },
 
   async remove(userId: string, id: string) {
@@ -386,11 +437,15 @@ export const productService = {
     const product = await productRepository.update(id, {
       isFavorite: !existing.isFavorite,
     });
-    return serialize(product);
+    const brandShipping = buildBrandShippingMap(
+      await productRepository.findAllByUser(userId),
+    );
+    return serialize(product, brandShipping);
   },
 
   async summary(userId: string) {
     const products = await productRepository.findAllByUser(userId);
+    const brandShipping = buildBrandShippingMap(products);
     const desired = products.filter(
       (p) =>
         p.status === "Quero comprar" || p.status === "Esperando promoção",
@@ -401,7 +456,10 @@ export const productService = {
     const wishTotal = desired.reduce((sum, p) => {
       const o = Number(p.originalPrice);
       const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      const shipping =
+        p.shippingPrice != null
+          ? Number(p.shippingPrice)
+          : (brandShipping.get(p.brandId) ?? null);
       return sum + effectivePrice(o, pr, shipping);
     }, 0);
 
@@ -409,7 +467,10 @@ export const productService = {
       if (p.purchasedPrice != null) return sum + Number(p.purchasedPrice);
       const o = Number(p.originalPrice);
       const pr = p.promotionalPrice != null ? Number(p.promotionalPrice) : null;
-      const shipping = p.shippingPrice != null ? Number(p.shippingPrice) : null;
+      const shipping =
+        p.shippingPrice != null
+          ? Number(p.shippingPrice)
+          : (brandShipping.get(p.brandId) ?? null);
       return sum + effectivePrice(o, pr, shipping);
     }, 0);
 

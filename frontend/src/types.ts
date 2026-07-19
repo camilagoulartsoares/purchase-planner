@@ -46,6 +46,8 @@ export type Product = {
   originalPrice: number;
   promotionalPrice: number | null;
   shippingPrice: number | null;
+  effectiveShippingPrice?: number | null;
+  shippingInherited?: boolean;
   purchaseUrl?: string | null;
   imageUrl?: string | null;
   images?: ProductImage[];

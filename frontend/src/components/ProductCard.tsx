@@ -28,6 +28,7 @@ export function ProductCard({
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const shipping = product.effectiveShippingPrice ?? product.shippingPrice;
 
   const images =
     product.images?.length
@@ -82,9 +83,10 @@ export function ProductCard({
             <p className="mt-1 text-lg font-semibold text-ink">
               {formatBRL(product.effectivePrice)}
             </p>
-            {product.shippingPrice != null ? (
+            {shipping != null ? (
               <p className="mt-1 text-xs font-semibold text-muted">
-                Frete {formatBRL(product.shippingPrice)}
+                {product.shippingInherited ? "Frete da marca " : "Frete "}
+                {formatBRL(shipping)}
               </p>
             ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>

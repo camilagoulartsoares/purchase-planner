@@ -5,6 +5,7 @@ import {
   CATEGORIES,
   STATUSES,
   formatBRL,
+  mediaUrl,
   type BrandSummary,
   type Product,
   type Summary,
@@ -49,6 +50,9 @@ const plannerItemScore = (item: Product) =>
   item.discountPercent * 12 +
   (item.isFavorite ? 180 : 0) +
   Math.max(0, 220 - item.effectivePrice / 5);
+
+const plannerImage = (item: Product) =>
+  mediaUrl(item.images?.find((image) => image.isMain)?.imageUrl || item.imageUrl);
 
 function SelectField({
   value,
@@ -377,6 +381,17 @@ export function HomePage() {
 
           {planner.topPick ? (
             <div className="planner-pick">
+              <div className="planner-pick-media">
+                {plannerImage(planner.topPick) ? (
+                  <img
+                    src={plannerImage(planner.topPick)}
+                    alt={planner.topPick.name}
+                    className="planner-pick-image"
+                  />
+                ) : (
+                  <div className="planner-pick-image planner-pick-image-empty">Sem foto</div>
+                )}
+              </div>
               <div>
                 <p className="text-xs font-semibold tracking-[0.1em] text-muted uppercase">
                   {planner.topPick.brand} · {planner.topPick.category}
@@ -420,7 +435,18 @@ export function HomePage() {
               <div className="planner-shopping-list">
                 {planner.shoppingPlan.items.slice(0, 4).map((item) => (
                   <div key={item.id} className="planner-shopping-item">
-                    <span>{item.name}</span>
+                    <div className="planner-shopping-item-main">
+                      {plannerImage(item) ? (
+                        <img
+                          src={plannerImage(item)}
+                          alt={item.name}
+                          className="planner-shopping-thumb"
+                        />
+                      ) : (
+                        <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
+                      )}
+                      <span>{item.name}</span>
+                    </div>
                     <strong>{formatBRL(item.effectivePrice)}</strong>
                   </div>
                 ))}

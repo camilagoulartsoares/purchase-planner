@@ -458,6 +458,23 @@ body {
   background: rgba(255,255,255,.72);
   padding: .9rem;
 }
+.planner-pick-media {
+  flex: 0 0 auto;
+}
+.planner-pick-image {
+  width: 5.25rem;
+  height: 6.75rem;
+  border: 1px solid rgba(228,216,204,.85);
+  border-radius: .9rem;
+  object-fit: cover;
+  background: var(--cream-deep);
+}
+.planner-pick-image-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: .72rem;
+}
 .planner-shopping-plan {
   margin-top: .85rem;
   border: 1px solid rgba(69, 128, 119, .18);
@@ -509,6 +526,24 @@ body {
   border-top: 1px solid rgba(228,216,204,.72);
   padding-top: .45rem;
   font-size: .85rem;
+}
+.planner-shopping-item-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .65rem;
+}
+.planner-shopping-thumb {
+  width: 2.75rem;
+  height: 3.4rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(228,216,204,.85);
+  border-radius: .7rem;
+  object-fit: cover;
+  background: var(--cream-deep);
+}
+.planner-shopping-thumb-empty {
+  background: linear-gradient(135deg, rgba(239,232,223,.9), rgba(247,243,238,.95));
 }
 .planner-shopping-item span {
   min-width: 0;
