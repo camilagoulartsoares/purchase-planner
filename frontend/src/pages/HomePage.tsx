@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, Gem, Heart, PiggyBank, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
@@ -11,6 +11,7 @@ import {
   type Summary,
 } from "../types";
 import { ProductFormModal } from "../components/ProductFormModal";
+import { ProductGallery } from "../components/ProductGallery";
 import { ProductCard } from "../components/ProductCard";
 import { AppShell } from "../components/AppShell";
 import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
@@ -53,6 +54,13 @@ const plannerItemScore = (item: Product) =>
 
 const plannerImage = (item: Product) =>
   mediaUrl(item.images?.find((image) => image.isMain)?.imageUrl || item.imageUrl);
+
+const productImages = (product: Product) =>
+  product.images?.length
+    ? product.images
+    : product.imageUrl
+      ? [{ imageUrl: product.imageUrl }]
+      : [];
 
 function SelectField({
   value,
@@ -130,6 +138,7 @@ export function HomePage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [buying, setBuying] = useState<Product | null>(null);
+  const [comboPreview, setComboPreview] = useState<Product | null>(null);
   const [paid, setPaid] = useState("");
   const [buyDate, setBuyDate] = useState(new Date().toISOString().slice(0, 10));
   const [buyNotes, setBuyNotes] = useState("");
@@ -434,7 +443,13 @@ export function HomePage() {
               </div>
               <div className="planner-shopping-list">
                 {planner.shoppingPlan.items.slice(0, 4).map((item) => (
-                  <div key={item.id} className="planner-shopping-item">
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="planner-shopping-item"
+                    aria-label={`Ver detalhes de ${item.name}`}
+                    onClick={() => setComboPreview(item)}
+                  >
                     <div className="planner-shopping-item-main">
                       {plannerImage(item) ? (
                         <img
@@ -448,9 +463,10 @@ export function HomePage() {
                       <span>{item.name}</span>
                     </div>
                     <strong>{formatBRL(item.effectivePrice)}</strong>
-                  </div>
+                  </button>
                 ))}
               </div>
+              <p className="planner-shopping-hint">Clique em uma peça para abrir os detalhes sem sair da página.</p>
               {planner.shoppingPlan.items.length > 4 ? (
                 <p className="planner-shopping-extra">
                   +{planner.shoppingPlan.items.length - 4} peça
@@ -649,6 +665,111 @@ export function HomePage() {
           >
             Próxima
           </button>
+        </div>
+      ) : null}
+
+      {comboPreview ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/40 p-4"
+          onClick={() => setComboPreview(null)}
+        >
+          <div
+            className="card-soft combo-preview-modal w-full max-w-4xl overflow-hidden"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="combo-preview-close"
+              onClick={() => setComboPreview(null)}
+              aria-label="Fechar detalhes"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="grid gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,.95fr)] lg:p-6">
+              <ProductGallery images={productImages(comboPreview)} alt={comboPreview.name} />
+
+              <div className="combo-preview-content">
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[0.16em] text-rose uppercase">
+                    {comboPreview.brand} · {comboPreview.category}
+                  </p>
+                  <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
+                    {comboPreview.name}
+                  </h3>
+                  <p className="mt-3 text-2xl font-semibold text-ink">
+                    {formatBRL(comboPreview.effectivePrice)}
+                  </p>
+                  {(comboPreview.effectiveShippingPrice ?? comboPreview.shippingPrice) != null ? (
+                    <p className="mt-1 text-sm font-semibold text-muted">
+                      {comboPreview.shippingInherited ? "Frete da marca " : "Frete "}
+                      {formatBRL(
+                        comboPreview.effectiveShippingPrice ?? comboPreview.shippingPrice ?? 0,
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+
+                <dl className="grid gap-3 text-sm">
+                  <div className="flex justify-between gap-4 border-b border-line py-2">
+                    <dt className="text-muted">Loja</dt>
+                    <dd className="text-right">{comboPreview.store}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-line py-2">
+                    <dt className="text-muted">Prioridade</dt>
+                    <dd className="text-right">{comboPreview.priority}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-line py-2">
+                    <dt className="text-muted">Status</dt>
+                    <dd className="text-right">{comboPreview.status}</dd>
+                  </div>
+                  {comboPreview.color ? (
+                    <div className="flex justify-between gap-4 border-b border-line py-2">
+                      <dt className="text-muted">Cor</dt>
+                      <dd className="text-right">{comboPreview.color}</dd>
+                    </div>
+                  ) : null}
+                  {comboPreview.size ? (
+                    <div className="flex justify-between gap-4 border-b border-line py-2">
+                      <dt className="text-muted">Tamanho</dt>
+                      <dd className="text-right">{comboPreview.size}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                {comboPreview.notes ? (
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-muted uppercase">Observações</p>
+                    <p className="mt-2 text-sm leading-relaxed text-ink">{comboPreview.notes}</p>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap gap-3">
+                  {comboPreview.purchaseUrl ? (
+                    <a
+                      className="btn-primary"
+                      href={comboPreview.purchaseUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink size={16} /> Comprar na loja
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => {
+                      setComboPreview(null);
+                      setBuying(comboPreview);
+                      setPaid(String(comboPreview.effectivePrice));
+                    }}
+                  >
+                    Registrar compra
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 

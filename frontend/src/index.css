@@ -523,9 +523,28 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
+  width: 100%;
   border-top: 1px solid rgba(228,216,204,.72);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
   padding-top: .45rem;
   font-size: .85rem;
+  border-radius: .8rem;
+  background: transparent;
+  color: inherit;
+  text-decoration: none;
+  transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
+  cursor: pointer;
+  text-align: left;
+}
+.planner-shopping-item:hover {
+  background: rgba(255,255,255,.7);
+  transform: translateY(-1px);
+}
+.planner-shopping-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(62,128,118,.18);
 }
 .planner-shopping-item-main {
   display: flex;
@@ -561,6 +580,35 @@ body {
   margin-top: .5rem;
   color: var(--muted);
   font-size: .78rem;
+}
+.planner-shopping-hint {
+  margin-top: .55rem;
+  color: #3e8076;
+  font-size: .76rem;
+}
+.combo-preview-modal {
+  position: relative;
+  max-height: min(90vh, 58rem);
+}
+.combo-preview-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 3;
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border: 1px solid rgba(228,216,204,.9);
+  border-radius: 999px;
+  background: rgba(255,252,249,.96);
+  color: var(--brown-deep);
+  cursor: pointer;
+}
+.combo-preview-content {
+  display: grid;
+  align-content: start;
+  gap: 1.1rem;
 }
 .planner-panel-side {
   display: grid;
