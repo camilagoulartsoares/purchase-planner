@@ -383,6 +383,7 @@ export const productService = {
       purchasedPrice?: number;
       purchasedAt?: string;
       notes?: string | null;
+      repurchase?: boolean;
     },
   ) {
     const existing = await productRepository.findById(id);
@@ -394,6 +395,50 @@ export const productService = {
       if (!payload.purchasedPrice || payload.purchasedPrice <= 0) {
         throw new AppError("Informe o preço realmente pago", 400);
       }
+    }
+
+    if (payload.status === "Já comprei" && payload.repurchase) {
+      const purchasedAt = payload.purchasedAt
+        ? new Date(payload.purchasedAt)
+        : new Date();
+
+      const product = await productRepository.create({
+        user: { connect: { id: userId } },
+        brand: { connect: { id: existing.brandId } },
+        name: existing.name,
+        category: existing.category,
+        store: existing.store,
+        originalPrice: existing.originalPrice,
+        promotionalPrice: existing.promotionalPrice,
+        shippingPrice: existing.shippingPrice,
+        purchaseUrl: existing.purchaseUrl,
+        imageUrl: existing.imageUrl,
+        imagePublicId: existing.imagePublicId,
+        color: existing.color,
+        size: existing.size,
+        priority: existing.priority,
+        status: "Já comprei",
+        notes: payload.notes ?? existing.notes,
+        isFavorite: existing.isFavorite,
+        purchasedPrice: payload.purchasedPrice,
+        purchasedAt,
+        images: existing.images.length
+          ? {
+              create: existing.images.map((image) => ({
+                imageUrl: image.imageUrl,
+                imagePublicId: image.imagePublicId,
+                position: image.position,
+                isMain: image.isMain,
+              })),
+            }
+          : undefined,
+      });
+
+      safeBackup("product-repurchase");
+      const brandShipping = buildBrandShippingMap(
+        await productRepository.findAllByUser(userId),
+      );
+      return serialize(product, brandShipping);
     }
 
     const product = await productRepository.update(id, {

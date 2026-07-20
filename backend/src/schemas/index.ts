@@ -99,6 +99,7 @@ export const statusSchema = z.object({
   purchasedPrice: z.coerce.number().positive().optional(),
   purchasedAt: z.string().optional(),
   notes: z.string().optional().nullable(),
+  repurchase: z.coerce.boolean().optional(),
 });
 
 export const productQuerySchema = z.object({

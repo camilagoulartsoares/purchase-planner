@@ -60,7 +60,13 @@ export async function saveProduct(form: FormData, id?: string) {
 
 export async function patchStatus(
   id: string,
-  body: { status: string; purchasedPrice?: number; purchasedAt?: string; notes?: string },
+  body: {
+    status: string;
+    purchasedPrice?: number;
+    purchasedAt?: string;
+    notes?: string;
+    repurchase?: boolean;
+  },
 ) {
   const res = await api.patch(`/products/${id}/status`, body);
   return res.data.data as Product;

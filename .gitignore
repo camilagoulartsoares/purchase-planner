@@ -16,3 +16,4 @@ backend/data/export-sqlite.json
 backend/backups/
 .vite/
 .vercel
+.env*

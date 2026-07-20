@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, Repeat2, SlidersHorizontal, Sparkles, Target, X } from "lucide-react";
 import * as api from "../api/closet";
 import {
   CATEGORIES,
@@ -40,17 +40,30 @@ const MAX_FILTER_PRICE = 2000;
 const PRICE_STEP = 10;
 const DEFAULT_BUDGET = 400;
 
+type PlannerCandidate = Product & {
+  plannerKey: string;
+  plannerSource: "wishlist" | "repurchase";
+  plannerQuantity: number;
+};
+
+type BuyingState = {
+  item: PlannerCandidate | Product;
+  repurchase: boolean;
+};
+
 const priorityScore: Record<string, number> = {
   "Quero muito": 3,
   Quero: 2,
   Talvez: 1,
 };
 
-const plannerItemScore = (item: Product) =>
+const plannerItemScore = (item: Product, source: "wishlist" | "repurchase" = "wishlist", quantity = 1) =>
   (priorityScore[item.priority] || 0) * 1000 +
   item.discountPercent * 12 +
   (item.isFavorite ? 180 : 0) +
-  Math.max(0, 220 - item.effectivePrice / 5);
+  Math.max(0, 220 - item.effectivePrice / 5) +
+  (source === "wishlist" ? 120 : 40) -
+  (quantity - 1) * 90;
 
 const plannerImage = (item: Product) =>
   mediaUrl(item.images?.find((image) => image.isMain)?.imageUrl || item.imageUrl);
@@ -61,6 +74,8 @@ const productImages = (product: Product) =>
     : product.imageUrl
       ? [{ imageUrl: product.imageUrl }]
       : [];
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 function SelectField({
   value,
@@ -137,14 +152,26 @@ export function HomePage() {
   const [toast, setToast] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [buying, setBuying] = useState<Product | null>(null);
-  const [comboPreview, setComboPreview] = useState<Product | null>(null);
+  const [buying, setBuying] = useState<BuyingState | null>(null);
+  const [comboPreview, setComboPreview] = useState<PlannerCandidate | Product | null>(null);
   const [paid, setPaid] = useState("");
-  const [buyDate, setBuyDate] = useState(new Date().toISOString().slice(0, 10));
+  const [buyDate, setBuyDate] = useState(today);
   const [buyNotes, setBuyNotes] = useState("");
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
     const stored = window.localStorage.getItem("purchase-planner-budget");
     return stored ? Number(stored) || DEFAULT_BUDGET : DEFAULT_BUDGET;
+  });
+  const [allowRepurchase, setAllowRepurchase] = useState(() => {
+    const stored = window.localStorage.getItem("purchase-planner-allow-repurchase");
+    return stored ? stored === "true" : true;
+  });
+  const [allowDuplicates, setAllowDuplicates] = useState(() => {
+    const stored = window.localStorage.getItem("purchase-planner-allow-duplicates");
+    return stored ? stored === "true" : true;
+  });
+  const [allowRemainder, setAllowRemainder] = useState(() => {
+    const stored = window.localStorage.getItem("purchase-planner-allow-remainder");
+    return stored ? stored === "true" : true;
   });
 
   const load = useCallback(async () => {
@@ -200,6 +227,18 @@ export function HomePage() {
     window.localStorage.setItem("purchase-planner-budget", String(monthlyBudget));
   }, [monthlyBudget]);
 
+  useEffect(() => {
+    window.localStorage.setItem("purchase-planner-allow-repurchase", String(allowRepurchase));
+  }, [allowRepurchase]);
+
+  useEffect(() => {
+    window.localStorage.setItem("purchase-planner-allow-duplicates", String(allowDuplicates));
+  }, [allowDuplicates]);
+
+  useEffect(() => {
+    window.localStorage.setItem("purchase-planner-allow-remainder", String(allowRemainder));
+  }, [allowRemainder]);
+
   const patch = (partial: Partial<typeof query>) =>
     setQuery((q) => ({ ...q, ...partial, page: partial.page ?? 1 }));
 
@@ -220,19 +259,73 @@ export function HomePage() {
   const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
 
   const planner = useMemo(() => {
-    const wanted = plannerItems.filter((item) => item.status !== "Já comprei" && item.status !== "Desisti da compra");
+    const wanted = plannerItems.filter(
+      (item) => item.status !== "Já comprei" && item.status !== "Desisti da compra",
+    );
+    const repurchasable = plannerItems.filter((item) => item.status === "Já comprei");
     const total = wanted.reduce((sum, item) => sum + item.effectivePrice, 0);
-    const onBudget = wanted
+
+    const baseCandidates: PlannerCandidate[] = [
+      ...wanted.map((item) => ({
+        ...item,
+        plannerKey: `wishlist-${item.id}-1`,
+        plannerSource: "wishlist" as const,
+        plannerQuantity: 1,
+      })),
+      ...(allowRepurchase
+        ? repurchasable.map((item) => ({
+            ...item,
+            plannerKey: `repurchase-${item.id}-1`,
+            plannerSource: "repurchase" as const,
+            plannerQuantity: 1,
+          }))
+        : []),
+    ];
+
+    const expandedCandidates = baseCandidates.flatMap((item) => {
+      const maxUnits = allowDuplicates
+        ? Math.min(3, Math.max(1, Math.floor(monthlyBudget / Math.max(item.effectivePrice, 1))))
+        : 1;
+
+      return Array.from({ length: maxUnits }, (_, index) => ({
+        ...item,
+        plannerKey: `${item.plannerSource}-${item.id}-${index + 1}`,
+        plannerQuantity: index + 1,
+      }));
+    });
+
+    const compareCandidates = (a: PlannerCandidate, b: PlannerCandidate) =>
+      plannerItemScore(b, b.plannerSource, b.plannerQuantity) -
+        plannerItemScore(a, a.plannerSource, a.plannerQuantity) ||
+      a.effectivePrice - b.effectivePrice;
+
+    const onBudget = expandedCandidates
       .filter((item) => item.effectivePrice <= monthlyBudget)
-      .sort((a, b) => {
-        return plannerItemScore(b) - plannerItemScore(a);
-      });
+      .sort(compareCandidates);
+    const withinBudgetCount = baseCandidates.filter((item) => item.effectivePrice <= monthlyBudget).length;
     const topPick = onBudget[0] || null;
-    const planCandidates = onBudget.slice(0, 18);
+    const planCandidates = onBudget.slice(0, allowDuplicates ? 28 : 18);
+
+    const comparePlans = (
+      current: { items: PlannerCandidate[]; spent: number; score: number },
+      next: { items: PlannerCandidate[]; spent: number; score: number },
+    ) => {
+      const currentGap = Math.max(0, monthlyBudget - current.spent);
+      const nextGap = Math.max(0, monthlyBudget - next.spent);
+
+      if (!allowRemainder && currentGap !== nextGap) return nextGap < currentGap ? next : current;
+      if (next.score !== current.score) return next.score > current.score ? next : current;
+      if (next.items.length !== current.items.length) {
+        return next.items.length > current.items.length ? next : current;
+      }
+      if (next.spent !== current.spent) return next.spent > current.spent ? next : current;
+      return current;
+    };
+
     const shoppingPlan = planCandidates.reduce(
       (best, item) => {
         const price = item.effectivePrice;
-        const score = plannerItemScore(item);
+        const score = plannerItemScore(item, item.plannerSource, item.plannerQuantity);
         const nextPlans = best.plans
           .filter((plan) => plan.spent + price <= monthlyBudget)
           .map((plan) => ({
@@ -241,28 +334,25 @@ export function HomePage() {
             score: plan.score + score,
           }));
         const plans = [...best.plans, ...nextPlans];
-        const winner = plans.reduce((current, plan) => {
-          if (plan.score !== current.score) return plan.score > current.score ? plan : current;
-          if (plan.items.length !== current.items.length) {
-            return plan.items.length > current.items.length ? plan : current;
-          }
-          return plan.spent > current.spent ? plan : current;
-        }, best.winner);
+        const winner = plans.reduce(comparePlans, best.winner);
 
         return { plans, winner };
       },
       {
-        plans: [{ items: [] as Product[], spent: 0, score: 0 }],
-        winner: { items: [] as Product[], spent: 0, score: 0 },
+        plans: [{ items: [] as PlannerCandidate[], spent: 0, score: 0 }],
+        winner: { items: [] as PlannerCandidate[], spent: 0, score: 0 },
       },
     ).winner;
-    const cheapest = wanted.length
-      ? wanted.reduce((current, item) =>
+
+    const cheapest = baseCandidates.length
+      ? baseCandidates.reduce((current, item) =>
           item.effectivePrice < current.effectivePrice ? item : current,
         )
       : null;
     const budgetUse = monthlyBudget > 0 ? Math.min(100, (total / monthlyBudget) * 100) : 100;
     const planRemainder = Math.max(0, monthlyBudget - shoppingPlan.spent);
+    const repeatedCount = shoppingPlan.items.filter((item) => item.plannerQuantity > 1).length;
+    const repurchaseCount = shoppingPlan.items.filter((item) => item.plannerSource === "repurchase").length;
 
     return {
       wantedCount: wanted.length,
@@ -272,9 +362,16 @@ export function HomePage() {
       planRemainder,
       cheapest,
       budgetUse,
-      withinBudgetCount: onBudget.length,
+      withinBudgetCount,
+      candidateCount: baseCandidates.length,
+      repeatedCount,
+      repurchaseCount,
+      strategyLabel: allowRemainder ? "Mais desejo" : "Mais precisão",
+      strategyNote: allowRemainder
+        ? "Aceita folga para priorizar peças mais fortes, promoções e favoritos."
+        : "Tenta encostar no teto do orçamento para montar um combo mais justo.",
     };
-  }, [plannerItems, monthlyBudget]);
+  }, [allowDuplicates, allowRemainder, allowRepurchase, monthlyBudget, plannerItems]);
 
   const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
   const sortOptions = [
@@ -301,10 +398,16 @@ export function HomePage() {
     await load();
   };
 
+  const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
+    setBuying({ item, repurchase });
+    setPaid(String(item.effectivePrice));
+    setBuyDate(today());
+    setBuyNotes("");
+  };
+
   const onStatus = async (item: Product, status: string) => {
     if (status === "Já comprei") {
-      setBuying(item);
-      setPaid(String(item.effectivePrice));
+      openBuyModal(item);
       return;
     }
     await api.patchStatus(item.id, { status });
@@ -314,14 +417,15 @@ export function HomePage() {
 
   const confirmBuy = async () => {
     if (!buying) return;
-    await api.patchStatus(buying.id, {
+    await api.patchStatus(buying.item.id, {
       status: "Já comprei",
       purchasedPrice: Number(paid),
       purchasedAt: buyDate,
       notes: buyNotes || undefined,
+      repurchase: buying.repurchase,
     });
     setBuying(null);
-    setToast("Registrada como comprada");
+    setToast(buying.repurchase ? "Recompra registrada" : "Registrada como comprada");
     await load();
   };
 
@@ -360,17 +464,22 @@ export function HomePage() {
       ) : null}
 
       <section className="planner-panel mb-6">
-        <div className="planner-panel-main">
-          <div className="flex items-start justify-between gap-4">
+        <div className="planner-panel-main planner-panel-main-spotlight">
+          <div className="planner-panel-top">
             <div>
               <p className="planner-kicker">
                 <Sparkles size={15} /> Planejador inteligente
               </p>
               <h2 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
                 {planner.topPick
-                  ? "A compra que mais faz sentido agora"
+                  ? "Seu próximo movimento de compra"
                   : `Nada até ${formatBRL(monthlyBudget)}`}
               </h2>
+              <p className="planner-lead">
+                {planner.topPick
+                  ? "Agora o planner mistura wishlist, recompra e repetição para montar um cenário mais útil." 
+                  : "Ajuste o orçamento e os modos do planner para descobrir uma direção melhor."}
+              </p>
             </div>
             <div className="planner-budget-control">
               <label htmlFor="monthly-budget">Orçamento</label>
@@ -388,8 +497,40 @@ export function HomePage() {
             </div>
           </div>
 
+          <div className="planner-strategy-row">
+            <button
+              type="button"
+              className={`planner-toggle ${allowRepurchase ? "is-active" : ""}`}
+              onClick={() => setAllowRepurchase((value) => !value)}
+              aria-pressed={allowRepurchase}
+            >
+              <Repeat2 size={15} /> Incluir recompras
+            </button>
+            <button
+              type="button"
+              className={`planner-toggle ${allowDuplicates ? "is-active" : ""}`}
+              onClick={() => setAllowDuplicates((value) => !value)}
+              aria-pressed={allowDuplicates}
+            >
+              <Sparkles size={15} /> Permitir repetição
+            </button>
+            <button
+              type="button"
+              className={`planner-toggle ${allowRemainder ? "is-active" : ""}`}
+              onClick={() => setAllowRemainder((value) => !value)}
+              aria-pressed={allowRemainder}
+            >
+              <Target size={15} /> Aceitar sobra
+            </button>
+          </div>
+
+          <div className="planner-strategy-note">
+            <span><Target size={15} /> {planner.strategyLabel}</span>
+            <p>{planner.strategyNote}</p>
+          </div>
+
           {planner.topPick ? (
-            <div className="planner-pick">
+            <div className="planner-pick planner-pick-spotlight">
               <div className="planner-pick-media">
                 {plannerImage(planner.topPick) ? (
                   <img
@@ -401,7 +542,15 @@ export function HomePage() {
                   <div className="planner-pick-image planner-pick-image-empty">Sem foto</div>
                 )}
               </div>
-              <div>
+              <div className="planner-pick-copy">
+                <div className="planner-pick-tags">
+                  {planner.topPick.plannerSource === "repurchase" ? (
+                    <span className="planner-badge">Comprar de novo</span>
+                  ) : null}
+                  {planner.topPick.plannerQuantity > 1 ? (
+                    <span className="planner-badge">{planner.topPick.plannerQuantity}x no combo</span>
+                  ) : null}
+                </div>
                 <p className="text-xs font-semibold tracking-[0.1em] text-muted uppercase">
                   {planner.topPick.brand} · {planner.topPick.category}
                 </p>
@@ -416,10 +565,7 @@ export function HomePage() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => {
-                  setBuying(planner.topPick);
-                  setPaid(String(planner.topPick.effectivePrice));
-                }}
+                onClick={() => openBuyModal(planner.topPick, planner.topPick.plannerSource === "repurchase")}
               >
                 Registrar compra
               </button>
@@ -432,19 +578,22 @@ export function HomePage() {
             </p>
           )}
 
-          {planner.shoppingPlan.items.length > 1 ? (
-            <div className="planner-shopping-plan">
+          {planner.shoppingPlan.items.length > 0 ? (
+            <div className="planner-shopping-plan planner-shopping-plan-premium">
               <div className="planner-shopping-plan-head">
                 <div>
                   <p>Combo sugerido</p>
                   <strong>{formatBRL(planner.shoppingPlan.spent)}</strong>
                 </div>
-                <span>Sobra {formatBRL(planner.planRemainder)}</span>
+                <div className="planner-shopping-plan-meta">
+                  <span>{planner.shoppingPlan.items.length} peça{planner.shoppingPlan.items.length > 1 ? "s" : ""}</span>
+                  {allowRemainder && planner.planRemainder > 0 ? <span>Folga {formatBRL(planner.planRemainder)}</span> : null}
+                </div>
               </div>
               <div className="planner-shopping-list">
-                {planner.shoppingPlan.items.slice(0, 4).map((item) => (
+                {planner.shoppingPlan.items.slice(0, 5).map((item) => (
                   <button
-                    key={item.id}
+                    key={item.plannerKey}
                     type="button"
                     className="planner-shopping-item"
                     aria-label={`Ver detalhes de ${item.name}`}
@@ -460,17 +609,23 @@ export function HomePage() {
                       ) : (
                         <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
                       )}
-                      <span>{item.name}</span>
+                      <div>
+                        <span>{item.name}</span>
+                        <small className="planner-shopping-item-note">
+                          {item.plannerSource === "repurchase" ? "Recompra" : "Wishlist"}
+                          {item.plannerQuantity > 1 ? ` · ${item.plannerQuantity}ª unidade` : ""}
+                        </small>
+                      </div>
                     </div>
                     <strong>{formatBRL(item.effectivePrice)}</strong>
                   </button>
                 ))}
               </div>
               <p className="planner-shopping-hint">Clique em uma peça para abrir os detalhes sem sair da página.</p>
-              {planner.shoppingPlan.items.length > 4 ? (
+              {planner.shoppingPlan.items.length > 5 ? (
                 <p className="planner-shopping-extra">
-                  +{planner.shoppingPlan.items.length - 4} peça
-                  {planner.shoppingPlan.items.length - 4 > 1 ? "s" : ""} no combo
+                  +{planner.shoppingPlan.items.length - 5} peça
+                  {planner.shoppingPlan.items.length - 5 > 1 ? "s" : ""} no combo
                 </p>
               ) : null}
             </div>
@@ -488,12 +643,20 @@ export function HomePage() {
           <article>
             <span><Gem size={16} /> Cabem no orçamento</span>
             <strong>
-              {planner.withinBudgetCount} de {planner.wantedCount}
+              {planner.withinBudgetCount} de {planner.candidateCount}
             </strong>
             <small>
               {planner.withinBudgetCount > 0
-                ? `Até ${formatBRL(monthlyBudget)}, com base na lista atual`
+                ? `Até ${formatBRL(monthlyBudget)}, considerando wishlist e recompras`
                 : `Nenhuma peça até ${formatBRL(monthlyBudget)}`}
+            </small>
+          </article>
+          <article>
+            <span><Repeat2 size={16} /> Elasticidade do combo</span>
+            <strong>{planner.repurchaseCount + planner.repeatedCount}</strong>
+            <small>
+              {planner.repurchaseCount > 0 ? `${planner.repurchaseCount} recompra${planner.repurchaseCount > 1 ? "s" : ""}` : "Nenhuma recompra"}
+              {planner.repeatedCount > 0 ? ` · ${planner.repeatedCount} repetição${planner.repeatedCount > 1 ? "ões" : ""}` : ""}
             </small>
           </article>
         </div>
@@ -760,8 +923,10 @@ export function HomePage() {
                     className="btn-ghost"
                     onClick={() => {
                       setComboPreview(null);
-                      setBuying(comboPreview);
-                      setPaid(String(comboPreview.effectivePrice));
+                      openBuyModal(
+                        comboPreview,
+                        "plannerSource" in comboPreview && comboPreview.plannerSource === "repurchase",
+                      );
                     }}
                   >
                     Registrar compra
@@ -784,7 +949,12 @@ export function HomePage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/35 p-4">
           <div className="card-soft w-full max-w-md p-5">
             <h3 className="font-display text-2xl text-brown-deep">Registrar compra</h3>
-            <p className="mt-1 text-sm text-muted">{buying.name}</p>
+            <p className="mt-1 text-sm text-muted">{buying.item.name}</p>
+            {buying.repurchase ? (
+              <p className="mt-1 text-xs font-semibold tracking-[0.08em] text-rose uppercase">
+                Esta compra será registrada como recompra e manterá o histórico anterior.
+              </p>
+            ) : null}
             <div className="mt-4 grid gap-3">
               <label className="field">
                 <span>Preço pago</span>
@@ -821,3 +991,5 @@ export function HomePage() {
     </AppShell>
   );
 }
+
+
