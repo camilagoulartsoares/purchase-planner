@@ -11,6 +11,8 @@ import { ProductGallery } from "./ProductGallery";
 
 type Props = {
   product: Product;
+  promoLabel?: string | null;
+  promoReason?: string | null;
   onEdit?: (p: Product) => void;
   onMarkBought?: (p: Product) => void;
   onFavorite?: (p: Product) => void;
@@ -20,6 +22,8 @@ type Props = {
 
 export function ProductCard({
   product,
+  promoLabel,
+  promoReason,
   onEdit,
   onMarkBought,
   onFavorite,
@@ -50,6 +54,11 @@ export function ProductCard({
     <article className="card-soft relative overflow-visible">
       <div className="relative overflow-hidden rounded-t-[1.1rem]">
         <ProductGallery images={images} alt={product.name} compact />
+        {promoLabel ? (
+          <div className="sale-badge absolute top-2 left-2 z-20">
+            {promoLabel}
+          </div>
+        ) : null}
         {onFavorite ? (
           <button
             type="button"
@@ -88,6 +97,9 @@ export function ProductCard({
                 {product.shippingInherited ? "Frete da marca " : "Frete "}
                 {formatBRL(shipping)}
               </p>
+            ) : null}
+            {promoReason ? (
+              <p className="sale-note mt-2">{promoReason}</p>
             ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>
           </div>

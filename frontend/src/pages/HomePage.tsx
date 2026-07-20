@@ -176,6 +176,23 @@ export function HomePage() {
     return stored ? stored === "true" : true;
   });
 
+  const promoByProductId = useMemo(() => {
+    const map = new Map<string, { label: string; reason: string }>();
+
+    for (const brand of promoRadar) {
+      for (const item of brand.matchedProducts) {
+        map.set(item.productId, {
+          label: item.referencePrice != null && item.currentPrice != null && item.currentPrice < item.referencePrice
+            ? "SALE"
+            : "PROMO",
+          reason: item.reason,
+        });
+      }
+    }
+
+    return map;
+  }, [promoRadar]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -877,6 +894,8 @@ export function HomePage() {
             <ProductCard
               key={item.id}
               product={item}
+              promoLabel={promoByProductId.get(item.id)?.label ?? (item.hasPromo ? "SALE" : null)}
+              promoReason={promoByProductId.get(item.id)?.reason ?? null}
               onEdit={(p) => {
                 setEditing(p);
                 setFormOpen(true);
