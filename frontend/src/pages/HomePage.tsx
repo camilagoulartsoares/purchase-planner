@@ -16,6 +16,7 @@ import { ProductGallery } from "../components/ProductGallery";
 import { ProductCard } from "../components/ProductCard";
 import { AppShell } from "../components/AppShell";
 import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
+import { buildPromoByProductId } from "../utils/promo";
 
 const emptyQuery = {
   search: "",
@@ -176,27 +177,7 @@ export function HomePage() {
     return stored ? stored === "true" : true;
   });
 
-  const promoByProductId = useMemo(() => {
-    const map = new Map<
-      string,
-      { label: string; reason: string; currentPrice: number | null; referencePrice: number | null }
-    >();
-
-    for (const brand of promoRadar) {
-      for (const item of brand.matchedProducts) {
-        map.set(item.productId, {
-          label: item.referencePrice != null && item.currentPrice != null && item.currentPrice < item.referencePrice
-            ? "SALE"
-            : "PROMO",
-          reason: item.reason,
-          currentPrice: item.currentPrice ?? null,
-          referencePrice: item.referencePrice ?? null,
-        });
-      }
-    }
-
-    return map;
-  }, [promoRadar]);
+  const promoByProductId = useMemo(() => buildPromoByProductId(promoRadar), [promoRadar]);
 
   const load = useCallback(async () => {
     setLoading(true);

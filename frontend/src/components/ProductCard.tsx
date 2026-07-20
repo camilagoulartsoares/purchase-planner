@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { formatBRL, type Product } from "../types";
 import { ProductGallery } from "./ProductGallery";
+import { hasLivePromoPrice } from "../utils/promo";
 
 type Props = {
   product: Product;
@@ -54,10 +55,9 @@ export function ProductCard({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
-  const hasLivePromoPrice =
-    promoCurrentPrice != null &&
-    promoReferencePrice != null &&
-    promoCurrentPrice < promoReferencePrice;
+  const hasPromoPrice = hasLivePromoPrice(promoCurrentPrice, promoReferencePrice);
+  const livePromoCurrentPrice = hasPromoPrice ? promoCurrentPrice : null;
+  const livePromoReferencePrice = hasPromoPrice ? promoReferencePrice : null;
 
   return (
     <article className="card-soft relative overflow-visible">
@@ -98,11 +98,11 @@ export function ProductCard({
             >
               {product.name}
             </Link>
-            {hasLivePromoPrice ? (
+            {hasPromoPrice ? (
               <div className="mt-1">
                 <p className="sale-price-row">
-                  <span className="sale-price-old">{formatBRL(promoReferencePrice)}</span>
-                  <strong className="sale-price-current">{formatBRL(promoCurrentPrice)}</strong>
+                  <span className="sale-price-old">{formatBRL(livePromoReferencePrice ?? 0)}</span>
+                  <strong className="sale-price-current">{formatBRL(livePromoCurrentPrice ?? 0)}</strong>
                 </p>
                 <p className="sale-site-note">Preço promocional detectado no site</p>
               </div>

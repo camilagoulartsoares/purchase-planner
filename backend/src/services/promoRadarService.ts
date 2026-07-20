@@ -33,15 +33,12 @@ const CACHE_TTL_MS = 1000 * 60 * 20;
 const MAX_PRODUCTS_TO_SCAN = 120;
 const PROMO_TERMS = [
   "promo",
-  "promoção",
   "promocao",
   "oferta",
   "sale",
   "liquida",
-  "liquidação",
   "liquidacao",
   "queima",
-  "troca de coleção",
   "troca de colecao",
   "semana d",
   "desconto",
@@ -79,11 +76,56 @@ function decodeMoney(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function decodeCents(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed / 100 : null;
+}
+
 function extractMoneyValues(html: string) {
   const matches = [...html.matchAll(/R\$\s*([\d.]+,\d{2})/gi)];
   return matches
     .map((match) => decodeMoney(match[1]))
     .filter((value): value is number => value != null);
+}
+
+export function extractStructuredPriceData(html: string) {
+  const compareDom = html.match(
+    /<del[^>]*data-total-compare-price[^>]*>\s*R\$\s*([\d.]+,\d{2})\s*<\/del>/i,
+  );
+  const currentDom = html.match(
+    /<ins[^>]*data-total-price[^>]*>\s*R\$\s*([\d.]+,\d{2})\s*<\/ins>/i,
+  );
+
+  if (currentDom?.[1] || compareDom?.[1]) {
+    return {
+      currentPrice: currentDom?.[1] ? decodeMoney(currentDom[1]) : null,
+      referencePrice: compareDom?.[1] ? decodeMoney(compareDom[1]) : null,
+    };
+  }
+
+  const compareJson = html.match(/"compare_at_price"\s*:\s*(\d{3,})/i);
+  const currentJson = html.match(/"price"\s*:\s*(\d{3,})/i);
+
+  if (currentJson?.[1] || compareJson?.[1]) {
+    return {
+      currentPrice: currentJson?.[1] ? decodeCents(currentJson[1]) : null,
+      referencePrice: compareJson?.[1] ? decodeCents(compareJson[1]) : null,
+    };
+  }
+
+  const ogCurrent = html.match(
+    /<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([\d.]+,\d{2})["']/i,
+  );
+  const ldCurrent = html.match(/"price"\s*:\s*"(\d+\.\d{2})"/i);
+
+  return {
+    currentPrice: ogCurrent?.[1]
+      ? decodeMoney(ogCurrent[1])
+      : ldCurrent?.[1]
+        ? Number(ldCurrent[1])
+        : null,
+    referencePrice: null,
+  };
 }
 
 function extractDiscountSignals(html: string) {
@@ -107,7 +149,10 @@ function extractCampaignUrlsFromSitemap(xml: string, domain: string) {
     .map((match) => match[1].trim())
     .filter((url) => domainFrom(url) === domain)
     .filter((url) =>
-      CAMPAIGN_PATH_TERMS.some((term) => url.toLowerCase().includes(`/${term}`) || url.toLowerCase().includes(`-${term}`)),
+      CAMPAIGN_PATH_TERMS.some(
+        (term) =>
+          url.toLowerCase().includes(`/${term}`) || url.toLowerCase().includes(`-${term}`),
+      ),
     );
 
   return [...new Set(urls)].slice(0, 5);
@@ -137,27 +182,42 @@ async function fetchText(url: string) {
   }
 }
 
-async function inspectProduct(product: ProductWithRelations) {
+async function inspectProduct(product: ProductWithRelations): Promise<RadarProduct | null> {
   if (!product.purchaseUrl) return null;
 
   const url = normalizeUrl(product.purchaseUrl);
   const html = await fetchText(url);
   if (!html) return null;
 
-  const moneyValues = extractMoneyValues(html);
-  const discountSignals = extractDiscountSignals(html);
-  const pageLowestPrice = moneyValues.length ? Math.min(...moneyValues) : null;
-  const pageReferencePrice =
-    moneyValues.length > 1 ? Math.max(...moneyValues) : product.promotionalPrice != null ? Number(product.originalPrice) : null;
-  const terms = extractPromoTerms(html);
-  const campaignImageSignal =
-    /queima[oã]-de-estoque|troca-de-cole[cç][aã]o|semana-\d|stories/i.test(html);
-
   const knownCurrentPrice =
     product.promotionalPrice != null ? Number(product.promotionalPrice) : Number(product.originalPrice);
   const knownReferencePrice = Number(product.originalPrice);
+  const structuredPrices = extractStructuredPriceData(html);
+  const moneyValues = extractMoneyValues(html);
+  const discountSignals = extractDiscountSignals(html);
+  const pageLowestPrice =
+    structuredPrices.currentPrice != null
+      ? structuredPrices.currentPrice
+      : moneyValues.length
+        ? Math.min(...moneyValues)
+        : null;
+  const pageReferencePrice =
+    structuredPrices.referencePrice != null
+      ? structuredPrices.referencePrice
+      : structuredPrices.currentPrice != null
+        ? knownReferencePrice
+        : moneyValues.length > 1
+          ? Math.max(...moneyValues)
+          : knownReferencePrice;
+  const terms = extractPromoTerms(html);
+  const campaignImageSignal =
+    /queima-de-estoque|troca-de-colecao|semana-\d|stories/i.test(html);
+
   const pageHasBetterPrice = pageLowestPrice != null && pageLowestPrice + 0.01 < knownCurrentPrice;
-  const pageShowsDiscount = pageReferencePrice != null && pageLowestPrice != null && pageLowestPrice + 0.01 < pageReferencePrice;
+  const pageShowsDiscount =
+    pageReferencePrice != null &&
+    pageLowestPrice != null &&
+    pageLowestPrice + 0.01 < pageReferencePrice;
   const isPromo =
     campaignImageSignal ||
     terms.length > 0 ||
@@ -181,7 +241,7 @@ async function inspectProduct(product: ProductWithRelations) {
     brand: product.brand.name,
     brandSlug: product.brand.slug,
     productUrl: url,
-    imageUrl: productImage(product),
+    imageUrl: productImage(product) ?? null,
     currentPrice: pageLowestPrice ?? knownCurrentPrice,
     referencePrice:
       pageReferencePrice != null && pageReferencePrice > (pageLowestPrice ?? 0)
@@ -189,10 +249,10 @@ async function inspectProduct(product: ProductWithRelations) {
         : knownReferencePrice,
     matchedTerms,
     reason: campaignImageSignal
-      ? "A página do produto está apontando para uma campanha semanal ativa."
+      ? "A pagina do produto esta apontando para uma campanha semanal ativa."
       : pageHasBetterPrice || pageShowsDiscount
-        ? "O site mostra preço/promessa de desconto melhor do que a referência salva."
-        : "A página contém sinais reais de promoção nesta semana.",
+        ? "O site mostra preco/promessa de desconto melhor do que a referencia salva."
+        : "A pagina contem sinais reais de promocao nesta semana.",
   } satisfies RadarProduct;
 }
 
@@ -218,7 +278,9 @@ export const promoRadarService = {
       domainCampaigns.set(domain, extractCampaignUrlsFromSitemap(sitemap, domain));
     }
 
-    const inspected = await Promise.all(eligibleProducts.map((product) => inspectProduct(product)));
+    const inspected = await Promise.all(
+      eligibleProducts.map((product) => inspectProduct(product)),
+    );
     const hits = inspected.filter((item): item is RadarProduct => item != null);
 
     const grouped = new Map<string, RadarBrand>();
@@ -247,13 +309,13 @@ export const promoRadarService = {
     const result = [...grouped.values()]
       .map((brand) => {
         const itemCount = brand.matchedProducts.length;
-        const productLabel = itemCount === 1 ? "peça" : "peças";
+        const productLabel = itemCount === 1 ? "peca" : "pecas";
         brand.headline =
           itemCount >= 3
-            ? `${brand.brand} está com ${itemCount} ${productLabel} em promoção nesta semana.`
+            ? `${brand.brand} esta com ${itemCount} ${productLabel} em promocao nesta semana.`
             : itemCount >= 1
-              ? `${brand.brand} tem ${itemCount} ${productLabel} com sinal real de promoção agora.`
-              : `${brand.brand} sem promoção detectada.`;
+              ? `${brand.brand} tem ${itemCount} ${productLabel} com sinal real de promocao agora.`
+              : `${brand.brand} sem promocao detectada.`;
         brand.matchedProducts = brand.matchedProducts.slice(0, 6);
         return brand;
       })
