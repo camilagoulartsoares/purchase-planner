@@ -808,6 +808,31 @@ body {
   font-weight: 700;
   line-height: 1.4;
 }
+.sale-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: .55rem;
+  flex-wrap: wrap;
+}
+.sale-price-old {
+  color: var(--muted);
+  font-size: 1rem;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.sale-price-current {
+  color: #9e2f2f;
+  font-size: 1.85rem;
+  line-height: 1;
+}
+.sale-site-note {
+  margin-top: .2rem;
+  color: #9e2f2f;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
 .gallery-arrow,
 .gallery-zoom {
   display: grid;

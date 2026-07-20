@@ -13,6 +13,8 @@ type Props = {
   product: Product;
   promoLabel?: string | null;
   promoReason?: string | null;
+  promoCurrentPrice?: number | null;
+  promoReferencePrice?: number | null;
   onEdit?: (p: Product) => void;
   onMarkBought?: (p: Product) => void;
   onFavorite?: (p: Product) => void;
@@ -24,6 +26,8 @@ export function ProductCard({
   product,
   promoLabel,
   promoReason,
+  promoCurrentPrice,
+  promoReferencePrice,
   onEdit,
   onMarkBought,
   onFavorite,
@@ -49,6 +53,11 @@ export function ProductCard({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
+
+  const hasLivePromoPrice =
+    promoCurrentPrice != null &&
+    promoReferencePrice != null &&
+    promoCurrentPrice < promoReferencePrice;
 
   return (
     <article className="card-soft relative overflow-visible">
@@ -89,9 +98,19 @@ export function ProductCard({
             >
               {product.name}
             </Link>
-            <p className="mt-1 text-lg font-semibold text-ink">
-              {formatBRL(product.effectivePrice)}
-            </p>
+            {hasLivePromoPrice ? (
+              <div className="mt-1">
+                <p className="sale-price-row">
+                  <span className="sale-price-old">{formatBRL(promoReferencePrice)}</span>
+                  <strong className="sale-price-current">{formatBRL(promoCurrentPrice)}</strong>
+                </p>
+                <p className="sale-site-note">Preço promocional detectado no site</p>
+              </div>
+            ) : (
+              <p className="mt-1 text-lg font-semibold text-ink">
+                {formatBRL(product.effectivePrice)}
+              </p>
+            )}
             {shipping != null ? (
               <p className="mt-1 text-xs font-semibold text-muted">
                 {product.shippingInherited ? "Frete da marca " : "Frete "}

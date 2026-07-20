@@ -177,7 +177,10 @@ export function HomePage() {
   });
 
   const promoByProductId = useMemo(() => {
-    const map = new Map<string, { label: string; reason: string }>();
+    const map = new Map<
+      string,
+      { label: string; reason: string; currentPrice: number | null; referencePrice: number | null }
+    >();
 
     for (const brand of promoRadar) {
       for (const item of brand.matchedProducts) {
@@ -186,6 +189,8 @@ export function HomePage() {
             ? "SALE"
             : "PROMO",
           reason: item.reason,
+          currentPrice: item.currentPrice ?? null,
+          referencePrice: item.referencePrice ?? null,
         });
       }
     }
@@ -896,6 +901,8 @@ export function HomePage() {
               product={item}
               promoLabel={promoByProductId.get(item.id)?.label ?? (item.hasPromo ? "SALE" : null)}
               promoReason={promoByProductId.get(item.id)?.reason ?? null}
+              promoCurrentPrice={promoByProductId.get(item.id)?.currentPrice ?? null}
+              promoReferencePrice={promoByProductId.get(item.id)?.referencePrice ?? null}
               onEdit={(p) => {
                 setEditing(p);
                 setFormOpen(true);
