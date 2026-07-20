@@ -192,19 +192,24 @@ export function HomePage() {
         return [...first.items, ...rest.flatMap((page) => page.items)];
       };
 
-      const [s, p, b, plannerProducts, promo] = await Promise.all([
+      const [s, p, b, plannerProducts] = await Promise.all([
         api.fetchSummary(),
         api.fetchProducts(debouncedQuery),
         api.fetchBrands(),
         fetchPlannerItems(),
-        api.fetchPromoRadar(),
       ]);
       setSummary(s);
       setItems(p.items);
       setPlannerItems(plannerProducts);
       setMeta(p.meta);
       setBrands(b);
-      setPromoRadar(promo);
+
+      try {
+        const promo = await api.fetchPromoRadar();
+        setPromoRadar(promo);
+      } catch {
+        setPromoRadar([]);
+      }
     } catch {
       setToast("Erro ao carregar dados");
     } finally {
