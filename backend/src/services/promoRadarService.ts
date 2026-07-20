@@ -30,6 +30,7 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 1000 * 60 * 20;
+const MAX_PRODUCTS_TO_SCAN = 120;
 const PROMO_TERMS = [
   "promo",
   "promoção",
@@ -85,6 +86,17 @@ function extractMoneyValues(html: string) {
     .filter((value): value is number => value != null);
 }
 
+function extractDiscountSignals(html: string) {
+  const offMatches = [...html.matchAll(/(\d{1,2})%\s*OFF/gi)].map(
+    (match) => `${match[1]}%-off`,
+  );
+  const pixMatches = [...html.matchAll(/PIX\s*\(-?(\d{1,2})%\)/gi)].map(
+    (match) => `pix-${match[1]}%-off`,
+  );
+
+  return [...new Set([...offMatches, ...pixMatches])];
+}
+
 function extractPromoTerms(html: string) {
   const lowered = html.toLowerCase();
   return PROMO_TERMS.filter((term) => lowered.includes(term));
@@ -133,6 +145,7 @@ async function inspectProduct(product: ProductWithRelations) {
   if (!html) return null;
 
   const moneyValues = extractMoneyValues(html);
+  const discountSignals = extractDiscountSignals(html);
   const pageLowestPrice = moneyValues.length ? Math.min(...moneyValues) : null;
   const pageReferencePrice =
     moneyValues.length > 1 ? Math.max(...moneyValues) : product.promotionalPrice != null ? Number(product.originalPrice) : null;
@@ -145,12 +158,18 @@ async function inspectProduct(product: ProductWithRelations) {
   const knownReferencePrice = Number(product.originalPrice);
   const pageHasBetterPrice = pageLowestPrice != null && pageLowestPrice + 0.01 < knownCurrentPrice;
   const pageShowsDiscount = pageReferencePrice != null && pageLowestPrice != null && pageLowestPrice + 0.01 < pageReferencePrice;
-  const isPromo = campaignImageSignal || terms.length > 0 || pageHasBetterPrice || pageShowsDiscount;
+  const isPromo =
+    campaignImageSignal ||
+    terms.length > 0 ||
+    discountSignals.length > 0 ||
+    pageHasBetterPrice ||
+    pageShowsDiscount;
 
   if (!isPromo) return null;
 
   const matchedTerms = [
     ...terms,
+    ...discountSignals,
     ...(campaignImageSignal ? ["campanha-semanal"] : []),
     ...(pageHasBetterPrice ? ["preco-menor-no-site"] : []),
     ...(pageShowsDiscount ? ["desconto-no-html"] : []),
@@ -186,7 +205,8 @@ export const promoRadarService = {
     const eligibleProducts = products
       .filter((product) => product.purchaseUrl)
       .filter((product) => product.status !== "Desisti da compra")
-      .slice(0, 24);
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .slice(0, MAX_PRODUCTS_TO_SCAN);
 
     const domainCampaigns = new Map<string, string[]>();
     for (const product of eligibleProducts) {
