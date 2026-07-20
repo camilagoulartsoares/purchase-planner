@@ -7,6 +7,7 @@ import {
   formatBRL,
   mediaUrl,
   type BrandSummary,
+  type PromoRadarBrand,
   type Product,
   type Summary,
 } from "../types";
@@ -143,6 +144,7 @@ function SelectField({
 export function HomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [brands, setBrands] = useState<BrandSummary[]>([]);
+  const [promoRadar, setPromoRadar] = useState<PromoRadarBrand[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [plannerItems, setPlannerItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
@@ -190,17 +192,19 @@ export function HomePage() {
         return [...first.items, ...rest.flatMap((page) => page.items)];
       };
 
-      const [s, p, b, plannerProducts] = await Promise.all([
+      const [s, p, b, plannerProducts, promo] = await Promise.all([
         api.fetchSummary(),
         api.fetchProducts(debouncedQuery),
         api.fetchBrands(),
         fetchPlannerItems(),
+        api.fetchPromoRadar(),
       ]);
       setSummary(s);
       setItems(p.items);
       setPlannerItems(plannerProducts);
       setMeta(p.meta);
       setBrands(b);
+      setPromoRadar(promo);
     } catch {
       setToast("Erro ao carregar dados");
     } finally {
@@ -661,6 +665,92 @@ export function HomePage() {
           </article>
         </div>
       </section>
+
+      {promoRadar.length ? (
+        <section className="card-soft mb-6 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="planner-kicker">
+                <Sparkles size={15} /> Promo radar
+              </p>
+              <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
+                Promoções reais detectadas esta semana
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm text-muted">
+                Esse painel faz busca nas páginas das peças que você salvou e tenta validar sinais reais
+                de campanha, desconto e preço menor no site.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            {promoRadar.map((brand) => (
+              <article key={brand.brandId} className="planner-shopping-plan">
+                <div className="planner-shopping-plan-head">
+                  <div>
+                    <p>{brand.brand}</p>
+                    <strong>{brand.matchedProducts.length} alerta{brand.matchedProducts.length > 1 ? "s" : ""}</strong>
+                  </div>
+                  <div className="planner-shopping-plan-meta">
+                    <span>{brand.storeDomain}</span>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-sm text-ink">{brand.headline}</p>
+
+                <div className="planner-shopping-list">
+                  {brand.matchedProducts.slice(0, 3).map((item) => (
+                    <a
+                      key={`${brand.brandId}-${item.productId}`}
+                      className="planner-shopping-item"
+                      href={item.productUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <div className="planner-shopping-item-main">
+                        {item.imageUrl ? (
+                          <img
+                            src={mediaUrl(item.imageUrl)}
+                            alt={item.name}
+                            className="planner-shopping-thumb"
+                          />
+                        ) : (
+                          <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
+                        )}
+                        <div>
+                          <span>{item.name}</span>
+                          <small className="planner-shopping-item-note">
+                            {item.reason}
+                          </small>
+                        </div>
+                      </div>
+                      <strong>
+                        {item.currentPrice != null ? formatBRL(item.currentPrice) : "Ver site"}
+                      </strong>
+                    </a>
+                  ))}
+                </div>
+
+                {brand.campaignUrls.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {brand.campaignUrls.slice(0, 2).map((url) => (
+                      <a
+                        key={url}
+                        className="btn-ghost"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Ver campanha
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mb-4 flex gap-2 overflow-x-auto">
         {VISIBLE_STATUSES.map((s) => (

@@ -7,6 +7,7 @@ import {
 } from "../schemas/index.js";
 import { AppError, ok } from "../middlewares/errorHandler.js";
 import { productService } from "../services/productService.js";
+import { promoRadarService } from "../services/promoRadarService.js";
 
 function param(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value || "";
@@ -141,6 +142,15 @@ export const productController = {
   async summary(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await productService.summary(req.user!.id);
+      return ok(res, data);
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async promoRadar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await promoRadarService.weeklyBrandPromotions(req.user!.id);
       return ok(res, data);
     } catch (err) {
       return next(err);

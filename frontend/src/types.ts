@@ -90,6 +90,29 @@ export type Summary = {
   counts: Record<string, number>;
 };
 
+export type PromoRadarProduct = {
+  productId: string;
+  name: string;
+  brand: string;
+  brandSlug: string;
+  productUrl: string;
+  imageUrl?: string | null;
+  currentPrice?: number | null;
+  referencePrice?: number | null;
+  matchedTerms: string[];
+  reason: string;
+};
+
+export type PromoRadarBrand = {
+  brandId: string;
+  brand: string;
+  storeDomain: string;
+  headline: string;
+  detectedAt: string;
+  campaignUrls: string[];
+  matchedProducts: PromoRadarProduct[];
+};
+
 export type ProductQuery = {
   search?: string;
   category?: string;

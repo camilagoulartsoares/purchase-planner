@@ -1,5 +1,5 @@
 import api from "./client";
-import type { BrandSummary, Product, ProductQuery, Summary, User } from "../types";
+import type { BrandSummary, Product, ProductQuery, PromoRadarBrand, Summary, User } from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
   const res = await api.post("/auth/register", data);
@@ -19,6 +19,11 @@ export async function me() {
 export async function fetchSummary() {
   const res = await api.get("/dashboard/summary");
   return res.data.data as Summary;
+}
+
+export async function fetchPromoRadar() {
+  const res = await api.get("/dashboard/promo-radar");
+  return res.data.data as PromoRadarBrand[];
 }
 
 export async function fetchProducts(params: ProductQuery) {
