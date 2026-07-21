@@ -182,6 +182,15 @@ export function HomePage() {
     [promoRadar],
   );
 
+  const refreshPromoRadar = useCallback(async () => {
+    try {
+      const promo = await api.fetchPromoRadar();
+      setPromoRadar(promo);
+    } catch {
+      setToast((current) => current || "Radar de promoções indisponível no momento");
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -209,13 +218,6 @@ export function HomePage() {
       setPlannerItems(plannerProducts);
       setMeta(p.meta);
       setBrands(b);
-
-      try {
-        const promo = await api.fetchPromoRadar();
-        setPromoRadar(promo);
-      } catch {
-        setPromoRadar(null);
-      }
     } catch {
       setToast("Erro ao carregar dados");
     } finally {
@@ -226,6 +228,10 @@ export function HomePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void refreshPromoRadar();
+  }, [refreshPromoRadar]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
@@ -411,6 +417,7 @@ export function HomePage() {
     await api.saveProduct(form, id);
     setToast(id ? "Peça atualizada" : "Peça adicionada");
     await load();
+    await refreshPromoRadar();
   };
 
   const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
@@ -428,6 +435,7 @@ export function HomePage() {
     await api.patchStatus(item.id, { status });
     setToast("Status atualizado");
     await load();
+    await refreshPromoRadar();
   };
 
   const confirmBuy = async () => {
@@ -442,6 +450,7 @@ export function HomePage() {
     setBuying(null);
     setToast(buying.repurchase ? "Recompra registrada" : "Registrada como comprada");
     await load();
+    await refreshPromoRadar();
   };
 
   return (
@@ -905,6 +914,7 @@ export function HomePage() {
                 await api.toggleFavorite(p.id);
                 setToast(p.isFavorite ? "Removida dos favoritos" : "Adicionada aos favoritos");
                 await load();
+                await refreshPromoRadar();
               }}
               onStatus={(p, status) => void onStatus(p, status)}
               onDelete={async (p) => {
@@ -912,6 +922,7 @@ export function HomePage() {
                 await api.deleteProduct(p.id);
                 setToast("Peça removida");
                 await load();
+                await refreshPromoRadar();
               }}
             />
           ))}

@@ -22,7 +22,7 @@ export async function fetchSummary() {
 }
 
 export async function fetchPromoRadar() {
-  const res = await api.get("/dashboard/promo-radar");
+  const res = await api.get("/dashboard/promo-radar", { timeout: 60000 });
   return res.data.data as PromoRadarResponse;
 }
 
