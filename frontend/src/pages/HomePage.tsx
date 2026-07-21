@@ -836,90 +836,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {query.department === "achadinhos" ? (
-        <section className="card-soft mb-6 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="planner-kicker">
-                <Sparkles size={15} /> Mercado Livre
-              </p>
-              <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
-                Importe seus favoritos para Achadinhos
-              </h3>
-              <p className="mt-2 max-w-3xl text-sm text-muted">
-                Conecte sua conta com OAuth oficial, sincronize favoritos e acompanhe os últimos preços salvos pelo backend.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {!meliConfig?.available ? (
-                <button type="button" className="btn-ghost" disabled>
-                  Integração indisponível
-                </button>
-              ) : !meliStatus?.connected ? (
-                <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void connectMercadoLivre()}>
-                  Conectar Mercado Livre
-                </button>
-              ) : (
-                <>
-                  <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void syncMercadoLivre()}>
-                    Sincronizar favoritos
-                  </button>
-                  <button type="button" className="btn-ghost" disabled={meliLoading} onClick={() => void disconnectMercadoLivre()}>
-                    Desconectar
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {!meliConfig?.available ? (
-            <p className="mt-4 text-sm text-muted">
-              Configure MELI_CLIENT_ID, MELI_CLIENT_SECRET, MELI_REDIRECT_URI e MELI_TOKEN_ENCRYPTION_KEY no backend para liberar a integração.
-            </p>
-          ) : null}
-
-          {meliStatus?.connected ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <article className="card-soft p-4">
-                <p className="text-xs uppercase tracking-wide text-muted">Conta conectada</p>
-                <p className="mt-1 text-lg font-semibold text-brown-deep">{meliStatus.nickname || "Mercado Livre"}</p>
-              </article>
-              <article className="card-soft p-4">
-                <p className="text-xs uppercase tracking-wide text-muted">Última sincronização</p>
-                <p className="mt-1 text-sm font-semibold text-brown-deep">
-                  {meliStatus.lastSyncedAt ? new Date(meliStatus.lastSyncedAt).toLocaleString("pt-BR") : "Ainda não sincronizado"}
-                </p>
-              </article>
-              <article className="card-soft p-4">
-                <p className="text-xs uppercase tracking-wide text-muted">Status</p>
-                <p className="mt-1 text-sm font-semibold text-brown-deep">{meliStatus.syncStatus}</p>
-              </article>
-              <article className="card-soft p-4">
-                <p className="text-xs uppercase tracking-wide text-muted">Expiração do token</p>
-                <p className="mt-1 text-sm font-semibold text-brown-deep">
-                  {meliStatus.tokenExpiresAt ? new Date(meliStatus.tokenExpiresAt).toLocaleString("pt-BR") : "Sem token"}
-                </p>
-              </article>
-            </div>
-          ) : null}
-
-          {meliStatus?.syncError ? (
-            <p className="mt-4 text-sm text-rose-deep">{meliStatus.syncError}</p>
-          ) : null}
-
-          {meliSyncResult ? (
-            <div className="mt-4 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
-              <strong className="text-brown-deep">Última sincronização manual</strong>
-              <p className="mt-2">
-                {meliSyncResult.importedCount} criados, {meliSyncResult.updatedCount} atualizados, {meliSyncResult.unchangedCount} sem mudança,
-                {` ${meliSyncResult.noLongerFavoritedCount} marcados como não favoritados e ${meliSyncResult.failedCount} falhas.`}
-              </p>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
       {promoRadar?.brands.length ? (
         <section className="card-soft mb-6 p-4">
           <div className="flex items-start justify-between gap-4">
@@ -1132,6 +1048,91 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {query.department === "achadinhos" ? (
+        <section className="card-soft mb-6 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="planner-kicker">
+                <Sparkles size={15} /> Mercado Livre
+              </p>
+              <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
+                Importe seus favoritos para Achadinhos
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm text-muted">
+                Conecte sua conta com OAuth oficial, sincronize favoritos e acompanhe os últimos preços salvos pelo backend.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {!meliConfig?.available ? (
+                <button type="button" className="btn-ghost" disabled>
+                  Integração indisponível
+                </button>
+              ) : !meliStatus?.connected ? (
+                <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void connectMercadoLivre()}>
+                  Conectar Mercado Livre
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void syncMercadoLivre()}>
+                    Sincronizar favoritos
+                  </button>
+                  <button type="button" className="btn-ghost" disabled={meliLoading} onClick={() => void disconnectMercadoLivre()}>
+                    Desconectar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {!meliConfig?.available ? (
+            <p className="mt-4 text-sm text-muted">
+              Configure MELI_CLIENT_ID, MELI_CLIENT_SECRET, MELI_REDIRECT_URI e MELI_TOKEN_ENCRYPTION_KEY no backend para liberar a integração.
+            </p>
+          ) : null}
+
+          {meliStatus?.connected ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Conta conectada</p>
+                <p className="mt-1 text-lg font-semibold text-brown-deep">{meliStatus.nickname || "Mercado Livre"}</p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Última sincronização</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">
+                  {meliStatus.lastSyncedAt ? new Date(meliStatus.lastSyncedAt).toLocaleString("pt-BR") : "Ainda não sincronizado"}
+                </p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Status</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">{meliStatus.syncStatus}</p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Expiração do token</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">
+                  {meliStatus.tokenExpiresAt ? new Date(meliStatus.tokenExpiresAt).toLocaleString("pt-BR") : "Sem token"}
+                </p>
+              </article>
+            </div>
+          ) : null}
+
+          {meliStatus?.syncError ? (
+            <p className="mt-4 text-sm text-rose-deep">{meliStatus.syncError}</p>
+          ) : null}
+
+          {meliSyncResult ? (
+            <div className="mt-4 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
+              <strong className="text-brown-deep">Última sincronização manual</strong>
+              <p className="mt-2">
+                {meliSyncResult.importedCount} criados, {meliSyncResult.updatedCount} atualizados, {meliSyncResult.unchangedCount} sem mudança,
+                {` ${meliSyncResult.noLongerFavoritedCount} marcados como não favoritados e ${meliSyncResult.failedCount} falhas.`}
+              </p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
 
       {loading ? (
         <ProductGridSkeleton />
