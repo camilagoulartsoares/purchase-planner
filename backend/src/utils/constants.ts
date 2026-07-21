@@ -1,19 +1,20 @@
 export function slugify(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    || "marca";
+  return (
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "marca"
+  );
 }
 
-export const CATEGORIES = [
+export const FASHION_CATEGORIES = [
   "Vestidos",
   "Blusas",
   "Camisas",
-  "Calças",
+  "CalÃ§as",
   "Saias",
   "Shorts",
   "Conjuntos",
@@ -22,15 +23,33 @@ export const CATEGORIES = [
   "Bodies",
   "Moda fitness",
   "Moda praia",
-  "Calçados",
+  "CalÃ§ados",
   "Bolsas",
-  "Acessórios",
+  "AcessÃ³rios",
   "Outros",
 ] as const;
 
+export const NON_FASHION_CATEGORIES = [
+  "Beleza",
+  "Casa e decor",
+  "Tecnologia",
+  "Organizacao",
+  "Papelaria",
+  "Bem-estar",
+  "Pets",
+  "Outros achados",
+] as const;
+
+export const CATEGORIES = [
+  ...FASHION_CATEGORIES,
+  ...NON_FASHION_CATEGORIES,
+] as const;
+
+export const DEPARTMENTS = ["moda", "achadinhos"] as const;
+
 /** Categories shown as brand-page filters (only those with products appear). */
 export const BRAND_FILTER_CATEGORIES = [
-  "Calças",
+  "CalÃ§as",
   "Vestidos",
   "Blusas",
   "Tops e corsets",
@@ -39,19 +58,31 @@ export const BRAND_FILTER_CATEGORIES = [
   "Shorts",
   "Conjuntos",
   "Casacos",
-  "Calçados",
+  "CalÃ§ados",
   "Bolsas",
-  "Acessórios",
+  "AcessÃ³rios",
 ] as const;
 
 export const PRIORITIES = ["Quero muito", "Quero", "Talvez"] as const;
 
 export const STATUSES = [
   "Quero comprar",
-  "Esperando promoção",
-  "Já comprei",
+  "Esperando promoÃ§Ã£o",
+  "JÃ¡ comprei",
   "Desisti da compra",
 ] as const;
+
+export function categoryDepartment(category?: string | null) {
+  return NON_FASHION_CATEGORIES.includes(category as (typeof NON_FASHION_CATEGORIES)[number])
+    ? "achadinhos"
+    : "moda";
+}
+
+export function departmentCategories(department?: string | null) {
+  if (department === "achadinhos") return [...NON_FASHION_CATEGORIES];
+  if (department === "moda") return [...FASHION_CATEGORIES];
+  return [...CATEGORIES];
+}
 
 export function isHttpUrl(value: string) {
   try {

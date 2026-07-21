@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CATEGORIES,
+  DEPARTMENTS,
   PRIORITIES,
   STATUSES,
   isHttpUrl,
@@ -104,6 +105,7 @@ export const statusSchema = z.object({
 
 export const productQuerySchema = z.object({
   search: z.string().optional(),
+  department: z.enum(DEPARTMENTS).or(z.literal("")).optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
   brandSlug: z.string().optional(),

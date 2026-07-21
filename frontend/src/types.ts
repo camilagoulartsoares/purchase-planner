@@ -1,24 +1,69 @@
+export const FASHION_CATEGORIES = [
+  "Vestidos",
+  "Blusas",
+  "Camisas",
+  "CalÃ§as",
+  "Saias",
+  "Shorts",
+  "Conjuntos",
+  "Casacos",
+  "Tops e corsets",
+  "Bodies",
+  "Moda fitness",
+  "Moda praia",
+  "CalÃ§ados",
+  "Bolsas",
+  "AcessÃ³rios",
+  "Outros",
+] as const;
+
+export const NON_FASHION_CATEGORIES = [
+  "Beleza",
+  "Casa e decor",
+  "Tecnologia",
+  "Organizacao",
+  "Papelaria",
+  "Bem-estar",
+  "Pets",
+  "Outros achados",
+] as const;
+
 export const CATEGORIES = [
-  "Vestidos","Blusas","Camisas","Calças","Saias","Shorts","Conjuntos","Casacos",
-  "Tops e corsets","Bodies","Moda fitness","Moda praia","Calçados","Bolsas","Acessórios","Outros",
+  ...FASHION_CATEGORIES,
+  ...NON_FASHION_CATEGORIES,
 ] as const;
 
 export const BRAND_FILTER_CATEGORIES = [
-  "Calças","Vestidos","Blusas","Tops e corsets","Bodies","Saias","Shorts","Conjuntos","Casacos",
-  "Calçados","Bolsas","Acessórios",
+  "CalÃ§as",
+  "Vestidos",
+  "Blusas",
+  "Tops e corsets",
+  "Bodies",
+  "Saias",
+  "Shorts",
+  "Conjuntos",
+  "Casacos",
+  "CalÃ§ados",
+  "Bolsas",
+  "AcessÃ³rios",
+] as const;
+
+export const DEPARTMENTS = [
+  { value: "moda", label: "Moda" },
+  { value: "achadinhos", label: "Achadinhos" },
 ] as const;
 
 export const PRIORITIES = ["Quero muito", "Quero", "Talvez"] as const;
 export const STATUSES = [
   "Quero comprar",
-  "Esperando promoção",
-  "Já comprei",
+  "Esperando promoÃ§Ã£o",
+  "JÃ¡ comprei",
   "Desisti da compra",
 ] as const;
 
 export const PRICE_BANDS = [
   { value: "", label: "Todas as faixas" },
-  { value: "ate-50", label: "Até R$ 50" },
+  { value: "ate-50", label: "AtÃ© R$ 50" },
   { value: "50-100", label: "De R$ 50 a R$ 100" },
   { value: "100-200", label: "De R$ 100 a R$ 200" },
   { value: "200-300", label: "De R$ 200 a R$ 300" },
@@ -26,6 +71,14 @@ export const PRICE_BANDS = [
   { value: "500-1000", label: "De R$ 500 a R$ 1.000" },
   { value: "acima-1000", label: "Acima de R$ 1.000" },
 ] as const;
+
+export function departmentFromCategory(category?: string | null) {
+  return NON_FASHION_CATEGORIES.includes(
+    category as (typeof NON_FASHION_CATEGORIES)[number],
+  )
+    ? "achadinhos"
+    : "moda";
+}
 
 export type ProductImage = {
   id: string;
@@ -138,7 +191,9 @@ export type PromoRadarProduct = {
   logs: string[];
   conditionalOffers: PromoRadarConditionalOffer[];
   pageTitle: string | null;
-  matchedFieldScores: Partial<Record<"name" | "brand" | "category" | "color" | "size" | "sku" | "image", number>>;
+  matchedFieldScores: Partial<
+    Record<"name" | "brand" | "category" | "color" | "size" | "sku" | "image", number>
+  >;
 };
 
 export type PromoRadarBrand = {
@@ -159,6 +214,7 @@ export type PromoRadarResponse = {
 
 export type ProductQuery = {
   search?: string;
+  department?: "moda" | "achadinhos" | "";
   category?: string;
   brand?: string;
   brandSlug?: string;

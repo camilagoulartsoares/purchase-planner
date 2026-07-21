@@ -1,9 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma.js";
+import { departmentCategories } from "../utils/constants.js";
 import { effectivePrice } from "../utils/constants.js";
 
 export type ProductFilters = {
   search?: string;
+  department?: "moda" | "achadinhos" | "";
   category?: string;
   brand?: string;
   brandSlug?: string;
@@ -88,6 +90,9 @@ export const productRepository = {
     const where: Prisma.ProductWhereInput = { userId };
 
     if (filters.category) where.category = filters.category;
+    else if (filters.department) {
+      where.category = { in: departmentCategories(filters.department) };
+    }
     if (filters.brand) {
       where.brand = { name: filters.brand };
     }

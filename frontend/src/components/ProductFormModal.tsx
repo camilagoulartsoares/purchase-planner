@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, ChevronDown, Star, X } from "lucide-react";
-import { CATEGORIES, PRIORITIES, STATUSES, formatBRL, mediaUrl, type Product } from "../types";
+import {
+  DEPARTMENTS,
+  FASHION_CATEGORIES,
+  NON_FASHION_CATEGORIES,
+  PRIORITIES,
+  STATUSES,
+  departmentFromCategory,
+  formatBRL,
+  mediaUrl,
+  type Product,
+} from "../types";
 
 type GalleryItem =
   | { kind: "existing"; id: string; url: string; isMain: boolean }
@@ -107,6 +117,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [department, setDepartment] = useState<"moda" | "achadinhos">("moda");
   const [form, setForm] = useState({
     name: "",
     category: "Calças",
@@ -126,6 +137,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   useEffect(() => {
     if (!open) return;
     if (initial) {
+      setDepartment(departmentFromCategory(initial.category));
       setForm({
         name: initial.name,
         category: initial.category,
@@ -165,6 +177,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       }
       setGallery(existing);
     } else {
+      setDepartment("moda");
       setForm({
         name: "",
         category: "Calças",
@@ -228,6 +241,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const originalPrice = moneyNumber(form.originalPrice);
   const promotionalPrice = moneyNumber(form.promotionalPrice);
   const shippingPrice = moneyNumber(form.shippingPrice);
+  const categoryOptions =
+    department === "achadinhos" ? NON_FASHION_CATEGORIES : FASHION_CATEGORIES;
   const basePrice =
     promotionalPrice > 0 && originalPrice > 0 && promotionalPrice < originalPrice
       ? promotionalPrice
@@ -300,6 +315,27 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2 flex flex-wrap gap-2">
+            {DEPARTMENTS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={`planner-toggle ${department === item.value ? "is-active" : ""}`}
+                onClick={() => {
+                  setDepartment(item.value);
+                  setForm((current) => ({
+                    ...current,
+                    category:
+                      item.value === "achadinhos"
+                        ? NON_FASHION_CATEGORIES[0]
+                        : FASHION_CATEGORIES[0],
+                  }));
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
           <label className="field sm:col-span-2">
             <span>Nome</span>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -311,7 +347,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <ModalSelect
             label="Categoria"
             value={form.category}
-            options={CATEGORIES}
+            options={categoryOptions}
             onChange={(category) => setForm({ ...form, category })}
           />
           <label className="field">

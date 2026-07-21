@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, Repeat2, SlidersHorizontal, Sparkles, Target, X } from "lucide-react";
 import * as api from "../api/closet";
 import {
-  CATEGORIES,
+  DEPARTMENTS,
+  FASHION_CATEGORIES,
+  NON_FASHION_CATEGORIES,
   STATUSES,
   formatBRL,
   mediaUrl,
   type BrandSummary,
+  type ProductQuery,
   type PromoRadarResponse,
   type Product,
   type Summary,
@@ -18,8 +21,26 @@ import { AppShell } from "../components/AppShell";
 import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
 import { buildPromoByProductId } from "../utils/promo";
 
-const emptyQuery = {
+const emptyQuery: ProductQuery & {
+  department: "moda" | "achadinhos" | "";
+  search: string;
+  category: string;
+  brand: string;
+  store: string;
+  color: string;
+  size: string;
+  priority: string;
+  status: string;
+  favorite: boolean;
+  promo: string;
+  minPrice: string;
+  maxPrice: string;
+  sort: string;
+  page: number;
+  perPage: number;
+} = {
   search: "",
+  department: "moda",
   category: "",
   brand: "",
   store: "",
@@ -36,7 +57,7 @@ const emptyQuery = {
   perPage: 12,
 };
 
-const VISIBLE_STATUSES = STATUSES.filter((s) => s !== "Esperando promoção");
+const VISIBLE_STATUSES = STATUSES.filter((s) => s !== STATUSES[1]);
 const MIN_FILTER_PRICE = 0;
 const MAX_FILTER_PRICE = 2000;
 const PRICE_STEP = 10;
@@ -416,7 +437,8 @@ export function HomePage() {
     };
   }, [allowDuplicates, allowRemainder, allowRepurchase, monthlyBudget, plannerItems]);
 
-  const resetFilters = () => setQuery({ ...emptyQuery, status: query.status });
+  const resetFilters = () =>
+    setQuery({ ...emptyQuery, department: query.department, status: query.status });
   const sortOptions = [
     { value: "recentes", label: "Mais recentes" },
     { value: "antigos", label: "Mais antigos" },
@@ -432,7 +454,7 @@ export function HomePage() {
   ];
   const categoryOptions = [
     { value: "", label: "Todas" },
-    ...CATEGORIES.map((category) => ({ value: category, label: category })),
+    ...(query.department === "achadinhos" ? NON_FASHION_CATEGORIES : FASHION_CATEGORIES).map((category) => ({ value: category, label: category })),
   ];
 
   const onSave = async (form: FormData, id?: string) => {
@@ -810,6 +832,26 @@ export function HomePage() {
 
       <section className="card-soft mb-6 space-y-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2">
+            {DEPARTMENTS.map((department) => (
+              <button
+                key={department.value}
+                type="button"
+                className={`planner-toggle ${query.department === department.value ? "is-active" : ""}`}
+                onClick={() =>
+                  setQuery((current) => ({
+                    ...current,
+                    department: department.value,
+                    category: "",
+                    page: 1,
+                  }))
+                }
+                aria-pressed={query.department === department.value}
+              >
+                {department.label}
+              </button>
+            ))}
+          </div>
           <input
             className="filter-input min-w-[220px] flex-1"
             placeholder="Buscar nome, marca ou loja"
