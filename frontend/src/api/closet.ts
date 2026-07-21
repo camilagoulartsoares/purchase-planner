@@ -1,5 +1,16 @@
 import api from "./client";
-import type { BrandSummary, Product, ProductQuery, PromoRadarResponse, Summary, User } from "../types";
+import type {
+  BrandSummary,
+  MercadoLivreConnectResponse,
+  MercadoLivreIntegrationStatus,
+  MercadoLivrePublicConfig,
+  MercadoLivreSyncResponse,
+  Product,
+  ProductQuery,
+  PromoRadarResponse,
+  Summary,
+  User,
+} from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
   const res = await api.post("/auth/register", data);
@@ -84,4 +95,31 @@ export async function deleteProduct(id: string) {
 export async function toggleFavorite(id: string) {
   const res = await api.patch(`/products/${id}/favorite`);
   return res.data.data as Product;
+}
+
+export async function fetchMercadoLivrePublicConfig() {
+  const res = await api.get("/integrations/mercadolivre/public-config");
+  return res.data.data as MercadoLivrePublicConfig;
+}
+
+export async function fetchMercadoLivreStatus() {
+  const res = await api.get("/integrations/mercadolivre/status");
+  return res.data.data as MercadoLivreIntegrationStatus;
+}
+
+export async function createMercadoLivreConnect(redirectTo?: string) {
+  const res = await api.get("/integrations/mercadolivre/connect", {
+    params: redirectTo ? { redirectTo } : undefined,
+  });
+  return res.data.data as MercadoLivreConnectResponse;
+}
+
+export async function syncMercadoLivreFavorites() {
+  const res = await api.post("/integrations/mercadolivre/sync-favorites");
+  return res.data.data as MercadoLivreSyncResponse;
+}
+
+export async function disconnectMercadoLivre() {
+  const res = await api.delete("/integrations/mercadolivre/disconnect");
+  return res.data.data as { disconnected: true };
 }

@@ -34,6 +34,14 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      - key: MELI_CLIENT_ID
+        sync: false
+      - key: MELI_CLIENT_SECRET
+        sync: false
+      - key: MELI_REDIRECT_URI
+        sync: false
+      - key: MELI_TOKEN_ENCRYPTION_KEY
+        sync: false
 
 databases:
   - name: closet-sonhos-db

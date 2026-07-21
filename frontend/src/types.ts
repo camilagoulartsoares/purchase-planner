@@ -212,6 +212,49 @@ export type PromoRadarResponse = {
   brands: PromoRadarBrand[];
 };
 
+export type MercadoLivrePublicConfig = {
+  available: boolean;
+  productionFrontendUrl: string;
+  productionBackendUrl: string;
+  productionRedirectUri: string;
+  localRedirectUri: string;
+  requiredEnvVars: string[];
+};
+
+export type MercadoLivreIntegrationStatus = {
+  available: boolean;
+  connected: boolean;
+  lastSyncedAt: string | null;
+  tokenExpiresAt: string | null;
+  nickname: string | null;
+  meliUserId: string | null;
+  syncStatus: string;
+  syncError: string | null;
+};
+
+export type MercadoLivreConnectResponse = {
+  authorizationUrl: string;
+  state: string;
+};
+
+export type MercadoLivreSyncItem = {
+  externalItemId: string;
+  title: string;
+  productId?: string;
+  action: "created" | "updated" | "skipped" | "failed";
+  reason?: string;
+};
+
+export type MercadoLivreSyncResponse = {
+  syncedAt: string;
+  importedCount: number;
+  updatedCount: number;
+  unchangedCount: number;
+  failedCount: number;
+  noLongerFavoritedCount: number;
+  results: MercadoLivreSyncItem[];
+};
+
 export type ProductQuery = {
   search?: string;
   department?: "moda" | "achadinhos" | "";

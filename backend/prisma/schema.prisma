@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  products     Product[]
-  brands       Brand[]
+  id                         String                       @id @default(cuid())
+  name                       String
+  email                      String                       @unique
+  passwordHash               String
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  products                   Product[]
+  brands                     Brand[]
+  mercadoLivreIntegration    MercadoLivreIntegration?
+  mercadoLivreOauthStates    MercadoLivreOAuthState[]
+  notifications              UserNotification[]
 }
 
 model Brand {
@@ -36,36 +39,48 @@ model Brand {
 }
 
 model Product {
-  id               String         @id @default(cuid())
-  userId           String
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brandId          String
-  brand            Brand          @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  name             String
-  category         String
-  store            String
-  originalPrice    Decimal
-  promotionalPrice Decimal?
-  shippingPrice    Decimal?
-  purchaseUrl      String?
-  imageUrl         String?
-  imagePublicId    String?
-  color            String?
-  size             String?
-  priority         String         @default("Quero")
-  status           String         @default("Quero comprar")
-  notes            String?
-  isFavorite       Boolean        @default(false)
-  purchasedPrice   Decimal?
-  purchasedAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  images           ProductImage[]
+  id                    String               @id @default(cuid())
+  userId                String
+  user                  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandId               String
+  brand                 Brand                @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  name                  String
+  category              String
+  store                 String
+  originalPrice         Decimal
+  promotionalPrice      Decimal?
+  shippingPrice         Decimal?
+  purchaseUrl           String?
+  imageUrl              String?
+  imagePublicId         String?
+  color                 String?
+  size                  String?
+  priority              String               @default("Quero")
+  status                String               @default("Quero comprar")
+  notes                 String?
+  isFavorite            Boolean              @default(false)
+  purchasedPrice        Decimal?
+  purchasedAt           DateTime?
+  marketplace           String?
+  externalItemId        String?
+  externalData          Json?
+  noLongerFavorited     Boolean              @default(false)
+  importedAt            DateTime?
+  lastMarketplaceSyncAt DateTime?
+  targetPrice           Decimal?
+  availability          String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  images                ProductImage[]
+  priceHistory          ProductPriceHistory[]
+  notifications         UserNotification[]
 
   @@index([userId])
   @@index([userId, status])
   @@index([userId, category])
   @@index([brandId])
+  @@index([userId, marketplace])
+  @@unique([userId, marketplace, externalItemId])
 }
 
 model ProductImage {
@@ -80,4 +95,74 @@ model ProductImage {
 
   @@index([productId])
   @@index([productId, position])
+}
+
+model MercadoLivreIntegration {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meliUserId            String
+  nickname              String?
+  siteId                String?
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String
+  tokenType             String    @default("Bearer")
+  scopes                String
+  tokenExpiresAt        DateTime
+  lastRefreshedAt       DateTime?
+  lastSyncedAt          DateTime?
+  syncStatus            String    @default("idle")
+  syncError             String?
+  syncStartedAt         DateTime?
+  autoSyncEnabled       Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model MercadoLivreOAuthState {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state      String   @unique
+  redirectTo String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model ProductPriceHistory {
+  id                  String   @id @default(cuid())
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  source              String
+  previousPrice       Decimal?
+  currentPrice        Decimal
+  originalPrice       Decimal?
+  lowestRecordedPrice Decimal?
+  discountPercentage  Int?
+  availability        String?
+  checkedAt           DateTime @default(now())
+  details             Json?
+
+  @@index([productId, checkedAt])
+}
+
+model UserNotification {
+  id           String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  type          String
+  dedupeKey     String   @unique
+  title         String
+  body          String
+  payload       Json?
+  readAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

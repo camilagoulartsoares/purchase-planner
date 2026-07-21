@@ -46,6 +46,12 @@ export const env = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || "",
     folder: process.env.CLOUDINARY_FOLDER || "closet-sonhos",
   },
+  mercadoLivre: {
+    clientId: process.env.MELI_CLIENT_ID || "",
+    clientSecret: process.env.MELI_CLIENT_SECRET || "",
+    redirectUri: process.env.MELI_REDIRECT_URI || "",
+    tokenEncryptionKey: process.env.MELI_TOKEN_ENCRYPTION_KEY || "",
+  },
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 5),
 };
 
@@ -54,5 +60,14 @@ export function cloudinaryConfigured() {
     env.cloudinary.cloudName &&
       env.cloudinary.apiKey &&
       env.cloudinary.apiSecret,
+  );
+}
+
+export function mercadoLivreConfigured() {
+  return Boolean(
+    env.mercadoLivre.clientId &&
+      env.mercadoLivre.clientSecret &&
+      env.mercadoLivre.redirectUri &&
+      env.mercadoLivre.tokenEncryptionKey,
   );
 }

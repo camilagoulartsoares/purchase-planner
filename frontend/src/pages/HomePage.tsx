@@ -4,6 +4,9 @@ import * as api from "../api/closet";
 import {
   DEPARTMENTS,
   FASHION_CATEGORIES,
+  type MercadoLivreIntegrationStatus,
+  type MercadoLivrePublicConfig,
+  type MercadoLivreSyncResponse,
   NON_FASHION_CATEGORIES,
   STATUSES,
   formatBRL,
@@ -181,6 +184,10 @@ export function HomePage() {
   const [paid, setPaid] = useState("");
   const [buyDate, setBuyDate] = useState(today);
   const [buyNotes, setBuyNotes] = useState("");
+  const [meliConfig, setMeliConfig] = useState<MercadoLivrePublicConfig | null>(null);
+  const [meliStatus, setMeliStatus] = useState<MercadoLivreIntegrationStatus | null>(null);
+  const [meliSyncResult, setMeliSyncResult] = useState<MercadoLivreSyncResponse | null>(null);
+  const [meliLoading, setMeliLoading] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
     const stored = window.localStorage.getItem("purchase-planner-budget");
     return stored ? Number(stored) || DEFAULT_BUDGET : DEFAULT_BUDGET;
@@ -199,11 +206,31 @@ export function HomePage() {
   });
   const promoRetryTimeoutRef = useRef<number | null>(null);
   const promoRetryCountRef = useRef(0);
+  const refreshPromoRadarRef = useRef<(() => Promise<void>) | null>(null);
 
   const promoByProductId = useMemo(
     () => buildPromoByProductId(promoRadar?.products || []),
     [promoRadar],
   );
+
+  const refreshMercadoLivreStatus = useCallback(async () => {
+    try {
+      const [config, status] = await Promise.all([
+        api.fetchMercadoLivrePublicConfig(),
+        api.fetchMercadoLivreStatus(),
+      ]);
+      setMeliConfig(config);
+      setMeliStatus(status);
+    } catch {
+      try {
+        const config = await api.fetchMercadoLivrePublicConfig();
+        setMeliConfig(config);
+      } catch {
+        setMeliConfig(null);
+      }
+      setMeliStatus(null);
+    }
+  }, []);
 
   const clearPromoRetry = useCallback(() => {
     if (promoRetryTimeoutRef.current != null) {
@@ -221,13 +248,25 @@ export function HomePage() {
       if (promo.products.length === 0 && hasTrackableItems && promoRetryCountRef.current < 2) {
         promoRetryCountRef.current += 1;
         promoRetryTimeoutRef.current = window.setTimeout(() => {
-          void refreshPromoRadar();
+          void refreshPromoRadarRef.current?.();
         }, 3500);
         return;
       }
       promoRetryCountRef.current = 0;
     } catch {
       setToast((current) => current || "Radar de promoções indisponível no momento");
+    }
+  }, [clearPromoRetry, items]);
+
+  const connectMercadoLivre = useCallback(async () => {
+    setMeliLoading(true);
+    try {
+      const redirectTo = `${window.location.pathname}?tab=achadinhos`;
+      const data = await api.createMercadoLivreConnect(redirectTo);
+      window.location.href = data.authorizationUrl;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Nao foi possivel iniciar a conexao com Mercado Livre");
+      setMeliLoading(false);
     }
   }, []);
 
@@ -265,9 +304,76 @@ export function HomePage() {
     }
   }, [debouncedQuery]);
 
+  const syncMercadoLivre = useCallback(async () => {
+    setMeliLoading(true);
+    try {
+      const result = await api.syncMercadoLivreFavorites();
+      setMeliSyncResult(result);
+      await Promise.all([load(), refreshMercadoLivreStatus()]);
+      setToast(`Mercado Livre sincronizado: ${result.importedCount} criados, ${result.updatedCount} atualizados`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Falha ao sincronizar favoritos do Mercado Livre");
+    } finally {
+      setMeliLoading(false);
+    }
+  }, [load, refreshMercadoLivreStatus]);
+
+  const disconnectMercadoLivre = useCallback(async () => {
+    setMeliLoading(true);
+    try {
+      await api.disconnectMercadoLivre();
+      setMeliStatus((current) =>
+        current
+          ? {
+              ...current,
+              connected: false,
+              nickname: null,
+              meliUserId: null,
+              lastSyncedAt: null,
+              syncStatus: "idle",
+              syncError: null,
+            }
+          : current,
+      );
+      setToast("Mercado Livre desconectado");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Falha ao desconectar Mercado Livre");
+    } finally {
+      setMeliLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void refreshMercadoLivreStatus();
+  }, [refreshMercadoLivreStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const meli = params.get("meli");
+    const message = params.get("message");
+    if (!meli && !message) return;
+
+    if (meli === "connected") {
+      void refreshMercadoLivreStatus();
+      setToast("Mercado Livre conectado");
+    } else if (message) {
+      setToast(message);
+    }
+
+    params.delete("meli");
+    params.delete("message");
+    params.delete("nickname");
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    window.history.replaceState({}, "", next);
+  }, [refreshMercadoLivreStatus]);
+
+  useEffect(() => {
+    refreshPromoRadarRef.current = refreshPromoRadar;
+  }, [refreshPromoRadar]);
 
   useEffect(() => {
     if (promoRadar || !items.some((item) => Boolean(item.purchaseUrl))) return;
@@ -729,6 +835,90 @@ export function HomePage() {
           </article>
         </div>
       </section>
+
+      {query.department === "achadinhos" ? (
+        <section className="card-soft mb-6 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="planner-kicker">
+                <Sparkles size={15} /> Mercado Livre
+              </p>
+              <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">
+                Importe seus favoritos para Achadinhos
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm text-muted">
+                Conecte sua conta com OAuth oficial, sincronize favoritos e acompanhe os últimos preços salvos pelo backend.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {!meliConfig?.available ? (
+                <button type="button" className="btn-ghost" disabled>
+                  Integração indisponível
+                </button>
+              ) : !meliStatus?.connected ? (
+                <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void connectMercadoLivre()}>
+                  Conectar Mercado Livre
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="btn-primary" disabled={meliLoading} onClick={() => void syncMercadoLivre()}>
+                    Sincronizar favoritos
+                  </button>
+                  <button type="button" className="btn-ghost" disabled={meliLoading} onClick={() => void disconnectMercadoLivre()}>
+                    Desconectar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {!meliConfig?.available ? (
+            <p className="mt-4 text-sm text-muted">
+              Configure MELI_CLIENT_ID, MELI_CLIENT_SECRET, MELI_REDIRECT_URI e MELI_TOKEN_ENCRYPTION_KEY no backend para liberar a integração.
+            </p>
+          ) : null}
+
+          {meliStatus?.connected ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Conta conectada</p>
+                <p className="mt-1 text-lg font-semibold text-brown-deep">{meliStatus.nickname || "Mercado Livre"}</p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Última sincronização</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">
+                  {meliStatus.lastSyncedAt ? new Date(meliStatus.lastSyncedAt).toLocaleString("pt-BR") : "Ainda não sincronizado"}
+                </p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Status</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">{meliStatus.syncStatus}</p>
+              </article>
+              <article className="card-soft p-4">
+                <p className="text-xs uppercase tracking-wide text-muted">Expiração do token</p>
+                <p className="mt-1 text-sm font-semibold text-brown-deep">
+                  {meliStatus.tokenExpiresAt ? new Date(meliStatus.tokenExpiresAt).toLocaleString("pt-BR") : "Sem token"}
+                </p>
+              </article>
+            </div>
+          ) : null}
+
+          {meliStatus?.syncError ? (
+            <p className="mt-4 text-sm text-rose-deep">{meliStatus.syncError}</p>
+          ) : null}
+
+          {meliSyncResult ? (
+            <div className="mt-4 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
+              <strong className="text-brown-deep">Última sincronização manual</strong>
+              <p className="mt-2">
+                {meliSyncResult.importedCount} criados, {meliSyncResult.updatedCount} atualizados, {meliSyncResult.unchangedCount} sem mudança,
+                {` ${meliSyncResult.noLongerFavoritedCount} marcados como não favoritados e ${meliSyncResult.failedCount} falhas.`}
+              </p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {promoRadar?.brands.length ? (
         <section className="card-soft mb-6 p-4">
