@@ -64,6 +64,14 @@ export const mercadoLivreController = {
     }
   },
 
+  async diagnostics(req: Request, res: Response, next: NextFunction) {
+    try {
+      return ok(res, await mercadoLivreService.runDiagnostics(req.user!.id));
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async disconnect(req: Request, res: Response, next: NextFunction) {
     try {
       return ok(res, await mercadoLivreService.disconnect(req.user!.id));

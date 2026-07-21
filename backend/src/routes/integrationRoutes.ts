@@ -10,5 +10,6 @@ integrationRoutes.get("/mercadolivre/callback", mercadoLivreController.callback)
 integrationRoutes.use(authMiddleware);
 integrationRoutes.get("/mercadolivre/status", mercadoLivreController.status);
 integrationRoutes.get("/mercadolivre/connect", mercadoLivreController.connect);
+integrationRoutes.get("/mercadolivre/diagnostics", mercadoLivreController.diagnostics);
 integrationRoutes.post("/mercadolivre/sync-favorites", mercadoLivreController.syncFavorites);
 integrationRoutes.delete("/mercadolivre/disconnect", mercadoLivreController.disconnect);
