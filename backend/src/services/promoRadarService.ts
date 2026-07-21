@@ -74,6 +74,8 @@ type CacheEntry = {
   data: PromoRadarResponse;
 };
 
+type PromoRadarExecution = Promise<PromoRadarResponse>;
+
 type FetchPageResult = {
   url: string;
   finalUrl: string;
@@ -108,8 +110,12 @@ type PageProductData = {
 };
 
 const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, PromoRadarExecution>();
 const CACHE_TTL_MS = 1000 * 60 * 20;
 const MAX_PRODUCTS_TO_SCAN = 120;
+const PRODUCT_SCAN_CONCURRENCY = 4;
+const DOMAIN_SCAN_CONCURRENCY = 2;
+const PROMO_RADAR_TIMEOUT_MS = 25000;
 const PROMO_TERMS = [
   "promo",
   "promocao",
@@ -141,6 +147,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function deadlineFromNow(ms: number) {
+  return Date.now() + ms;
+}
+
+function isDeadlineExceeded(deadline: number) {
+  return Date.now() >= deadline;
+}
+
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
@@ -153,6 +167,30 @@ function round2(value: number | null) {
 function percentOff(original: number | null, sale: number | null) {
   if (original == null || sale == null || sale >= original || original <= 0) return null;
   return Math.round(((original - sale) / original) * 100);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  if (!items.length) return [] as R[];
+  const size = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  await Promise.all(
+    Array.from({ length: size }, async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= items.length) return;
+        results[index] = await mapper(items[index], index);
+      }
+    }),
+  );
+
+  return results;
 }
 
 export function domainFrom(url: string) {
@@ -969,90 +1007,158 @@ function buildBrandSummaries(
     .sort((a, b) => b.matchedProducts.length - a.matchedProducts.length);
 }
 
+function timeoutResult(
+  product: ProductWithRelations,
+  reason = "Tempo limite da varredura atingido antes de concluir a analise",
+) {
+  return {
+    productId: product.id,
+    productName: product.name,
+    productBrand: product.brand.name,
+    imageUrl: productImage(product),
+    purchaseUrl: product.purchaseUrl,
+    normalizedPurchaseUrl: product.purchaseUrl ? normalizeUrl(product.purchaseUrl) : null,
+    finalUrl: null,
+    productMatched: false,
+    matchConfidence: 0,
+    isOnSale: false,
+    autoDisplayEligible: false,
+    originalPrice: null,
+    salePrice: null,
+    discountPercentage: null,
+    pixPrice: null,
+    currency: "BRL",
+    availability: "unknown" as const,
+    variationAnalyzed: null,
+    evidence: [],
+    status: "analysis_failed" as const,
+    reason,
+    checkedAt: nowIso(),
+    logs: ["analise interrompida por timeout global do radar"],
+    conditionalOffers: [],
+    pageTitle: null,
+    matchedFieldScores: {},
+  } satisfies ProductPromoRadarResult;
+}
+
+function failureResult(product: ProductWithRelations, error: unknown) {
+  return {
+    productId: product.id,
+    productName: product.name,
+    productBrand: product.brand.name,
+    imageUrl: productImage(product),
+    purchaseUrl: product.purchaseUrl,
+    normalizedPurchaseUrl: product.purchaseUrl ? normalizeUrl(product.purchaseUrl) : null,
+    finalUrl: null,
+    productMatched: false,
+    matchConfidence: 0,
+    isOnSale: false,
+    autoDisplayEligible: false,
+    originalPrice: null,
+    salePrice: null,
+    discountPercentage: null,
+    pixPrice: null,
+    currency: "BRL",
+    availability: "unknown" as const,
+    variationAnalyzed: null,
+    evidence: [],
+    status: "analysis_failed" as const,
+    reason: error instanceof Error ? error.message : "Falha inesperada na analise",
+    checkedAt: nowIso(),
+    logs: ["falha inesperada ao analisar produto"],
+    conditionalOffers: [],
+    pageTitle: null,
+    matchedFieldScores: {},
+  } satisfies ProductPromoRadarResult;
+}
+
+async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
+  const startedAt = Date.now();
+  const deadline = deadlineFromNow(PROMO_RADAR_TIMEOUT_MS);
+
+  const products = (await productRepository.findAllByUser(userId))
+    .filter((product) => product.status !== "Desisti da compra")
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .slice(0, MAX_PRODUCTS_TO_SCAN);
+
+  const results = await mapWithConcurrency(
+    products,
+    PRODUCT_SCAN_CONCURRENCY,
+    async (product) => {
+      if (isDeadlineExceeded(deadline)) {
+        return timeoutResult(product);
+      }
+
+      try {
+        if (!product.purchaseUrl) {
+          return analyzeProductWithPage(product, {
+            url: "",
+            finalUrl: "",
+            normalizedUrl: "",
+            statusCode: 0,
+            html: "",
+            blocked: false,
+            unavailable: false,
+            redirected: false,
+          });
+        }
+
+        const page = await fetchPage(product.purchaseUrl);
+        if (isDeadlineExceeded(deadline)) {
+          return timeoutResult(product);
+        }
+        return analyzeProductWithPage(product, page);
+      } catch (error) {
+        return failureResult(product, error);
+      }
+    },
+  );
+
+  const domains = uniqueStrings(
+    products
+      .map((product) => product.purchaseUrl)
+      .filter(Boolean)
+      .map((url) => domainFrom(String(url))),
+  );
+
+  const domainEntries = await mapWithConcurrency(
+    domains,
+    DOMAIN_SCAN_CONCURRENCY,
+    async (domain) => {
+      if (isDeadlineExceeded(deadline)) return [domain, [] as string[]] as const;
+      return [domain, await extractCampaignUrlsFromSitemap(domain)] as const;
+    },
+  );
+
+  const domainCampaigns = new Map<string, string[]>(domainEntries);
+  const data = {
+    generatedAt: nowIso(),
+    products: results,
+    brands: buildBrandSummaries(products, results, domainCampaigns),
+  } satisfies PromoRadarResponse;
+
+  cache.set(userId, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    data,
+  });
+
+  return {
+    ...data,
+    generatedAt: new Date(Math.max(startedAt, Date.now())).toISOString(),
+  };
+}
+
 export const promoRadarService = {
   async weeklyBrandPromotions(userId: string): Promise<PromoRadarResponse> {
     const cached = cache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
+    const pending = inFlight.get(userId);
+    if (pending) return pending;
 
-    const products = (await productRepository.findAllByUser(userId))
-      .filter((product) => product.status !== "Desisti da compra")
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      .slice(0, MAX_PRODUCTS_TO_SCAN);
-
-    const results = await Promise.all(
-      products.map(async (product) => {
-        try {
-          if (!product.purchaseUrl) {
-            return analyzeProductWithPage(product, {
-              url: "",
-              finalUrl: "",
-              normalizedUrl: "",
-              statusCode: 0,
-              html: "",
-              blocked: false,
-              unavailable: false,
-              redirected: false,
-            });
-          }
-          const page = await fetchPage(product.purchaseUrl);
-          return analyzeProductWithPage(product, page);
-        } catch (error) {
-          return {
-            productId: product.id,
-            productName: product.name,
-            productBrand: product.brand.name,
-            imageUrl: productImage(product),
-            purchaseUrl: product.purchaseUrl,
-            normalizedPurchaseUrl: product.purchaseUrl ? normalizeUrl(product.purchaseUrl) : null,
-            finalUrl: null,
-            productMatched: false,
-            matchConfidence: 0,
-            isOnSale: false,
-            autoDisplayEligible: false,
-            originalPrice: null,
-            salePrice: null,
-            discountPercentage: null,
-            pixPrice: null,
-            currency: "BRL",
-            availability: "unknown",
-            variationAnalyzed: null,
-            evidence: [],
-            status: "analysis_failed" as const,
-            reason: error instanceof Error ? error.message : "Falha inesperada na analise",
-            checkedAt: nowIso(),
-            logs: ["falha inesperada ao analisar produto"],
-            conditionalOffers: [],
-            pageTitle: null,
-            matchedFieldScores: {},
-          } satisfies ProductPromoRadarResult;
-        }
-      }),
-    );
-
-    const domains = uniqueStrings(
-      products
-        .map((product) => product.purchaseUrl)
-        .filter(Boolean)
-        .map((url) => domainFrom(String(url))),
-    );
-    const domainCampaigns = new Map<string, string[]>();
-    await Promise.all(
-      domains.map(async (domain) => {
-        domainCampaigns.set(domain, await extractCampaignUrlsFromSitemap(domain));
-      }),
-    );
-
-    const data = {
-      generatedAt: nowIso(),
-      products: results,
-      brands: buildBrandSummaries(products, results, domainCampaigns),
-    } satisfies PromoRadarResponse;
-
-    cache.set(userId, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      data,
+    const execution = runPromoRadar(userId).finally(() => {
+      inFlight.delete(userId);
     });
-
-    return data;
+    inFlight.set(userId, execution);
+    return execution;
   },
 };
