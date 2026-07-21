@@ -9,7 +9,7 @@ export type PromoLookup = {
   pixPrice: number | null;
   checkedAt: string | null;
   status: string;
-  statusLabel: string;
+  statusLabel: string | null;
   confidence: number;
   productMatched: boolean;
 };
@@ -27,14 +27,14 @@ export function buildPromoByProductId(products: PromoRadarProduct[]) {
 
     map.set(item.productId, {
       label: saleConfirmed ? "SALE" : null,
-      reason: item.reason ?? item.evidence[0] ?? null,
-      salePrice: item.salePrice ?? null,
-      originalPrice: item.originalPrice ?? null,
-      discountPercentage: item.discountPercentage ?? null,
-      pixPrice: item.pixPrice ?? null,
-      checkedAt: item.checkedAt ?? null,
+      reason: saleConfirmed ? item.reason ?? item.evidence[0] ?? null : null,
+      salePrice: saleConfirmed ? item.salePrice ?? null : null,
+      originalPrice: saleConfirmed ? item.originalPrice ?? null : null,
+      discountPercentage: saleConfirmed ? item.discountPercentage ?? null : null,
+      pixPrice: saleConfirmed ? item.pixPrice ?? null : null,
+      checkedAt: saleConfirmed ? item.checkedAt ?? null : null,
       status: item.status,
-      statusLabel: statusLabelFor(item),
+      statusLabel: saleConfirmed ? statusLabelFor(item) : null,
       confidence: item.matchConfidence,
       productMatched: item.productMatched,
     });

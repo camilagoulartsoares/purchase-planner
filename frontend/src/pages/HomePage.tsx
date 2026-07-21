@@ -417,7 +417,7 @@ export function HomePage() {
     await api.saveProduct(form, id);
     setToast(id ? "Peça atualizada" : "Peça adicionada");
     await load();
-    await refreshPromoRadar();
+    void refreshPromoRadar();
   };
 
   const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
@@ -435,7 +435,7 @@ export function HomePage() {
     await api.patchStatus(item.id, { status });
     setToast("Status atualizado");
     await load();
-    await refreshPromoRadar();
+    void refreshPromoRadar();
   };
 
   const confirmBuy = async () => {
@@ -450,7 +450,7 @@ export function HomePage() {
     setBuying(null);
     setToast(buying.repurchase ? "Recompra registrada" : "Registrada como comprada");
     await load();
-    await refreshPromoRadar();
+    void refreshPromoRadar();
   };
 
   return (
@@ -893,13 +893,10 @@ export function HomePage() {
               key={item.id}
               product={item}
               promoLabel={promoByProductId.get(item.id)?.label ?? null}
-              promoReason={promoByProductId.get(item.id)?.reason ?? null}
               promoCurrentPrice={promoByProductId.get(item.id)?.salePrice ?? null}
               promoReferencePrice={promoByProductId.get(item.id)?.originalPrice ?? null}
               promoDiscountPercentage={promoByProductId.get(item.id)?.discountPercentage ?? null}
               promoPixPrice={promoByProductId.get(item.id)?.pixPrice ?? null}
-              promoCheckedAt={promoByProductId.get(item.id)?.checkedAt ?? null}
-              promoStatusLabel={promoByProductId.get(item.id)?.statusLabel ?? null}
               onEdit={(p) => {
                 setEditing(p);
                 setFormOpen(true);
@@ -914,7 +911,7 @@ export function HomePage() {
                 await api.toggleFavorite(p.id);
                 setToast(p.isFavorite ? "Removida dos favoritos" : "Adicionada aos favoritos");
                 await load();
-                await refreshPromoRadar();
+                void refreshPromoRadar();
               }}
               onStatus={(p, status) => void onStatus(p, status)}
               onDelete={async (p) => {
@@ -922,7 +919,7 @@ export function HomePage() {
                 await api.deleteProduct(p.id);
                 setToast("Peça removida");
                 await load();
-                await refreshPromoRadar();
+                void refreshPromoRadar();
               }}
             />
           ))}

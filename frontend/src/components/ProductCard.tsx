@@ -13,13 +13,10 @@ import { hasLivePromoPrice } from "../utils/promo";
 type Props = {
   product: Product;
   promoLabel?: string | null;
-  promoReason?: string | null;
   promoCurrentPrice?: number | null;
   promoReferencePrice?: number | null;
   promoDiscountPercentage?: number | null;
   promoPixPrice?: number | null;
-  promoCheckedAt?: string | null;
-  promoStatusLabel?: string | null;
   onEdit?: (p: Product) => void;
   onMarkBought?: (p: Product) => void;
   onFavorite?: (p: Product) => void;
@@ -30,13 +27,10 @@ type Props = {
 export function ProductCard({
   product,
   promoLabel,
-  promoReason,
   promoCurrentPrice,
   promoReferencePrice,
   promoDiscountPercentage,
   promoPixPrice,
-  promoCheckedAt,
-  promoStatusLabel,
   onEdit,
   onMarkBought,
   onFavorite,
@@ -66,12 +60,6 @@ export function ProductCard({
   const hasPromoPrice = hasLivePromoPrice(promoCurrentPrice, promoReferencePrice);
   const livePromoCurrentPrice = hasPromoPrice ? promoCurrentPrice : null;
   const livePromoReferencePrice = hasPromoPrice ? promoReferencePrice : null;
-  const checkedAtLabel = promoCheckedAt
-    ? new Date(promoCheckedAt).toLocaleString("pt-BR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      })
-    : null;
 
   return (
     <article className="card-soft relative overflow-visible">
@@ -127,7 +115,6 @@ export function ProductCard({
                     </span>
                   ) : null}
                 </p>
-                <p className="sale-site-note">Preco promocional detectado no site</p>
                 {promoPixPrice != null ? (
                   <p className="sale-extra-note">PIX: {formatBRL(promoPixPrice)}</p>
                 ) : null}
@@ -142,15 +129,6 @@ export function ProductCard({
                 {product.shippingInherited ? "Frete da marca " : "Frete "}
                 {formatBRL(shipping)}
               </p>
-            ) : null}
-            {promoReason ? (
-              <p className="sale-note mt-2">{promoReason}</p>
-            ) : null}
-            {promoStatusLabel ? (
-              <p className="sale-note mt-1">{promoStatusLabel}</p>
-            ) : null}
-            {checkedAtLabel ? (
-              <p className="sale-note mt-1">Radar verificado em {checkedAtLabel}</p>
             ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>
           </div>
