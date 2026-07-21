@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeProductWithPage,
+  buildShopifyHtmlFromJson,
   extractStructuredPriceData,
   matchProductToPage,
   normalizeUrl,
@@ -294,5 +295,39 @@ describe("promoRadarService", () => {
       currentPrice: 156.92,
       referencePrice: 170,
     });
+  });
+
+  it("mantem promocao detectavel via fallback Shopify quando o HTML da pagina falha", () => {
+    const html = buildShopifyHtmlFromJson(
+      "https://www.chamatte.com.br/products/legging-detalhes-preto",
+      {
+        title: "Legging Detalhes - Preto",
+        vendor: "Cha Matte",
+        type: "Calcas",
+        body_html: "<p>Modelo com compressao e bolso lateral.</p>",
+        images: ["https://cdn.example.com/legging-preto.jpg"],
+        variants: [
+          {
+            title: "Preto / P",
+            public_title: "Preto / P",
+            sku: "LEG-DET-PRE-P",
+            available: true,
+            price: 15692,
+            compare_at_price: 17000,
+          },
+        ],
+      },
+    );
+
+    expect(html).not.toBeNull();
+    expect(html).toContain("application/ld+json");
+
+    const result = analyzeProductWithPage(makeProduct(), makePage(html || ""));
+
+    expect(result.productMatched).toBe(true);
+    expect(result.isOnSale).toBe(true);
+    expect(result.originalPrice).toBe(170);
+    expect(result.salePrice).toBe(156.92);
+    expect(result.status).toBe("ok");
   });
 });

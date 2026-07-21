@@ -85,6 +85,7 @@ type FetchPageResult = {
   blocked: boolean;
   unavailable: boolean;
   redirected: boolean;
+  source?: "html" | "shopify_json";
 };
 
 type PageProductData = {
@@ -316,11 +317,171 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function escapeHtml(value: string | null | undefined) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function extractAllMoney(html: string) {
   const matches = [...html.matchAll(/R\$\s*([\d.]+,\d{2})/gi)];
   return matches
     .map((match) => decodeMoney(match[1]))
     .filter((value): value is number => value != null);
+}
+
+function looksLikeShopifyProductUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return /^\/products\/[^/?#]+/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function shopifyProductJsonUrl(url: string) {
+  const parsed = new URL(url);
+  const match = parsed.pathname.match(/^\/products\/([^/?#]+)/i);
+  if (!match?.[1]) return null;
+  return new URL(`/products/${match[1]}.js`, `${parsed.protocol}//${parsed.host}`).toString();
+}
+
+export function buildShopifyHtmlFromJson(baseUrl: string, payload: unknown) {
+  if (!payload || typeof payload !== "object") return null;
+  const product = payload as Record<string, unknown>;
+  const title = String(product.title || "").trim();
+  if (!title) return null;
+
+  const vendor = String(product.vendor || "").trim();
+  const productType = String(product.type || "").trim();
+  const body = String(product.body_html || "").trim();
+  const images = Array.isArray(product.images)
+    ? product.images
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item === "object" && "src" in item) {
+            return String((item as { src?: unknown }).src || "");
+          }
+          return "";
+        })
+        .filter(Boolean)
+    : [];
+
+  const variants = Array.isArray(product.variants)
+    ? product.variants.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    : [];
+  const firstAvailable =
+    variants.find((variant) => Boolean(variant.available)) ||
+    variants[0] ||
+    null;
+
+  const currentPriceCents = Number(firstAvailable?.price ?? product.price ?? 0);
+  const compareAtCents = Number(firstAvailable?.compare_at_price ?? product.compare_at_price ?? 0);
+  const currentPrice = Number.isFinite(currentPriceCents) && currentPriceCents > 0 ? currentPriceCents / 100 : null;
+  const compareAtPrice =
+    Number.isFinite(compareAtCents) && compareAtCents > 0 ? compareAtCents / 100 : null;
+  const currency = String(product.currency || "BRL").trim() || "BRL";
+  const sku = String(firstAvailable?.sku || "").trim();
+  const variantTitle = String(firstAvailable?.public_title || firstAvailable?.title || "").trim();
+  const available = Boolean(firstAvailable?.available ?? product.available ?? true);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: title,
+    brand: vendor ? { "@type": "Brand", name: vendor } : undefined,
+    category: productType || undefined,
+    sku: sku || undefined,
+    image: images,
+    description: body || undefined,
+    offers: {
+      "@type": "Offer",
+      price: currentPrice != null ? currentPrice.toFixed(2) : undefined,
+      priceCurrency: currency,
+      availability: available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    },
+  };
+
+  const compareMarkup =
+    compareAtPrice != null
+      ? `<del data-total-compare-price>R$ ${compareAtPrice.toFixed(2).replace(".", ",")}</del>`
+      : "";
+  const currentMarkup =
+    currentPrice != null
+      ? `<ins data-total-price>R$ ${currentPrice.toFixed(2).replace(".", ",")}</ins>`
+      : "";
+
+  return `
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <meta property="og:title" content="${escapeHtml(title)}">
+        <meta property="og:description" content="${escapeHtml(body.replace(/<[^>]+>/g, " ").trim())}">
+        ${images[0] ? `<meta property="og:image" content="${escapeHtml(String(images[0]))}">` : ""}
+        ${currentPrice != null ? `<meta property="og:price:amount" content="${currentPrice.toFixed(2).replace(".", ",")}">` : ""}
+        <meta property="og:price:currency" content="${escapeHtml(currency)}">
+        <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+        <script type="application/json" data-shopify-product>${JSON.stringify(product)}</script>
+      </head>
+      <body>
+        <h1>${escapeHtml(title)}</h1>
+        <div>${escapeHtml(vendor)}</div>
+        <div>${escapeHtml(productType)}</div>
+        <div>${escapeHtml(variantTitle)}</div>
+        ${compareMarkup}
+        ${currentMarkup}
+        ${body}
+        <div>${available ? "Comprar" : "Esgotado"}</div>
+      </body>
+    </html>
+  `;
+}
+
+async function fetchShopifyProductFallback(url: string): Promise<FetchPageResult | null> {
+  if (!looksLikeShopifyProductUrl(url)) return null;
+  const productJsonUrl = shopifyProductJsonUrl(url);
+  if (!productJsonUrl) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(productJsonUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+        accept: "application/json,text/plain,*/*",
+        "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as unknown;
+    const html = buildShopifyHtmlFromJson(url, payload);
+    if (!html) return null;
+
+    return {
+      url,
+      finalUrl: url,
+      normalizedUrl: normalizeUrl(url),
+      statusCode: 200,
+      html,
+      blocked: false,
+      unavailable: false,
+      redirected: false,
+      source: "shopify_json",
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function extractJsonLdBlocks(html: string) {
@@ -908,6 +1069,11 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
     const blocked = [401, 403, 429].includes(statusCode);
     const unavailable = statusCode >= 500 || statusCode === 404;
 
+    if ((blocked || unavailable) && looksLikeShopifyProductUrl(normalizedUrl)) {
+      const fallback = await fetchShopifyProductFallback(normalizedUrl);
+      if (fallback) return fallback;
+    }
+
     return {
       url,
       finalUrl: response.url || normalizedUrl,
@@ -917,8 +1083,12 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
       blocked,
       unavailable,
       redirected: normalizeUrl(response.url || normalizedUrl) !== normalizedUrl,
+      source: "html",
     };
   } catch {
+    const fallback = await fetchShopifyProductFallback(normalizedUrl);
+    if (fallback) return fallback;
+
     return {
       url,
       finalUrl: normalizedUrl,
@@ -928,6 +1098,7 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
       blocked: false,
       unavailable: true,
       redirected: false,
+      source: "html",
     };
   } finally {
     clearTimeout(timer);
