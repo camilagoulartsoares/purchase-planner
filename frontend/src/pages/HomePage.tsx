@@ -176,16 +176,35 @@ export function HomePage() {
     const stored = window.localStorage.getItem("purchase-planner-allow-remainder");
     return stored ? stored === "true" : true;
   });
+  const promoRetryTimeoutRef = useRef<number | null>(null);
+  const promoRetryCountRef = useRef(0);
 
   const promoByProductId = useMemo(
     () => buildPromoByProductId(promoRadar?.products || []),
     [promoRadar],
   );
 
+  const clearPromoRetry = useCallback(() => {
+    if (promoRetryTimeoutRef.current != null) {
+      window.clearTimeout(promoRetryTimeoutRef.current);
+      promoRetryTimeoutRef.current = null;
+    }
+  }, []);
+
   const refreshPromoRadar = useCallback(async () => {
+    clearPromoRetry();
     try {
       const promo = await api.fetchPromoRadar();
       setPromoRadar(promo);
+      const hasTrackableItems = items.some((item) => Boolean(item.purchaseUrl));
+      if (promo.products.length === 0 && hasTrackableItems && promoRetryCountRef.current < 2) {
+        promoRetryCountRef.current += 1;
+        promoRetryTimeoutRef.current = window.setTimeout(() => {
+          void refreshPromoRadar();
+        }, 3500);
+        return;
+      }
+      promoRetryCountRef.current = 0;
     } catch {
       setToast((current) => current || "Radar de promoções indisponível no momento");
     }
@@ -230,8 +249,11 @@ export function HomePage() {
   }, [load]);
 
   useEffect(() => {
+    if (promoRadar || !items.some((item) => Boolean(item.purchaseUrl))) return;
     void refreshPromoRadar();
-  }, [refreshPromoRadar]);
+  }, [items, promoRadar, refreshPromoRadar]);
+
+  useEffect(() => () => clearPromoRetry(), [clearPromoRetry]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
