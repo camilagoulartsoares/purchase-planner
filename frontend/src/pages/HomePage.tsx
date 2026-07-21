@@ -7,7 +7,7 @@ import {
   formatBRL,
   mediaUrl,
   type BrandSummary,
-  type PromoRadarBrand,
+  type PromoRadarResponse,
   type Product,
   type Summary,
 } from "../types";
@@ -145,7 +145,7 @@ function SelectField({
 export function HomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [brands, setBrands] = useState<BrandSummary[]>([]);
-  const [promoRadar, setPromoRadar] = useState<PromoRadarBrand[]>([]);
+  const [promoRadar, setPromoRadar] = useState<PromoRadarResponse | null>(null);
   const [items, setItems] = useState<Product[]>([]);
   const [plannerItems, setPlannerItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
@@ -177,7 +177,10 @@ export function HomePage() {
     return stored ? stored === "true" : true;
   });
 
-  const promoByProductId = useMemo(() => buildPromoByProductId(promoRadar), [promoRadar]);
+  const promoByProductId = useMemo(
+    () => buildPromoByProductId(promoRadar?.products || []),
+    [promoRadar],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -211,7 +214,7 @@ export function HomePage() {
         const promo = await api.fetchPromoRadar();
         setPromoRadar(promo);
       } catch {
-        setPromoRadar([]);
+        setPromoRadar(null);
       }
     } catch {
       setToast("Erro ao carregar dados");
@@ -674,7 +677,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {promoRadar.length ? (
+      {promoRadar?.brands.length ? (
         <section className="card-soft mb-6 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -692,7 +695,7 @@ export function HomePage() {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {promoRadar.map((brand) => (
+            {promoRadar.brands.map((brand) => (
               <article key={brand.brandId} className="planner-shopping-plan">
                 <div className="planner-shopping-plan-head">
                   <div>
@@ -711,7 +714,7 @@ export function HomePage() {
                     <a
                       key={`${brand.brandId}-${item.productId}`}
                       className="planner-shopping-item"
-                      href={item.productUrl}
+                      href={item.finalUrl || item.purchaseUrl || "#"}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -719,21 +722,21 @@ export function HomePage() {
                         {item.imageUrl ? (
                           <img
                             src={mediaUrl(item.imageUrl)}
-                            alt={item.name}
+                            alt={item.productName}
                             className="planner-shopping-thumb"
                           />
                         ) : (
                           <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
                         )}
                         <div>
-                          <span>{item.name}</span>
+                          <span>{item.productName}</span>
                           <small className="planner-shopping-item-note">
-                            {item.reason}
+                            {item.reason || item.evidence[0] || "Promocao confirmada"}
                           </small>
                         </div>
                       </div>
                       <strong>
-                        {item.currentPrice != null ? formatBRL(item.currentPrice) : "Ver site"}
+                        {item.salePrice != null ? formatBRL(item.salePrice) : "Ver site"}
                       </strong>
                     </a>
                   ))}
@@ -880,10 +883,14 @@ export function HomePage() {
             <ProductCard
               key={item.id}
               product={item}
-              promoLabel={promoByProductId.get(item.id)?.label ?? (item.hasPromo ? "SALE" : null)}
+              promoLabel={promoByProductId.get(item.id)?.label ?? null}
               promoReason={promoByProductId.get(item.id)?.reason ?? null}
-              promoCurrentPrice={promoByProductId.get(item.id)?.currentPrice ?? null}
-              promoReferencePrice={promoByProductId.get(item.id)?.referencePrice ?? null}
+              promoCurrentPrice={promoByProductId.get(item.id)?.salePrice ?? null}
+              promoReferencePrice={promoByProductId.get(item.id)?.originalPrice ?? null}
+              promoDiscountPercentage={promoByProductId.get(item.id)?.discountPercentage ?? null}
+              promoPixPrice={promoByProductId.get(item.id)?.pixPrice ?? null}
+              promoCheckedAt={promoByProductId.get(item.id)?.checkedAt ?? null}
+              promoStatusLabel={promoByProductId.get(item.id)?.statusLabel ?? null}
               onEdit={(p) => {
                 setEditing(p);
                 setFormOpen(true);

@@ -1,31 +1,110 @@
 import { productRepository, type ProductWithRelations } from "../repositories/productRepository.js";
 
-type RadarProduct = {
-  productId: string;
-  name: string;
-  brand: string;
-  brandSlug: string;
-  productUrl: string;
-  imageUrl?: string | null;
-  currentPrice?: number | null;
-  referencePrice?: number | null;
-  matchedTerms: string[];
-  reason: string;
+export const PROMO_MATCH_CONFIDENCE_THRESHOLD = 0.55;
+
+export type PromoRadarStatus =
+  | "ok"
+  | "page_unavailable"
+  | "access_blocked"
+  | "product_mismatch"
+  | "price_not_found"
+  | "out_of_stock"
+  | "analysis_failed";
+
+export type PromoRadarAvailability =
+  | "in_stock"
+  | "out_of_stock"
+  | "preorder"
+  | "unknown";
+
+export type ConditionalOffer = {
+  type: "pix" | "coupon" | "payment_method";
+  price: number;
+  label: string;
+  condition: string;
 };
 
-type RadarBrand = {
+export type ProductPromoRadarResult = {
+  productId: string;
+  productName: string;
+  productBrand: string;
+  imageUrl: string | null;
+  purchaseUrl: string | null;
+  normalizedPurchaseUrl: string | null;
+  finalUrl: string | null;
+  productMatched: boolean;
+  matchConfidence: number;
+  isOnSale: boolean;
+  autoDisplayEligible: boolean;
+  originalPrice: number | null;
+  salePrice: number | null;
+  discountPercentage: number | null;
+  pixPrice: number | null;
+  currency: string;
+  availability: PromoRadarAvailability;
+  variationAnalyzed: string | null;
+  evidence: string[];
+  status: PromoRadarStatus;
+  reason: string | null;
+  checkedAt: string;
+  logs: string[];
+  conditionalOffers: ConditionalOffer[];
+  pageTitle: string | null;
+  matchedFieldScores: Partial<Record<"name" | "brand" | "category" | "color" | "size" | "sku" | "image", number>>;
+};
+
+export type PromoRadarBrandSummary = {
   brandId: string;
   brand: string;
   storeDomain: string;
   headline: string;
   detectedAt: string;
   campaignUrls: string[];
-  matchedProducts: RadarProduct[];
+  matchedProducts: ProductPromoRadarResult[];
+};
+
+export type PromoRadarResponse = {
+  generatedAt: string;
+  products: ProductPromoRadarResult[];
+  brands: PromoRadarBrandSummary[];
 };
 
 type CacheEntry = {
   expiresAt: number;
-  data: RadarBrand[];
+  data: PromoRadarResponse;
+};
+
+type FetchPageResult = {
+  url: string;
+  finalUrl: string;
+  normalizedUrl: string;
+  statusCode: number;
+  html: string;
+  blocked: boolean;
+  unavailable: boolean;
+  redirected: boolean;
+};
+
+type PageProductData = {
+  name: string | null;
+  brand: string | null;
+  category: string | null;
+  color: string | null;
+  size: string | null;
+  sku: string | null;
+  description: string | null;
+  title: string | null;
+  imageUrls: string[];
+  currency: string | null;
+  availability: PromoRadarAvailability;
+  prices: {
+    current: number | null;
+    original: number | null;
+    evidence: string[];
+    variantLabel: string | null;
+  };
+  conditionalOffers: ConditionalOffer[];
+  visibleText: string;
 };
 
 const cache = new Map<string, CacheEntry>();
@@ -42,12 +121,41 @@ const PROMO_TERMS = [
   "troca de colecao",
   "semana d",
   "desconto",
-  "black",
   "off",
+];
+const TRACKING_PARAMS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "gclid",
+  "fbclid",
+  "igshid",
+  "ref",
+  "source",
 ];
 const CAMPAIGN_PATH_TERMS = ["semana", "sale", "promo", "oferta", "liquida", "black"];
 
-function domainFrom(url: string) {
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function clamp(value: number, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function round2(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.round(value * 100) / 100;
+}
+
+function percentOff(original: number | null, sale: number | null) {
+  if (original == null || sale == null || sale >= original || original <= 0) return null;
+  return Math.round(((original - sale) / original) * 100);
+}
+
+export function domainFrom(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
   } catch {
@@ -55,23 +163,31 @@ function domainFrom(url: string) {
   }
 }
 
-function normalizeUrl(raw: string) {
-  const url = new URL(raw);
-  url.hash = "";
-  for (const key of [...url.searchParams.keys()]) {
-    if (/^utm_/i.test(key)) url.searchParams.delete(key);
+export function normalizeUrl(raw: string) {
+  try {
+    const url = new URL(raw);
+    url.hash = "";
+    url.protocol = "https:";
+    url.hostname = url.hostname.replace(/^www\./i, "").toLowerCase();
+    for (const key of [...url.searchParams.keys()]) {
+      if (TRACKING_PARAMS.includes(key.toLowerCase()) || /^utm_/i.test(key)) {
+        url.searchParams.delete(key);
+      }
+    }
+    const normalized = url.toString().replace(/\/$/, "");
+    return normalized;
+  } catch {
+    return raw.trim();
   }
-  const normalized = url.toString();
-  return normalized.endsWith("/") ? normalized : `${normalized}/`;
 }
 
 function productImage(product: ProductWithRelations) {
   const main = product.images.find((image) => image.isMain) || product.images[0];
-  return main?.imageUrl || product.imageUrl;
+  return main?.imageUrl || product.imageUrl || null;
 }
 
 function decodeMoney(value: string) {
-  const normalized = value.replace(/\./g, "").replace(",", ".").trim();
+  const normalized = value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".").trim();
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -81,251 +197,862 @@ function decodeCents(value: string) {
   return Number.isFinite(parsed) ? parsed / 100 : null;
 }
 
-function extractMoneyValues(html: string) {
+function stripDiacritics(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeText(value: string | null | undefined) {
+  return stripDiacritics(String(value || ""))
+    .toLowerCase()
+    .replace(/&amp;/g, " e ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenize(value: string | null | undefined) {
+  return normalizeText(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+}
+
+function similarityByTokens(left: string | null | undefined, right: string | null | undefined) {
+  const a = new Set(tokenize(left));
+  const b = new Set(tokenize(right));
+  if (!a.size || !b.size) return 0;
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  const union = new Set([...a, ...b]).size;
+  return union ? intersection / union : 0;
+}
+
+function includesLoose(haystack: string | null | undefined, needle: string | null | undefined) {
+  const left = normalizeText(haystack);
+  const right = normalizeText(needle);
+  return Boolean(left && right && (left.includes(right) || right.includes(left)));
+}
+
+function titleCaseWords(value: string | null | undefined) {
+  if (!value) return null;
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function extractMetaContent(html: string, attribute: string, name: string) {
+  const pattern = new RegExp(
+    `<meta[^>]+${attribute}=["']${name}["'][^>]+content=["']([^"']+)["']`,
+    "i",
+  );
+  return html.match(pattern)?.[1]?.trim() || null;
+}
+
+function extractTitle(html: string) {
+  return html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || null;
+}
+
+function stripHtml(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function absoluteUrl(baseUrl: string, maybeRelative: string | null | undefined) {
+  if (!maybeRelative) return null;
+  try {
+    return new URL(maybeRelative, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function extractAllMoney(html: string) {
   const matches = [...html.matchAll(/R\$\s*([\d.]+,\d{2})/gi)];
   return matches
     .map((match) => decodeMoney(match[1]))
     .filter((value): value is number => value != null);
 }
 
+function extractJsonLdBlocks(html: string) {
+  const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  const values: unknown[] = [];
+
+  for (const block of blocks) {
+    const raw = block[1]?.trim();
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      values.push(parsed);
+    } catch {
+      // ignore invalid JSON-LD blocks
+    }
+  }
+
+  return values;
+}
+
+function flattenJsonLdProducts(node: unknown): Record<string, unknown>[] {
+  if (!node) return [];
+  if (Array.isArray(node)) return node.flatMap((item) => flattenJsonLdProducts(item));
+  if (typeof node !== "object") return [];
+
+  const record = node as Record<string, unknown>;
+  const type = String(record["@type"] || "").toLowerCase();
+  const graph = flattenJsonLdProducts(record["@graph"]);
+
+  const self =
+    type.includes("product") || type.includes("offer") ? [record] : [];
+
+  return [...self, ...graph];
+}
+
+function extractEmbeddedString(html: string, pattern: RegExp) {
+  return html.match(pattern)?.[1]?.trim() || null;
+}
+
+function detectAvailability(text: string, html: string, jsonLdProducts: Record<string, unknown>[]) {
+  const lowered = normalizeText(`${text} ${html}`);
+  for (const item of jsonLdProducts) {
+    const offers = item.offers as Record<string, unknown> | undefined;
+    const availability = String(
+      offers?.availability || item.availability || "",
+    ).toLowerCase();
+    if (availability.includes("instock")) return "in_stock" as const;
+    if (availability.includes("outofstock") || availability.includes("soldout")) {
+      return "out_of_stock" as const;
+    }
+    if (availability.includes("preorder")) return "preorder" as const;
+  }
+
+  if (
+    lowered.includes("esgotado") ||
+    lowered.includes("indisponivel") ||
+    lowered.includes("sold out") ||
+    lowered.includes("fora de estoque")
+  ) {
+    return "out_of_stock" as const;
+  }
+  if (lowered.includes("pre venda") || lowered.includes("preorder")) {
+    return "preorder" as const;
+  }
+  if (lowered.includes("comprar") || lowered.includes("adicionar ao carrinho")) {
+    return "in_stock" as const;
+  }
+  return "unknown" as const;
+}
+
+function extractConditionalOffers(html: string, visibleText: string) {
+  const offers: ConditionalOffer[] = [];
+
+  const pixMatches = [
+    ...visibleText.matchAll(/R\$\s*([\d.]+,\d{2})\s+com\s+PIX(?:\s*\(-?\d+%\))?/gi),
+  ];
+  for (const match of pixMatches) {
+    const price = decodeMoney(match[1]);
+    if (price == null) continue;
+    offers.push({
+      type: "pix",
+      price,
+      label: "PIX",
+      condition: match[0].replace(/\s+/g, " ").trim(),
+    });
+  }
+
+  const couponMatches = [
+    ...visibleText.matchAll(/(?:cupom|coupon)[\s\S]{0,80}?R\$\s*([\d.]+,\d{2})/gi),
+  ];
+  for (const match of couponMatches) {
+    const price = decodeMoney(match[1]);
+    if (price == null) continue;
+    offers.push({
+      type: "coupon",
+      price,
+      label: "Cupom",
+      condition: match[0].replace(/\s+/g, " ").trim(),
+    });
+  }
+
+  return offers.filter(
+    (offer, index, list) =>
+      list.findIndex((item) => item.type === offer.type && item.price === offer.price) === index,
+  );
+}
+
 export function extractStructuredPriceData(html: string) {
+  const evidence: string[] = [];
+  let currentPrice: number | null = null;
+  let originalPrice: number | null = null;
+  let variantLabel: string | null = null;
+  let currency: string | null = null;
+
   const compareDom = html.match(
     /<del[^>]*data-total-compare-price[^>]*>\s*R\$\s*([\d.]+,\d{2})\s*<\/del>/i,
   );
   const currentDom = html.match(
     /<ins[^>]*data-total-price[^>]*>\s*R\$\s*([\d.]+,\d{2})\s*<\/ins>/i,
   );
-
-  if (currentDom?.[1] || compareDom?.[1]) {
-    return {
-      currentPrice: currentDom?.[1] ? decodeMoney(currentDom[1]) : null,
-      referencePrice: compareDom?.[1] ? decodeMoney(compareDom[1]) : null,
-    };
+  if (compareDom?.[1] && currentDom?.[1]) {
+    originalPrice = decodeMoney(compareDom[1]);
+    currentPrice = decodeMoney(currentDom[1]);
+    evidence.push("Preco original riscado na pagina");
+    evidence.push("Preco atual menor destacado na pagina");
   }
 
-  const compareJson = html.match(/"compare_at_price"\s*:\s*(\d{3,})/i);
-  const currentJson = html.match(/"price"\s*:\s*(\d{3,})/i);
-
-  if (currentJson?.[1] || compareJson?.[1]) {
-    return {
-      currentPrice: currentJson?.[1] ? decodeCents(currentJson[1]) : null,
-      referencePrice: compareJson?.[1] ? decodeCents(compareJson[1]) : null,
-    };
+  if (currentPrice == null) {
+    const compareJson = html.match(/"compare_at_price"\s*:\s*(\d{3,})/i);
+    const currentJson = html.match(/"price"\s*:\s*(\d{3,})/i);
+    if (currentJson?.[1]) {
+      currentPrice = decodeCents(currentJson[1]);
+      evidence.push("Campo price encontrado em dados estruturados");
+    }
+    if (compareJson?.[1]) {
+      originalPrice = decodeCents(compareJson[1]);
+      evidence.push("Campo compareAtPrice/compare_at_price encontrado");
+    }
   }
 
-  const ogCurrent = html.match(
-    /<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([\d.]+,\d{2})["']/i,
-  );
-  const ldCurrent = html.match(/"price"\s*:\s*"(\d+\.\d{2})"/i);
+  if (currentPrice == null) {
+    const ogCurrent = extractMetaContent(html, "property", "og:price:amount");
+    if (ogCurrent) {
+      currentPrice = decodeMoney(ogCurrent);
+      evidence.push("Meta og:price:amount encontrada");
+    }
+  }
+
+  if (currentPrice == null) {
+    const jsonLdCurrent = extractEmbeddedString(html, /"price"\s*:\s*"(\d+\.\d{2})"/i);
+    if (jsonLdCurrent) {
+      currentPrice = Number(jsonLdCurrent);
+      evidence.push("Campo price encontrado em JSON-LD");
+    }
+  }
+
+  const textPair = html.match(/de\s*R\$\s*([\d.]+,\d{2})\s*por\s*R\$\s*([\d.]+,\d{2})/i);
+  if ((!currentPrice || !originalPrice) && textPair?.[1] && textPair?.[2]) {
+    originalPrice = originalPrice ?? decodeMoney(textPair[1]);
+    currentPrice = currentPrice ?? decodeMoney(textPair[2]);
+    evidence.push("Texto de R$ X por R$ Y encontrado");
+  }
+
+  const discountText = html.match(/(\d{1,2})%\s*OFF/gi);
+  if (discountText?.length) {
+    evidence.push(`Texto ${discountText[0].toUpperCase()} encontrado`);
+  }
+
+  const currencyMatch =
+    extractMetaContent(html, "property", "og:price:currency") ||
+    extractEmbeddedString(html, /"priceCurrency"\s*:\s*"([A-Z]{3})"/i);
+  currency = currencyMatch || "BRL";
+
+  variantLabel =
+    extractEmbeddedString(html, /"title"\s*:\s*"([^"]+\s\/\s[^"]+)"/i) ||
+    extractEmbeddedString(html, /"variant"\s*:\s*"([^"]+)"/i);
 
   return {
-    currentPrice: ogCurrent?.[1]
-      ? decodeMoney(ogCurrent[1])
-      : ldCurrent?.[1]
-        ? Number(ldCurrent[1])
-        : null,
-    referencePrice: null,
+    currentPrice: round2(currentPrice),
+    referencePrice: round2(originalPrice),
+    evidence,
+    currency,
+    variantLabel,
   };
 }
 
-function extractDiscountSignals(html: string) {
-  const offMatches = [...html.matchAll(/(\d{1,2})%\s*OFF/gi)].map(
-    (match) => `${match[1]}%-off`,
-  );
-  const pixMatches = [...html.matchAll(/PIX\s*\(-?(\d{1,2})%\)/gi)].map(
-    (match) => `pix-${match[1]}%-off`,
-  );
+function parsePageData(page: FetchPageResult) {
+  const html = page.html;
+  const title =
+    extractMetaContent(html, "property", "og:title") ||
+    extractMetaContent(html, "name", "twitter:title") ||
+    extractTitle(html);
+  const description =
+    extractMetaContent(html, "name", "description") ||
+    extractMetaContent(html, "property", "og:description");
 
-  return [...new Set([...offMatches, ...pixMatches])];
+  const visibleText = stripHtml(html);
+  const jsonLdBlocks = extractJsonLdBlocks(html);
+  const products = flattenJsonLdProducts(jsonLdBlocks);
+
+  const jsonLdName =
+    products.find((item) => String(item["@type"] || "").toLowerCase().includes("product"))?.name;
+  const jsonLdBrand =
+    products.find((item) => String(item["@type"] || "").toLowerCase().includes("product"))?.brand;
+  const jsonLdCategory =
+    products.find((item) => String(item["@type"] || "").toLowerCase().includes("product"))?.category;
+  const jsonLdDescription =
+    products.find((item) => String(item["@type"] || "").toLowerCase().includes("product"))
+      ?.description;
+  const jsonLdSku =
+    products.find((item) => String(item["@type"] || "").toLowerCase().includes("product"))?.sku;
+  const jsonLdImages = products.flatMap((item) => {
+    const image = item.image;
+    if (Array.isArray(image)) return image.map(String);
+    return image ? [String(image)] : [];
+  });
+
+  const embeddedBrand =
+    extractEmbeddedString(html, /"vendor"\s*:\s*"([^"]+)"/i) ||
+    extractEmbeddedString(html, /"brand"\s*:\s*"([^"]+)"/i);
+  const embeddedCategory =
+    extractEmbeddedString(html, /"type"\s*:\s*"([^"]+)"/i) ||
+    extractEmbeddedString(html, /"category"\s*:\s*"([^"]+)"/i);
+  const embeddedColor =
+    extractEmbeddedString(html, /"color"\s*:\s*"([^"]+)"/i);
+  const embeddedSize =
+    extractEmbeddedString(html, /"size"\s*:\s*"([^"]+)"/i) ||
+    extractEmbeddedString(html, /"option2"\s*:\s*"([^"]+)"/i);
+  const embeddedSku =
+    extractEmbeddedString(html, /"sku"\s*:\s*"([^"]+)"/i) ||
+    extractMetaContent(html, "itemprop", "sku");
+
+  const metaImages = uniqueStrings([
+    extractMetaContent(html, "property", "og:image"),
+    extractMetaContent(html, "property", "og:image:secure_url"),
+  ]);
+
+  const structuredPrice = extractStructuredPriceData(html);
+  const availability = detectAvailability(visibleText, html, products);
+  const conditionalOffers = extractConditionalOffers(html, visibleText);
+
+  return {
+    name: String(jsonLdName || titleCaseWords(title) || "").trim() || null,
+    brand:
+      typeof jsonLdBrand === "object" && jsonLdBrand && "name" in (jsonLdBrand as object)
+        ? String((jsonLdBrand as { name?: unknown }).name || "")
+        : String(jsonLdBrand || embeddedBrand || "").trim() || null,
+    category: String(jsonLdCategory || embeddedCategory || "").trim() || null,
+    color: String(embeddedColor || "").trim() || null,
+    size: String(embeddedSize || "").trim() || null,
+    sku: String(jsonLdSku || embeddedSku || "").trim() || null,
+    description: String(jsonLdDescription || description || "").trim() || null,
+    title: title || null,
+    imageUrls: uniqueStrings([...metaImages, ...jsonLdImages]).map((url) => absoluteUrl(page.finalUrl, url) || url),
+    currency: structuredPrice.currency || "BRL",
+    availability,
+    prices: {
+      current: structuredPrice.currentPrice,
+      original: structuredPrice.referencePrice,
+      evidence: structuredPrice.evidence,
+      variantLabel: structuredPrice.variantLabel,
+    },
+    conditionalOffers,
+    visibleText,
+  } satisfies PageProductData;
 }
 
-function extractPromoTerms(html: string) {
-  const lowered = html.toLowerCase();
-  return PROMO_TERMS.filter((term) => lowered.includes(term));
-}
+export function matchProductToPage(product: ProductWithRelations, pageData: PageProductData) {
+  const scores: ProductPromoRadarResult["matchedFieldScores"] = {};
+  const logs: string[] = [];
+  let weightedScore = 0;
+  let totalWeight = 0;
 
-function extractCampaignUrlsFromSitemap(xml: string, domain: string) {
-  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)]
-    .map((match) => match[1].trim())
-    .filter((url) => domainFrom(url) === domain)
-    .filter((url) =>
-      CAMPAIGN_PATH_TERMS.some(
-        (term) =>
-          url.toLowerCase().includes(`/${term}`) || url.toLowerCase().includes(`-${term}`),
-      ),
+  const addScore = (
+    field: keyof ProductPromoRadarResult["matchedFieldScores"],
+    weight: number,
+    score: number,
+    note: string,
+  ) => {
+    if (!Number.isFinite(score)) return;
+    scores[field] = round2(score) ?? 0;
+    weightedScore += score * weight;
+    totalWeight += weight;
+    logs.push(`${field}: ${note} (${Math.round(score * 100)}%)`);
+  };
+
+  const nameScore = Math.max(
+    similarityByTokens(product.name, pageData.name),
+    similarityByTokens(product.name, pageData.title),
+    includesLoose(pageData.visibleText, product.name) ? 0.92 : 0,
+  );
+  addScore("name", 0.38, nameScore, `comparando "${product.name}" com nome/titulo da pagina`);
+
+  if (product.brand?.name || product.brand?.slug || product.brandId) {
+    const brandScore = Math.max(
+      similarityByTokens(product.brand.name, pageData.brand),
+      includesLoose(pageData.visibleText, product.brand.name) ? 0.85 : 0,
+      similarityByTokens(product.store, pageData.brand),
     );
+    addScore("brand", 0.15, brandScore, `marca "${product.brand.name}" contra dados da pagina`);
+  }
 
-  return [...new Set(urls)].slice(0, 5);
+  if (product.category) {
+    const categoryScore = Math.max(
+      similarityByTokens(product.category, pageData.category),
+      includesLoose(pageData.visibleText, product.category) ? 0.75 : 0,
+    );
+    addScore("category", 0.08, categoryScore, `categoria "${product.category}"`);
+  }
+
+  if (product.color) {
+    const colorScore = Math.max(
+      similarityByTokens(product.color, pageData.color),
+      includesLoose(pageData.visibleText, product.color) ? 0.8 : 0,
+    );
+    addScore("color", 0.09, colorScore, `cor "${product.color}"`);
+  }
+
+  if (product.size) {
+    const sizeScore = Math.max(
+      similarityByTokens(product.size, pageData.size),
+      includesLoose(pageData.visibleText, product.size) ? 0.8 : 0,
+    );
+    addScore("size", 0.08, sizeScore, `tamanho "${product.size}"`);
+  }
+
+  const pageSku = pageData.sku;
+  if (pageSku) {
+    const skuScore =
+      normalizeText(pageSku) && normalizeText(product.notes).includes(normalizeText(pageSku))
+        ? 1
+        : similarityByTokens(product.name, pageSku);
+    addScore("sku", 0.12, skuScore, `sku/identificador "${pageSku}"`);
+  }
+
+  const productMainImage = normalizeText(productImage(product));
+  if (productMainImage && pageData.imageUrls.length) {
+    const imageScore = pageData.imageUrls.some((url) => normalizeText(url).includes(productMainImage))
+      ? 1
+      : pageData.imageUrls.some((url) => productMainImage.includes(normalizeText(url)))
+        ? 1
+        : 0;
+    addScore("image", 0.1, imageScore, "comparacao de imagem principal");
+  }
+
+  const confidence =
+    totalWeight > 0
+      ? clamp(weightedScore / totalWeight)
+      : 0;
+
+  const productMatched =
+    confidence >= PROMO_MATCH_CONFIDENCE_THRESHOLD &&
+    (nameScore >= 0.45 || includesLoose(pageData.visibleText, product.name));
+
+  if (!productMatched) {
+    logs.push("produto nao confirmado: confianca abaixo do limite");
+  } else {
+    logs.push("produto confirmado pela combinacao de nome + atributos complementares");
+  }
+
+  return {
+    productMatched,
+    matchConfidence: round2(confidence) ?? 0,
+    logs,
+    scores,
+  };
 }
 
-async function fetchText(url: string) {
+function computeStatusFromPage(page: FetchPageResult, pageData: PageProductData) {
+  if (page.blocked) return "access_blocked" as const;
+  if (page.unavailable) return "page_unavailable" as const;
+  if (pageData.availability === "out_of_stock") return "out_of_stock" as const;
+  return "ok" as const;
+}
+
+export function analyzeProductWithPage(
+  product: ProductWithRelations,
+  page: FetchPageResult,
+): ProductPromoRadarResult {
+  const checkedAt = nowIso();
+  const logs: string[] = [];
+
+  if (!product.purchaseUrl) {
+    return {
+      productId: product.id,
+      productName: product.name,
+      productBrand: product.brand.name,
+      imageUrl: productImage(product),
+      purchaseUrl: null,
+      normalizedPurchaseUrl: null,
+      finalUrl: null,
+      productMatched: false,
+      matchConfidence: 0,
+      isOnSale: false,
+      autoDisplayEligible: false,
+      originalPrice: null,
+      salePrice: null,
+      discountPercentage: null,
+      pixPrice: null,
+      currency: "BRL",
+      availability: "unknown",
+      variationAnalyzed: null,
+      evidence: [],
+      status: "analysis_failed",
+      reason: "Produto sem purchaseUrl salva",
+      checkedAt,
+      logs: ["produto ignorado porque nao possui URL de compra"],
+      conditionalOffers: [],
+      pageTitle: null,
+      matchedFieldScores: {},
+    };
+  }
+
+  logs.push(`URL salva: ${product.purchaseUrl}`);
+  logs.push(`URL normalizada: ${page.normalizedUrl}`);
+  if (page.redirected) logs.push(`pagina redirecionou para ${page.finalUrl}`);
+
+  if (page.blocked || page.unavailable) {
+    const status = page.blocked ? "access_blocked" : "page_unavailable";
+    return {
+      productId: product.id,
+      productName: product.name,
+      productBrand: product.brand.name,
+      imageUrl: productImage(product),
+      purchaseUrl: product.purchaseUrl,
+      normalizedPurchaseUrl: page.normalizedUrl,
+      finalUrl: page.finalUrl,
+      productMatched: false,
+      matchConfidence: 0,
+      isOnSale: false,
+      autoDisplayEligible: false,
+      originalPrice: null,
+      salePrice: null,
+      discountPercentage: null,
+      pixPrice: null,
+      currency: "BRL",
+      availability: "unknown",
+      variationAnalyzed: null,
+      evidence: [],
+      status,
+      reason:
+        status === "access_blocked"
+          ? "A pagina bloqueou a leitura automatica"
+          : "A pagina nao esta disponivel",
+      checkedAt,
+      logs,
+      conditionalOffers: [],
+      pageTitle: null,
+      matchedFieldScores: {},
+    };
+  }
+
+  const pageData = parsePageData(page);
+  logs.push(`titulo da pagina: ${pageData.title || "sem titulo"}`);
+  logs.push(`nome identificado: ${pageData.name || "nao identificado"}`);
+  logs.push(`marca identificada: ${pageData.brand || "nao identificada"}`);
+
+  const match = matchProductToPage(product, pageData);
+  logs.push(...match.logs);
+
+  const statusFromPage = computeStatusFromPage(page, pageData);
+  if (!match.productMatched) {
+    return {
+      productId: product.id,
+      productName: product.name,
+      productBrand: product.brand.name,
+      imageUrl: productImage(product),
+      purchaseUrl: product.purchaseUrl,
+      normalizedPurchaseUrl: page.normalizedUrl,
+      finalUrl: page.finalUrl,
+      productMatched: false,
+      matchConfidence: match.matchConfidence,
+      isOnSale: false,
+      autoDisplayEligible: false,
+      originalPrice: null,
+      salePrice: null,
+      discountPercentage: null,
+      pixPrice: null,
+      currency: pageData.currency || "BRL",
+      availability: pageData.availability,
+      variationAnalyzed: pageData.prices.variantLabel,
+      evidence: [],
+      status: "product_mismatch",
+      reason: "A pagina acessada parece corresponder a outro produto",
+      checkedAt,
+      logs,
+      conditionalOffers: pageData.conditionalOffers,
+      pageTitle: pageData.title,
+      matchedFieldScores: match.scores,
+    };
+  }
+
+  const originalPrice = round2(pageData.prices.original);
+  const salePrice = round2(pageData.prices.current);
+  const discountPercentage = percentOff(originalPrice, salePrice);
+  const pixPrice =
+    pageData.conditionalOffers.find((offer) => offer.type === "pix")?.price ?? null;
+
+  const evidence = [...pageData.prices.evidence];
+  if (originalPrice != null && salePrice != null && salePrice < originalPrice) {
+    evidence.push("Preco atual menor que o preco original");
+  }
+  if (discountPercentage != null) {
+    evidence.push(`Desconto principal de ${discountPercentage}% confirmado`);
+  }
+
+  let status: PromoRadarStatus = statusFromPage;
+  let reason: string | null = null;
+
+  if (status === "out_of_stock") {
+    reason = "Produto identificado como indisponivel na pagina";
+  } else if (salePrice == null && originalPrice == null) {
+    status = "price_not_found";
+    reason = "Nao foi possivel identificar preco principal na pagina";
+  }
+
+  const isOnSale =
+    match.productMatched &&
+    originalPrice != null &&
+    salePrice != null &&
+    salePrice < originalPrice &&
+    evidence.length > 0;
+
+  const autoDisplayEligible =
+    isOnSale && match.matchConfidence >= PROMO_MATCH_CONFIDENCE_THRESHOLD;
+
+  if (!reason && !isOnSale && status === "ok") {
+    reason = "Promocao nao confirmada com evidencia concreta";
+  }
+
+  logs.push(`preco original: ${originalPrice ?? "nao encontrado"}`);
+  logs.push(`preco atual: ${salePrice ?? "nao encontrado"}`);
+  logs.push(`pix: ${pixPrice ?? "nao encontrado"}`);
+  logs.push(`status final: ${status}`);
+
+  return {
+    productId: product.id,
+    productName: product.name,
+    productBrand: product.brand.name,
+    imageUrl: productImage(product),
+    purchaseUrl: product.purchaseUrl,
+    normalizedPurchaseUrl: page.normalizedUrl,
+    finalUrl: page.finalUrl,
+    productMatched: match.productMatched,
+    matchConfidence: match.matchConfidence,
+    isOnSale,
+    autoDisplayEligible,
+    originalPrice,
+    salePrice,
+    discountPercentage,
+    pixPrice: round2(pixPrice),
+    currency: pageData.currency || "BRL",
+    availability: pageData.availability,
+    variationAnalyzed: pageData.prices.variantLabel,
+    evidence,
+    status,
+    reason,
+    checkedAt,
+    logs,
+    conditionalOffers: pageData.conditionalOffers,
+    pageTitle: pageData.title,
+    matchedFieldScores: match.scores,
+  };
+}
+
+async function fetchPage(url: string): Promise<FetchPageResult> {
+  const normalizedUrl = normalizeUrl(url);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(normalizedUrl, {
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
       },
+      redirect: "follow",
       signal: controller.signal,
     });
 
-    const text = await response.text();
-    return response.ok || text ? text : "";
+    const html = await response.text();
+    const statusCode = response.status;
+    const blocked = [401, 403, 429].includes(statusCode);
+    const unavailable = statusCode >= 500 || statusCode === 404;
+
+    return {
+      url,
+      finalUrl: response.url || normalizedUrl,
+      normalizedUrl,
+      statusCode,
+      html,
+      blocked,
+      unavailable,
+      redirected: normalizeUrl(response.url || normalizedUrl) !== normalizedUrl,
+    };
   } catch {
-    return "";
+    return {
+      url,
+      finalUrl: normalizedUrl,
+      normalizedUrl,
+      statusCode: 0,
+      html: "",
+      blocked: false,
+      unavailable: true,
+      redirected: false,
+    };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function inspectProduct(product: ProductWithRelations): Promise<RadarProduct | null> {
-  if (!product.purchaseUrl) return null;
+async function extractCampaignUrlsFromSitemap(domain: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(`https://${domain}/sitemap.xml`, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+      },
+      signal: controller.signal,
+    });
+    const xml = await response.text();
+    const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)]
+      .map((match) => match[1].trim())
+      .filter((url) => domainFrom(url) === domain)
+      .filter((url) =>
+        CAMPAIGN_PATH_TERMS.some(
+          (term) =>
+            url.toLowerCase().includes(`/${term}`) || url.toLowerCase().includes(`-${term}`),
+        ),
+      );
+    return [...new Set(urls)].slice(0, 5);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  const url = normalizeUrl(product.purchaseUrl);
-  const html = await fetchText(url);
-  if (!html) return null;
+function buildBrandSummaries(
+  products: ProductWithRelations[],
+  results: ProductPromoRadarResult[],
+  domainCampaigns: Map<string, string[]>,
+) {
+  const saleResults = results.filter((result) => result.autoDisplayEligible);
+  const grouped = new Map<string, PromoRadarBrandSummary>();
 
-  const knownCurrentPrice =
-    product.promotionalPrice != null ? Number(product.promotionalPrice) : Number(product.originalPrice);
-  const knownReferencePrice = Number(product.originalPrice);
-  const structuredPrices = extractStructuredPriceData(html);
-  const moneyValues = extractMoneyValues(html);
-  const discountSignals = extractDiscountSignals(html);
-  const pageLowestPrice =
-    structuredPrices.currentPrice != null
-      ? structuredPrices.currentPrice
-      : moneyValues.length
-        ? Math.min(...moneyValues)
-        : null;
-  const pageReferencePrice =
-    structuredPrices.referencePrice != null
-      ? structuredPrices.referencePrice
-      : structuredPrices.currentPrice != null
-        ? knownReferencePrice
-        : moneyValues.length > 1
-          ? Math.max(...moneyValues)
-          : knownReferencePrice;
-  const terms = extractPromoTerms(html);
-  const campaignImageSignal =
-    /queima-de-estoque|troca-de-colecao|semana-\d|stories/i.test(html);
+  for (const result of saleResults) {
+    const product = products.find((item) => item.id === result.productId);
+    if (!product) continue;
 
-  const pageHasBetterPrice = pageLowestPrice != null && pageLowestPrice + 0.01 < knownCurrentPrice;
-  const pageShowsDiscount =
-    pageReferencePrice != null &&
-    pageLowestPrice != null &&
-    pageLowestPrice + 0.01 < pageReferencePrice;
-  const isPromo =
-    campaignImageSignal ||
-    terms.length > 0 ||
-    discountSignals.length > 0 ||
-    pageHasBetterPrice ||
-    pageShowsDiscount;
+    const storeDomain = domainFrom(result.finalUrl || result.purchaseUrl || "");
+    const current = grouped.get(product.brandId);
+    if (current) {
+      current.matchedProducts.push(result);
+      continue;
+    }
 
-  if (!isPromo) return null;
+    grouped.set(product.brandId, {
+      brandId: product.brandId,
+      brand: product.brand.name,
+      storeDomain,
+      headline: "",
+      detectedAt: nowIso(),
+      campaignUrls: domainCampaigns.get(storeDomain) || [],
+      matchedProducts: [result],
+    });
+  }
 
-  const matchedTerms = [
-    ...terms,
-    ...discountSignals,
-    ...(campaignImageSignal ? ["campanha-semanal"] : []),
-    ...(pageHasBetterPrice ? ["preco-menor-no-site"] : []),
-    ...(pageShowsDiscount ? ["desconto-no-html"] : []),
-  ];
-
-  return {
-    productId: product.id,
-    name: product.name,
-    brand: product.brand.name,
-    brandSlug: product.brand.slug,
-    productUrl: url,
-    imageUrl: productImage(product) ?? null,
-    currentPrice: pageLowestPrice ?? knownCurrentPrice,
-    referencePrice:
-      pageReferencePrice != null && pageReferencePrice > (pageLowestPrice ?? 0)
-        ? pageReferencePrice
-        : knownReferencePrice,
-    matchedTerms,
-    reason: campaignImageSignal
-      ? "A pagina do produto esta apontando para uma campanha semanal ativa."
-      : pageHasBetterPrice || pageShowsDiscount
-        ? "O site mostra preco/promessa de desconto melhor do que a referencia salva."
-        : "A pagina contem sinais reais de promocao nesta semana.",
-  } satisfies RadarProduct;
+  return [...grouped.values()]
+    .map((brand) => {
+      const count = brand.matchedProducts.length;
+      const label = count === 1 ? "peca" : "pecas";
+      brand.headline =
+        count >= 1
+          ? `${brand.brand} tem ${count} ${label} com promocao confirmada agora.`
+          : `${brand.brand} sem promocao confirmada.`;
+      brand.matchedProducts = brand.matchedProducts.slice(0, 6);
+      return brand;
+    })
+    .sort((a, b) => b.matchedProducts.length - a.matchedProducts.length);
 }
 
 export const promoRadarService = {
-  async weeklyBrandPromotions(userId: string) {
+  async weeklyBrandPromotions(userId: string): Promise<PromoRadarResponse> {
     const cached = cache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-    const products = await productRepository.findAllByUser(userId);
-    const eligibleProducts = products
-      .filter((product) => product.purchaseUrl)
+    const products = (await productRepository.findAllByUser(userId))
       .filter((product) => product.status !== "Desisti da compra")
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .slice(0, MAX_PRODUCTS_TO_SCAN);
 
-    const domainCampaigns = new Map<string, string[]>();
-    for (const product of eligibleProducts) {
-      const domain = domainFrom(String(product.purchaseUrl));
-      if (!domain || domainCampaigns.has(domain)) continue;
-
-      const sitemap = await fetchText(`https://${domain}/sitemap.xml`);
-      if (!sitemap) continue;
-      domainCampaigns.set(domain, extractCampaignUrlsFromSitemap(sitemap, domain));
-    }
-
-    const inspected = await Promise.all(
-      eligibleProducts.map((product) => inspectProduct(product)),
+    const results = await Promise.all(
+      products.map(async (product) => {
+        try {
+          if (!product.purchaseUrl) {
+            return analyzeProductWithPage(product, {
+              url: "",
+              finalUrl: "",
+              normalizedUrl: "",
+              statusCode: 0,
+              html: "",
+              blocked: false,
+              unavailable: false,
+              redirected: false,
+            });
+          }
+          const page = await fetchPage(product.purchaseUrl);
+          return analyzeProductWithPage(product, page);
+        } catch (error) {
+          return {
+            productId: product.id,
+            productName: product.name,
+            productBrand: product.brand.name,
+            imageUrl: productImage(product),
+            purchaseUrl: product.purchaseUrl,
+            normalizedPurchaseUrl: product.purchaseUrl ? normalizeUrl(product.purchaseUrl) : null,
+            finalUrl: null,
+            productMatched: false,
+            matchConfidence: 0,
+            isOnSale: false,
+            autoDisplayEligible: false,
+            originalPrice: null,
+            salePrice: null,
+            discountPercentage: null,
+            pixPrice: null,
+            currency: "BRL",
+            availability: "unknown",
+            variationAnalyzed: null,
+            evidence: [],
+            status: "analysis_failed" as const,
+            reason: error instanceof Error ? error.message : "Falha inesperada na analise",
+            checkedAt: nowIso(),
+            logs: ["falha inesperada ao analisar produto"],
+            conditionalOffers: [],
+            pageTitle: null,
+            matchedFieldScores: {},
+          } satisfies ProductPromoRadarResult;
+        }
+      }),
     );
-    const hits = inspected.filter((item): item is RadarProduct => item != null);
 
-    const grouped = new Map<string, RadarBrand>();
-    for (const hit of hits) {
-      const product = eligibleProducts.find((item) => item.id === hit.productId);
-      if (!product) continue;
+    const domains = uniqueStrings(
+      products
+        .map((product) => product.purchaseUrl)
+        .filter(Boolean)
+        .map((url) => domainFrom(String(url))),
+    );
+    const domainCampaigns = new Map<string, string[]>();
+    await Promise.all(
+      domains.map(async (domain) => {
+        domainCampaigns.set(domain, await extractCampaignUrlsFromSitemap(domain));
+      }),
+    );
 
-      const domain = domainFrom(hit.productUrl);
-      const existing = grouped.get(product.brandId);
-      if (existing) {
-        existing.matchedProducts.push(hit);
-        continue;
-      }
-
-      grouped.set(product.brandId, {
-        brandId: product.brandId,
-        brand: product.brand.name,
-        storeDomain: domain,
-        headline: "",
-        detectedAt: new Date().toISOString(),
-        campaignUrls: domainCampaigns.get(domain) || [],
-        matchedProducts: [hit],
-      });
-    }
-
-    const result = [...grouped.values()]
-      .map((brand) => {
-        const itemCount = brand.matchedProducts.length;
-        const productLabel = itemCount === 1 ? "peca" : "pecas";
-        brand.headline =
-          itemCount >= 3
-            ? `${brand.brand} esta com ${itemCount} ${productLabel} em promocao nesta semana.`
-            : itemCount >= 1
-              ? `${brand.brand} tem ${itemCount} ${productLabel} com sinal real de promocao agora.`
-              : `${brand.brand} sem promocao detectada.`;
-        brand.matchedProducts = brand.matchedProducts.slice(0, 6);
-        return brand;
-      })
-      .sort((a, b) => b.matchedProducts.length - a.matchedProducts.length);
+    const data = {
+      generatedAt: nowIso(),
+      products: results,
+      brands: buildBrandSummaries(products, results, domainCampaigns),
+    } satisfies PromoRadarResponse;
 
     cache.set(userId, {
       expiresAt: Date.now() + CACHE_TTL_MS,
-      data: result,
+      data,
     });
 
-    return result;
+    return data;
   },
 };

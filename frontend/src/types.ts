@@ -90,17 +90,55 @@ export type Summary = {
   counts: Record<string, number>;
 };
 
+export type PromoRadarStatus =
+  | "ok"
+  | "page_unavailable"
+  | "access_blocked"
+  | "product_mismatch"
+  | "price_not_found"
+  | "out_of_stock"
+  | "analysis_failed";
+
+export type PromoRadarAvailability =
+  | "in_stock"
+  | "out_of_stock"
+  | "preorder"
+  | "unknown";
+
+export type PromoRadarConditionalOffer = {
+  type: "pix" | "coupon" | "payment_method";
+  price: number;
+  label: string;
+  condition: string;
+};
+
 export type PromoRadarProduct = {
   productId: string;
-  name: string;
-  brand: string;
-  brandSlug: string;
-  productUrl: string;
-  imageUrl?: string | null;
-  currentPrice?: number | null;
-  referencePrice?: number | null;
-  matchedTerms: string[];
-  reason: string;
+  productName: string;
+  productBrand: string;
+  imageUrl: string | null;
+  purchaseUrl: string | null;
+  normalizedPurchaseUrl: string | null;
+  finalUrl: string | null;
+  productMatched: boolean;
+  matchConfidence: number;
+  isOnSale: boolean;
+  autoDisplayEligible: boolean;
+  originalPrice: number | null;
+  salePrice: number | null;
+  discountPercentage: number | null;
+  pixPrice: number | null;
+  currency: string;
+  availability: PromoRadarAvailability;
+  variationAnalyzed: string | null;
+  evidence: string[];
+  status: PromoRadarStatus;
+  reason: string | null;
+  checkedAt: string;
+  logs: string[];
+  conditionalOffers: PromoRadarConditionalOffer[];
+  pageTitle: string | null;
+  matchedFieldScores: Partial<Record<"name" | "brand" | "category" | "color" | "size" | "sku" | "image", number>>;
 };
 
 export type PromoRadarBrand = {
@@ -111,6 +149,12 @@ export type PromoRadarBrand = {
   detectedAt: string;
   campaignUrls: string[];
   matchedProducts: PromoRadarProduct[];
+};
+
+export type PromoRadarResponse = {
+  generatedAt: string;
+  products: PromoRadarProduct[];
+  brands: PromoRadarBrand[];
 };
 
 export type ProductQuery = {

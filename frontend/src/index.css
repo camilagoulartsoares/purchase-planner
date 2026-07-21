@@ -833,6 +833,22 @@ body {
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+.sale-discount-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(158,47,47,.12);
+  color: #9e2f2f;
+  padding: .2rem .55rem;
+  font-size: .72rem;
+  font-weight: 800;
+}
+.sale-extra-note {
+  margin-top: .25rem;
+  color: var(--brown-deep);
+  font-size: .82rem;
+  font-weight: 600;
+}
 .gallery-arrow,
 .gallery-zoom {
   display: grid;

@@ -16,6 +16,10 @@ type Props = {
   promoReason?: string | null;
   promoCurrentPrice?: number | null;
   promoReferencePrice?: number | null;
+  promoDiscountPercentage?: number | null;
+  promoPixPrice?: number | null;
+  promoCheckedAt?: string | null;
+  promoStatusLabel?: string | null;
   onEdit?: (p: Product) => void;
   onMarkBought?: (p: Product) => void;
   onFavorite?: (p: Product) => void;
@@ -29,6 +33,10 @@ export function ProductCard({
   promoReason,
   promoCurrentPrice,
   promoReferencePrice,
+  promoDiscountPercentage,
+  promoPixPrice,
+  promoCheckedAt,
+  promoStatusLabel,
   onEdit,
   onMarkBought,
   onFavorite,
@@ -58,6 +66,12 @@ export function ProductCard({
   const hasPromoPrice = hasLivePromoPrice(promoCurrentPrice, promoReferencePrice);
   const livePromoCurrentPrice = hasPromoPrice ? promoCurrentPrice : null;
   const livePromoReferencePrice = hasPromoPrice ? promoReferencePrice : null;
+  const checkedAtLabel = promoCheckedAt
+    ? new Date(promoCheckedAt).toLocaleString("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : null;
 
   return (
     <article className="card-soft relative overflow-visible">
@@ -101,10 +115,22 @@ export function ProductCard({
             {hasPromoPrice ? (
               <div className="mt-1">
                 <p className="sale-price-row">
-                  <span className="sale-price-old">{formatBRL(livePromoReferencePrice ?? 0)}</span>
-                  <strong className="sale-price-current">{formatBRL(livePromoCurrentPrice ?? 0)}</strong>
+                  <span className="sale-price-old">
+                    {formatBRL(livePromoReferencePrice ?? 0)}
+                  </span>
+                  <strong className="sale-price-current">
+                    {formatBRL(livePromoCurrentPrice ?? 0)}
+                  </strong>
+                  {promoDiscountPercentage != null ? (
+                    <span className="sale-discount-pill">
+                      {promoDiscountPercentage}% OFF
+                    </span>
+                  ) : null}
                 </p>
-                <p className="sale-site-note">Preço promocional detectado no site</p>
+                <p className="sale-site-note">Preco promocional detectado no site</p>
+                {promoPixPrice != null ? (
+                  <p className="sale-extra-note">PIX: {formatBRL(promoPixPrice)}</p>
+                ) : null}
               </div>
             ) : (
               <p className="mt-1 text-lg font-semibold text-ink">
@@ -120,6 +146,12 @@ export function ProductCard({
             {promoReason ? (
               <p className="sale-note mt-2">{promoReason}</p>
             ) : null}
+            {promoStatusLabel ? (
+              <p className="sale-note mt-1">{promoStatusLabel}</p>
+            ) : null}
+            {checkedAtLabel ? (
+              <p className="sale-note mt-1">Radar verificado em {checkedAtLabel}</p>
+            ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>
           </div>
 
@@ -128,7 +160,7 @@ export function ProductCard({
               type="button"
               className="btn-ghost !px-2"
               onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Mais opções"
+              aria-label="Mais opcoes"
             >
               <MoreVertical size={16} />
             </button>
@@ -155,20 +187,20 @@ export function ProductCard({
                       onStatus(product, "Desisti da compra");
                     }}
                   >
-                    Não quero mais
+                    Nao quero mais
                   </button>
                 ) : null}
-                {onMarkBought && product.status !== "Já comprei" ? (
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onMarkBought(product);
-                      }}
-                    >
-                      Marcar como comprada
-                    </button>
+                {onMarkBought && product.status !== "JÃ¡ comprei" ? (
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onMarkBought(product);
+                    }}
+                  >
+                    Marcar como comprada
+                  </button>
                 ) : null}
                 {onDelete ? (
                   <button
@@ -198,7 +230,7 @@ export function ProductCard({
               <ExternalLink size={14} /> Comprar na loja
             </a>
           ) : null}
-          {onMarkBought && product.status !== "Já comprei" ? (
+          {onMarkBought && product.status !== "JÃ¡ comprei" ? (
             <button
               type="button"
               className="btn-ghost"
