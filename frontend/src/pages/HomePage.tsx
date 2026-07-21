@@ -103,6 +103,14 @@ const productImages = (product: Product) =>
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+function syncTabParam(department: "moda" | "achadinhos" | "") {
+  const params = new URLSearchParams(window.location.search);
+  if (department === "achadinhos") params.set("tab", "achadinhos");
+  else params.delete("tab");
+  const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+  window.history.replaceState({}, "", next);
+}
+
 function SelectField({
   value,
   onChange,
@@ -350,6 +358,21 @@ export function HomePage() {
   useEffect(() => {
     void refreshMercadoLivreStatus();
   }, [refreshMercadoLivreStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== "achadinhos") return;
+    setQuery((current) =>
+      current.department === "achadinhos"
+        ? current
+        : {
+            ...current,
+            department: "achadinhos",
+            category: "",
+            page: 1,
+          },
+    );
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -944,14 +967,15 @@ export function HomePage() {
                 key={department.value}
                 type="button"
                 className={`planner-toggle ${query.department === department.value ? "is-active" : ""}`}
-                onClick={() =>
+                onClick={() => {
+                  syncTabParam(department.value);
                   setQuery((current) => ({
                     ...current,
                     department: department.value,
                     category: "",
                     page: 1,
-                  }))
-                }
+                  }));
+                }}
                 aria-pressed={query.department === department.value}
               >
                 {department.label}

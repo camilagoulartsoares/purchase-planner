@@ -219,6 +219,7 @@ export type MercadoLivrePublicConfig = {
   productionRedirectUri: string;
   localRedirectUri: string;
   requiredEnvVars: string[];
+  autoSyncIntervalMinutes?: number;
 };
 
 export type MercadoLivreIntegrationStatus = {
@@ -226,6 +227,8 @@ export type MercadoLivreIntegrationStatus = {
   connected: boolean;
   lastSyncedAt: string | null;
   tokenExpiresAt: string | null;
+  lastRefreshedAt?: string | null;
+  nextAutoSyncAt?: string | null;
   nickname: string | null;
   meliUserId: string | null;
   syncStatus: string;
