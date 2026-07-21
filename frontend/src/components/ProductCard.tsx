@@ -92,7 +92,7 @@ export function ProductCard({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.12em] text-rose uppercase">
-              {product.brand} · {product.category}
+              {product.brand} - {product.category}
             </p>
             <Link
               to={`/produtos/${product.id}`}
@@ -168,7 +168,7 @@ export function ProductCard({
                     Nao quero mais
                   </button>
                 ) : null}
-                {onMarkBought && product.status !== "JÃ¡ comprei" ? (
+                {onMarkBought && product.status !== "Já comprei" ? (
                   <button
                     type="button"
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-cream-deep"
@@ -208,7 +208,7 @@ export function ProductCard({
               <ExternalLink size={14} /> Comprar na loja
             </a>
           ) : null}
-          {onMarkBought && product.status !== "JÃ¡ comprei" ? (
+          {onMarkBought && product.status !== "Já comprei" ? (
             <button
               type="button"
               className="btn-ghost"

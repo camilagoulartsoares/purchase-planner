@@ -14,7 +14,7 @@ export const FASHION_CATEGORIES = [
   "Vestidos",
   "Blusas",
   "Camisas",
-  "CalÃ§as",
+  "Calças",
   "Saias",
   "Shorts",
   "Conjuntos",
@@ -23,9 +23,9 @@ export const FASHION_CATEGORIES = [
   "Bodies",
   "Moda fitness",
   "Moda praia",
-  "CalÃ§ados",
+  "Calçados",
   "Bolsas",
-  "AcessÃ³rios",
+  "Acessórios",
   "Outros",
 ] as const;
 
@@ -47,9 +47,8 @@ export const CATEGORIES = [
 
 export const DEPARTMENTS = ["moda", "achadinhos"] as const;
 
-/** Categories shown as brand-page filters (only those with products appear). */
 export const BRAND_FILTER_CATEGORIES = [
-  "CalÃ§as",
+  "Calças",
   "Vestidos",
   "Blusas",
   "Tops e corsets",
@@ -58,17 +57,17 @@ export const BRAND_FILTER_CATEGORIES = [
   "Shorts",
   "Conjuntos",
   "Casacos",
-  "CalÃ§ados",
+  "Calçados",
   "Bolsas",
-  "AcessÃ³rios",
+  "Acessórios",
 ] as const;
 
 export const PRIORITIES = ["Quero muito", "Quero", "Talvez"] as const;
 
 export const STATUSES = [
   "Quero comprar",
-  "Esperando promoÃ§Ã£o",
-  "JÃ¡ comprei",
+  "Esperando promoção",
+  "Já comprei",
   "Desisti da compra",
 ] as const;
 

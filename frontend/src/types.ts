@@ -2,7 +2,7 @@ export const FASHION_CATEGORIES = [
   "Vestidos",
   "Blusas",
   "Camisas",
-  "CalÃ§as",
+  "Calças",
   "Saias",
   "Shorts",
   "Conjuntos",
@@ -11,9 +11,9 @@ export const FASHION_CATEGORIES = [
   "Bodies",
   "Moda fitness",
   "Moda praia",
-  "CalÃ§ados",
+  "Calçados",
   "Bolsas",
-  "AcessÃ³rios",
+  "Acessórios",
   "Outros",
 ] as const;
 
@@ -34,7 +34,7 @@ export const CATEGORIES = [
 ] as const;
 
 export const BRAND_FILTER_CATEGORIES = [
-  "CalÃ§as",
+  "Calças",
   "Vestidos",
   "Blusas",
   "Tops e corsets",
@@ -43,27 +43,26 @@ export const BRAND_FILTER_CATEGORIES = [
   "Shorts",
   "Conjuntos",
   "Casacos",
-  "CalÃ§ados",
+  "Calçados",
   "Bolsas",
-  "AcessÃ³rios",
+  "Acessórios",
 ] as const;
 
 export const DEPARTMENTS = [
   { value: "moda", label: "Moda" },
-  { value: "achadinhos", label: "Achadinhos" },
 ] as const;
 
 export const PRIORITIES = ["Quero muito", "Quero", "Talvez"] as const;
 export const STATUSES = [
   "Quero comprar",
-  "Esperando promoÃ§Ã£o",
-  "JÃ¡ comprei",
+  "Esperando promoção",
+  "Já comprei",
   "Desisti da compra",
 ] as const;
 
 export const PRICE_BANDS = [
   { value: "", label: "Todas as faixas" },
-  { value: "ate-50", label: "AtÃ© R$ 50" },
+  { value: "ate-50", label: "Até R$ 50" },
   { value: "50-100", label: "De R$ 50 a R$ 100" },
   { value: "100-200", label: "De R$ 100 a R$ 200" },
   { value: "200-300", label: "De R$ 200 a R$ 300" },

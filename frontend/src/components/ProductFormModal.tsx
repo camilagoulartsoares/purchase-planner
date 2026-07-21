@@ -2,12 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, ChevronDown, Star, X } from "lucide-react";
 import {
-  DEPARTMENTS,
   FASHION_CATEGORIES,
-  NON_FASHION_CATEGORIES,
   PRIORITIES,
   STATUSES,
-  departmentFromCategory,
   formatBRL,
   mediaUrl,
   type Product,
@@ -117,7 +114,6 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [department, setDepartment] = useState<"moda" | "achadinhos">("moda");
   const [form, setForm] = useState({
     name: "",
     category: "Calças",
@@ -137,7 +133,6 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   useEffect(() => {
     if (!open) return;
     if (initial) {
-      setDepartment(departmentFromCategory(initial.category));
       setForm({
         name: initial.name,
         category: initial.category,
@@ -177,7 +172,6 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       }
       setGallery(existing);
     } else {
-      setDepartment("moda");
       setForm({
         name: "",
         category: "Calças",
@@ -241,8 +235,6 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const originalPrice = moneyNumber(form.originalPrice);
   const promotionalPrice = moneyNumber(form.promotionalPrice);
   const shippingPrice = moneyNumber(form.shippingPrice);
-  const categoryOptions =
-    department === "achadinhos" ? NON_FASHION_CATEGORIES : FASHION_CATEGORIES;
   const basePrice =
     promotionalPrice > 0 && originalPrice > 0 && promotionalPrice < originalPrice
       ? promotionalPrice
@@ -253,11 +245,11 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.brand.trim() || !form.store.trim() || !form.originalPrice) {
-      setError("Preencha nome, marca, loja e preço original.");
+      setError("Preencha nome, marca, loja e preco original.");
       return;
     }
     if (form.purchaseUrl && !/^https?:\/\//i.test(form.purchaseUrl)) {
-      setError("O link deve começar com http:// ou https://");
+      setError("O link deve comecar com http:// ou https://");
       return;
     }
     setLoading(true);
@@ -296,7 +288,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       await onSave(fd, initial?.id);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar a peça.");
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar a peca.");
     } finally {
       setLoading(false);
     }
@@ -307,7 +299,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       <form onSubmit={submit} className="modal-form-scroll card-soft max-h-[92vh] w-full max-w-2xl overflow-y-auto p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-2xl font-semibold text-brown-deep">
-            {initial ? "Editar peça" : "Adicionar peça"}
+            {initial ? "Editar peca" : "Adicionar peca"}
           </h2>
           <button type="button" className="btn-ghost" onClick={onClose} aria-label="Fechar">
             <X size={16} />
@@ -315,27 +307,6 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2 flex flex-wrap gap-2">
-            {DEPARTMENTS.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                className={`planner-toggle ${department === item.value ? "is-active" : ""}`}
-                onClick={() => {
-                  setDepartment(item.value);
-                  setForm((current) => ({
-                    ...current,
-                    category:
-                      item.value === "achadinhos"
-                        ? NON_FASHION_CATEGORIES[0]
-                        : FASHION_CATEGORIES[0],
-                  }));
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
           <label className="field sm:col-span-2">
             <span>Nome</span>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -347,7 +318,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <ModalSelect
             label="Categoria"
             value={form.category}
-            options={categoryOptions}
+            options={FASHION_CATEGORIES}
             onChange={(category) => setForm({ ...form, category })}
           />
           <label className="field">
@@ -355,7 +326,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <input value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
           </label>
           <label className="field">
-            <span>Preço original</span>
+            <span>Preco original</span>
             <input
               type="text"
               inputMode="decimal"
@@ -368,7 +339,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           </label>
           <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
             <label className="field">
-              <span>Preço atual / promo</span>
+              <span>Preco atual / promo</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -426,7 +397,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             onChange={(status) => setForm({ ...form, status })}
           />
           <label className="field sm:col-span-2">
-            <span>Observações</span>
+            <span>Observacoes</span>
             <textarea
               rows={3}
               value={form.notes}
