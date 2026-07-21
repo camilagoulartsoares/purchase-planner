@@ -1041,6 +1041,21 @@ function timeoutResult(
   } satisfies ProductPromoRadarResult;
 }
 
+function timeoutResponse(fallback?: PromoRadarResponse): PromoRadarResponse {
+  if (fallback) {
+    return {
+      ...fallback,
+      generatedAt: nowIso(),
+    };
+  }
+
+  return {
+    generatedAt: nowIso(),
+    products: [],
+    brands: [],
+  };
+}
+
 function failureResult(product: ProductWithRelations, error: unknown) {
   return {
     productId: product.id,
@@ -1155,7 +1170,13 @@ export const promoRadarService = {
     const pending = inFlight.get(userId);
     if (pending) return pending;
 
-    const execution = runPromoRadar(userId).finally(() => {
+    const staleData = cached?.data;
+    const execution = Promise.race<PromoRadarResponse>([
+      runPromoRadar(userId),
+      new Promise<PromoRadarResponse>((resolve) => {
+        setTimeout(() => resolve(timeoutResponse(staleData)), PROMO_RADAR_TIMEOUT_MS + 3000);
+      }),
+    ]).finally(() => {
       inFlight.delete(userId);
     });
     inFlight.set(userId, execution);
