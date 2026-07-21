@@ -11,6 +11,16 @@ ADD COLUMN IF NOT EXISTS "lastMarketplaceSyncAt" TIMESTAMP(3),
 ADD COLUMN IF NOT EXISTS "targetPrice" DECIMAL,
 ADD COLUMN IF NOT EXISTS "availability" TEXT;
 
+UPDATE "Product"
+SET "marketplace" = NULL
+WHERE "marketplace" IS NOT NULL
+  AND BTRIM("marketplace") = '';
+
+UPDATE "Product"
+SET "externalItemId" = NULL
+WHERE "externalItemId" IS NOT NULL
+  AND BTRIM("externalItemId") = '';
+
 CREATE TABLE IF NOT EXISTS "MercadoLivreIntegration" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
@@ -85,24 +95,100 @@ CREATE UNIQUE INDEX IF NOT EXISTS "UserNotification_dedupeKey_key" ON "UserNotif
 CREATE INDEX IF NOT EXISTS "UserNotification_userId_createdAt_idx" ON "UserNotification"("userId", "createdAt");
 
 CREATE INDEX IF NOT EXISTS "Product_userId_marketplace_idx" ON "Product"("userId", "marketplace");
-CREATE UNIQUE INDEX IF NOT EXISTS "Product_userId_marketplace_externalItemId_key" ON "Product"("userId", "marketplace", "externalItemId");
 
-ALTER TABLE "MercadoLivreIntegration"
-ADD CONSTRAINT "MercadoLivreIntegration_userId_fkey"
-FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+DECLARE duplicate_group_count INTEGER;
+BEGIN
+  SELECT COUNT(*)
+  INTO duplicate_group_count
+  FROM (
+    SELECT 1
+    FROM "Product"
+    WHERE "marketplace" IS NOT NULL
+      AND BTRIM("marketplace") <> ''
+      AND "externalItemId" IS NOT NULL
+      AND BTRIM("externalItemId") <> ''
+    GROUP BY "userId", "marketplace", "externalItemId"
+    HAVING COUNT(*) > 1
+  ) duplicate_groups;
 
-ALTER TABLE "MercadoLivreOAuthState"
-ADD CONSTRAINT "MercadoLivreOAuthState_userId_fkey"
-FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  IF duplicate_group_count > 0 THEN
+    RAISE EXCEPTION
+      'Cannot apply Mercado Livre integration migration: found % duplicate imported product groups in Product(userId, marketplace, externalItemId). Resolve them before applying the partial unique index.',
+      duplicate_group_count;
+  END IF;
+END $$;
 
-ALTER TABLE "ProductPriceHistory"
-ADD CONSTRAINT "ProductPriceHistory_productId_fkey"
-FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DROP INDEX IF EXISTS "Product_userId_marketplace_externalItemId_key";
 
-ALTER TABLE "UserNotification"
-ADD CONSTRAINT "UserNotification_userId_fkey"
-FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "Product_userId_marketplace_externalItemId_key"
+ON "Product"("userId", "marketplace", "externalItemId")
+WHERE "marketplace" IS NOT NULL
+  AND BTRIM("marketplace") <> ''
+  AND "externalItemId" IS NOT NULL
+  AND BTRIM("externalItemId") <> '';
 
-ALTER TABLE "UserNotification"
-ADD CONSTRAINT "UserNotification_productId_fkey"
-FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'MercadoLivreIntegration_userId_fkey'
+  ) THEN
+    ALTER TABLE "MercadoLivreIntegration"
+    ADD CONSTRAINT "MercadoLivreIntegration_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'MercadoLivreOAuthState_userId_fkey'
+  ) THEN
+    ALTER TABLE "MercadoLivreOAuthState"
+    ADD CONSTRAINT "MercadoLivreOAuthState_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'ProductPriceHistory_productId_fkey'
+  ) THEN
+    ALTER TABLE "ProductPriceHistory"
+    ADD CONSTRAINT "ProductPriceHistory_productId_fkey"
+    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'UserNotification_userId_fkey'
+  ) THEN
+    ALTER TABLE "UserNotification"
+    ADD CONSTRAINT "UserNotification_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'UserNotification_productId_fkey'
+  ) THEN
+    ALTER TABLE "UserNotification"
+    ADD CONSTRAINT "UserNotification_productId_fkey"
+    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;

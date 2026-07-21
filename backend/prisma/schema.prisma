@@ -80,7 +80,6 @@ model Product {
   @@index([userId, category])
   @@index([brandId])
   @@index([userId, marketplace])
-  @@unique([userId, marketplace, externalItemId])
 }
 
 model ProductImage {

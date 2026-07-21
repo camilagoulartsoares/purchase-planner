@@ -20,4 +20,4 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma/seed-assets ./prisma/seed-assets
 RUN mkdir -p /app/data/uploads /app/backups
 EXPOSE 3334
-CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
