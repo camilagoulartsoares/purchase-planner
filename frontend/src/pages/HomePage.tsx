@@ -410,9 +410,9 @@ export function HomePage() {
   }, [refreshPromoRadar]);
 
   useEffect(() => {
-    if (promoRadar || !items.some((item) => Boolean(item.purchaseUrl))) return;
+    if (loading || promoRadar) return;
     void refreshPromoRadar();
-  }, [items, promoRadar, refreshPromoRadar]);
+  }, [loading, promoRadar, refreshPromoRadar]);
 
   useEffect(() => () => clearPromoRetry(), [clearPromoRetry]);
 
