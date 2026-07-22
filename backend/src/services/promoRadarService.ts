@@ -63,10 +63,25 @@ export type PromoRadarBrandSummary = {
   matchedProducts: ProductPromoRadarResult[];
 };
 
+export type ExternalPromotion = {
+  id: string;
+  brand: string;
+  name: string;
+  category: string;
+  color: string | null;
+  purchaseUrl: string;
+  originalPrice: number;
+  salePrice: number;
+  discountPercentage: number;
+  imageUrl: string | null;
+  detectedAt: string;
+};
+
 export type PromoRadarResponse = {
   generatedAt: string;
   products: ProductPromoRadarResult[];
   brands: PromoRadarBrandSummary[];
+  externalPromotions: ExternalPromotion[];
 };
 
 type CacheEntry = {
@@ -1224,7 +1239,51 @@ function timeoutResponse(fallback?: PromoRadarResponse): PromoRadarResponse {
     generatedAt: nowIso(),
     products: [],
     brands: [],
+    externalPromotions: [],
   };
+}
+
+function moneyFromBrazilian(value: string) {
+  return Number(value.replace(/\./g, "").replace(",", "."));
+}
+
+async function discoverUseElizahPromotions(): Promise<ExternalPromotion[]> {
+  try {
+    const page = await fetchPage("https://www.useelizah.com.br/");
+    if (page.unavailable || page.blocked) return [];
+
+    const cards = [...page.html.matchAll(
+      /<div class="prod\b[\s\S]*?<a href="([^"?#]+)\/[^"]*"[\s\S]*?<h3[^>]*>([^<]+)<\/h3>[\s\S]*?<p class="valor_de">[\s\S]*?R\$\s*([\d.,]+)[\s\S]*?<p class="valor(?:_final)?"><span>R\$\s*([\d.,]+)/gi,
+    )];
+
+    return cards
+      .map<ExternalPromotion | null>((match) => {
+        const originalPrice = moneyFromBrazilian(match[3]);
+        const salePrice = moneyFromBrazilian(match[4]);
+        if (!Number.isFinite(originalPrice) || !Number.isFinite(salePrice) || salePrice >= originalPrice) return null;
+        const name = match[2].replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+        const purchaseUrl = new URL(`${match[1]}/`, "https://www.useelizah.com.br/").toString();
+        const color = name.match(/-\s*([^–-]+)$/)?.[1]?.trim() || null;
+        return {
+          id: `use-elizah-${match[1]}`,
+          brand: "Elizah",
+          name,
+          category: /^body/i.test(name) ? "Bodies" : /^blusa|^t-shirt|^regata/i.test(name) ? "Blusas" : "Outros",
+          color,
+          purchaseUrl,
+          originalPrice,
+          salePrice,
+          discountPercentage: Math.round(((originalPrice - salePrice) / originalPrice) * 100),
+          imageUrl: null,
+          detectedAt: nowIso(),
+        } satisfies ExternalPromotion;
+      })
+      .filter((item): item is ExternalPromotion => Boolean(item))
+      .sort((a, b) => b.discountPercentage - a.discountPercentage)
+      .slice(0, 12);
+  } catch {
+    return [];
+  }
 }
 
 function failureResult(product: ProductWithRelations, error: unknown) {
@@ -1267,7 +1326,8 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, MAX_PRODUCTS_TO_SCAN);
 
-  const results = await mapWithConcurrency(
+  const [results, externalPromotions] = await Promise.all([
+    mapWithConcurrency(
     products,
     PRODUCT_SCAN_CONCURRENCY,
     async (product) => {
@@ -1298,7 +1358,9 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
         return failureResult(product, error);
       }
     },
-  );
+    ),
+    discoverUseElizahPromotions(),
+  ]);
 
   const domains = uniqueStrings(
     products
@@ -1321,6 +1383,7 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
     generatedAt: nowIso(),
     products: results,
     brands: buildBrandSummaries(products, results, domainCampaigns),
+    externalPromotions,
   } satisfies PromoRadarResponse;
 
   cache.set(userId, {

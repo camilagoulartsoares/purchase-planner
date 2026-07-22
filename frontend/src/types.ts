@@ -209,6 +209,19 @@ export type PromoRadarResponse = {
   generatedAt: string;
   products: PromoRadarProduct[];
   brands: PromoRadarBrand[];
+  externalPromotions: Array<{
+    id: string;
+    brand: string;
+    name: string;
+    category: string;
+    color: string | null;
+    purchaseUrl: string;
+    originalPrice: number;
+    salePrice: number;
+    discountPercentage: number;
+    imageUrl: string | null;
+    detectedAt: string;
+  }>;
 };
 
 export type MercadoLivrePublicConfig = {

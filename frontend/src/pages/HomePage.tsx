@@ -185,6 +185,13 @@ export function HomePage() {
   const [debouncedQuery, setDebouncedQuery] = useState(emptyQuery);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
+  const [dismissedPromos, setDismissedPromos] = useState<string[]>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem("purchase-planner-dismissed-promos") || "[]");
+    } catch {
+      return [];
+    }
+  });
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [buying, setBuying] = useState<BuyingState | null>(null);
@@ -219,6 +226,10 @@ export function HomePage() {
   const promoByProductId = useMemo(
     () => buildPromoByProductId(promoRadar?.products || []),
     [promoRadar],
+  );
+  const externalPromotions = useMemo(
+    () => (promoRadar?.externalPromotions || []).filter((item) => !dismissedPromos.includes(item.id)),
+    [dismissedPromos, promoRadar],
   );
 
   const refreshMercadoLivreStatus = useCallback(async () => {
@@ -593,6 +604,30 @@ export function HomePage() {
     void refreshPromoRadar();
   };
 
+  const addExternalPromotion = async (promotion: NonNullable<PromoRadarResponse["externalPromotions"]>[number]) => {
+    const form = new FormData();
+    form.set("name", promotion.name);
+    form.set("category", promotion.category);
+    form.set("brand", promotion.brand);
+    form.set("store", "Use Elizah");
+    form.set("originalPrice", String(promotion.originalPrice));
+    form.set("promotionalPrice", String(promotion.salePrice));
+    form.set("purchaseUrl", promotion.purchaseUrl);
+    form.set("color", promotion.color || "");
+    form.set("priority", "Quero");
+    form.set("status", "Quero comprar");
+    form.set("notes", `Promoção detectada pelo radar: ${promotion.discountPercentage}% OFF.`);
+    await onSave(form);
+  };
+
+  const dismissExternalPromotion = (id: string) => {
+    setDismissedPromos((current) => {
+      const next = [...new Set([...current, id])];
+      window.localStorage.setItem("purchase-planner-dismissed-promos", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
     setBuying({ item, repurchase });
     setPaid(String(item.effectivePrice));
@@ -859,7 +894,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {promoRadar?.brands.length ? (
+      {promoRadar && (promoRadar.brands.length || externalPromotions.length) ? (
         <section className="card-soft mb-6 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -877,6 +912,38 @@ export function HomePage() {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            {externalPromotions.length ? (
+              <article className="planner-shopping-plan">
+                <div className="planner-shopping-plan-head">
+                  <div>
+                    <p>Use Elizah</p>
+                    <strong>{externalPromotions.length} ofertas novas</strong>
+                  </div>
+                  <div className="planner-shopping-plan-meta"><span>useelizah.com.br</span></div>
+                </div>
+                <p className="mt-3 text-sm text-ink">Promoções encontradas diretamente na loja.</p>
+                <div className="planner-shopping-list">
+                  {externalPromotions.slice(0, 6).map((item) => (
+                    <div key={item.id} className="planner-shopping-item">
+                      <div className="planner-shopping-item-main">
+                        <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
+                        <div>
+                          <a href={item.purchaseUrl} target="_blank" rel="noreferrer"><span>{item.name}</span></a>
+                          <small className="planner-shopping-item-note">{item.discountPercentage}% OFF · de {formatBRL(item.originalPrice)}</small>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <strong>{formatBRL(item.salePrice)}</strong>
+                        <div className="flex gap-2">
+                          <button type="button" className="btn-ghost" onClick={() => dismissExternalPromotion(item.id)}>Remover</button>
+                          <button type="button" className="btn-primary" onClick={() => void addExternalPromotion(item)}>Adicionar</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ) : null}
             {promoRadar.brands.map((brand) => (
               <article key={brand.brandId} className="planner-shopping-plan">
                 <div className="planner-shopping-plan-head">
