@@ -50,11 +50,66 @@ async function main() {
 
   for (const user of [demo, camila]) {
     await seedCotihForUser(user.id);
+    await seedElizahForUser(user.id);
   }
 
   console.log("Seed concluído.");
   console.log("Login: camilagoulartsoares@yahoo.com / demo1234");
   console.log("Login demo: demo@closet.local / demo1234");
+}
+
+async function seedElizahForUser(userId: string) {
+  const brand = await prisma.brand.upsert({
+    where: { userId_slug: { userId, slug: "elizah" } },
+    update: { name: "Elizah" },
+    create: { userId, name: "Elizah", slug: "elizah" },
+  });
+
+  const promos = [
+    {
+      name: "Blusa Copa Amarelo",
+      category: "Blusas",
+      color: "Amarelo",
+      originalPrice: 59.9,
+      promotionalPrice: 12,
+      purchaseUrl: "https://www.useelizah.com.br/blusa-copa-amarelo/",
+    },
+    {
+      name: "Body Jade Marrom",
+      category: "Bodies",
+      color: "Marrom",
+      originalPrice: 59.9,
+      promotionalPrice: 19.9,
+      purchaseUrl: "https://www.useelizah.com.br/body-jade-marrom/",
+    },
+    {
+      name: "Blusa Anastacia Preta",
+      category: "Blusas",
+      color: "Preto",
+      originalPrice: 59.9,
+      promotionalPrice: 19.9,
+      purchaseUrl: "https://www.useelizah.com.br/blusa-anastacia-ca-preto/",
+    },
+  ];
+
+  for (const promo of promos) {
+    const existing = await prisma.product.findFirst({
+      where: { userId, purchaseUrl: promo.purchaseUrl },
+    });
+    if (existing) continue;
+
+    await prisma.product.create({
+      data: {
+        userId,
+        brandId: brand.id,
+        store: "Use Elizah",
+        priority: "Quero",
+        status: "Quero comprar",
+        notes: "Promoção encontrada na Use Elizah em 22/07/2026.",
+        ...promo,
+      },
+    });
+  }
 }
 
 async function seedCotihForUser(userId: string) {
