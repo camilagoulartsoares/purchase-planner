@@ -66,6 +66,33 @@ const MAX_FILTER_PRICE = 2000;
 const PRICE_STEP = 10;
 const DEFAULT_BUDGET = 400;
 
+const USE_ELIZAH_PROMOS: PromoRadarResponse["externalPromotions"] = ([
+  ["body-claire-preto", "Body Claire Preto", "Bodies", "Preto", 59.9, 37],
+  ["calca-cecilia-marrom", "Calça Cecília Marrom", "Calças", "Marrom", 129.9, 79.9],
+  ["blusa-eliza-preto", "Blusa Eliza Preto", "Blusas", "Preto", 59.9, 45],
+  ["regata-jane-cappuccino", "Regata Jane Cappuccino", "Blusas", "Cappuccino", 49.9, 27.9],
+  ["conj-isabelle-preto", "Conjunto Isabelle Preto", "Conjuntos", "Preto", 119.9, 79.9],
+  ["blusa-elena-marrom", "Blusa Elena Marrom", "Blusas", "Marrom", 49.9, 29.9],
+  ["blusa-izzie-preto", "Blusa Izzie Preto", "Blusas", "Preto", 69.9, 45],
+  ["blusa-eliza-marrom", "Blusa Eliza Marrom", "Blusas", "Marrom", 59.9, 45],
+  ["body-sabrina-preto", "Body Sabrina Preto", "Bodies", "Preto", 59.9, 39.9],
+  ["short-lea-preto", "Short Lea Preto", "Shorts", "Preto", 99.9, 69.9],
+  ["calca-brenda-off", "Calça Brenda Off", "Calças", "Off white", 129.9, 94.9],
+  ["body-mavie-inv-marrom", "Body Mavie Marrom", "Bodies", "Marrom", 69.9, 39.9],
+] as Array<[string, string, string, string, number, number]>).map(([slug, name, category, color, originalPrice, salePrice]) => ({
+  id: `use-elizah-${slug}`,
+  brand: "Elizah",
+  name,
+  category,
+  color,
+  originalPrice,
+  salePrice,
+  discountPercentage: Math.round(((originalPrice - salePrice) / originalPrice) * 100),
+  purchaseUrl: `https://www.useelizah.com.br/${slug}/`,
+  imageUrl: null,
+  detectedAt: "2026-07-22T00:00:00.000Z",
+}));
+
 type PlannerCandidate = Product & {
   plannerKey: string;
   plannerSource: "wishlist" | "repurchase";
@@ -228,7 +255,7 @@ export function HomePage() {
     [promoRadar],
   );
   const externalPromotions = useMemo(
-    () => (promoRadar?.externalPromotions || []).filter((item) => !dismissedPromos.includes(item.id)),
+    () => ((promoRadar?.externalPromotions?.length ? promoRadar.externalPromotions : USE_ELIZAH_PROMOS)).filter((item) => !dismissedPromos.includes(item.id)),
     [dismissedPromos, promoRadar],
   );
 
