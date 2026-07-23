@@ -145,6 +145,10 @@ function numberOrNull(value: unknown) {
   return null;
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function dedupeMedia(items: FindingMediaInput[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -206,7 +210,10 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const titleSource = String(product.name || ogTitle || readerTitle || "");
   const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
   const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
-  const readerMainPrice = readerTitle ? html.match(/(?:^|\n)\s*R\$\s*([\d.,]+)\s*(?:\n|$)/m)?.[1] : undefined;
+  const readerProductSection = readerTitle && title
+    ? html.match(new RegExp(`###\\s+${escapeRegex(title)}[\\s\\S]{0,5000}`, "i"))?.[0] || ""
+    : "";
+  const readerMainPrice = readerProductSection.match(/R\$\s*([\d.,]+)/i)?.[1];
   const pricePair = html.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
   return {
     title,
