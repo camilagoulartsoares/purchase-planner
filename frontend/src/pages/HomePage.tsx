@@ -22,6 +22,7 @@ import { ProductGallery } from "../components/ProductGallery";
 import { ProductCard } from "../components/ProductCard";
 import { AppShell } from "../components/AppShell";
 import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
+import { FindingsSection } from "../components/FindingsSection";
 import { buildPromoByProductId } from "../utils/promo";
 
 const emptyQuery: ProductQuery & {
@@ -767,6 +768,8 @@ export function HomePage() {
           ))}
         </section>
       ) : null}
+
+      <FindingsSection />
 
       <section className="planner-panel mb-6">
         <div className="planner-panel-main planner-panel-main-spotlight">

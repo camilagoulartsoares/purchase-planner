@@ -132,6 +132,28 @@ export type BrandSummary = {
 
 export type User = { id: string; name: string; email: string };
 
+export type FindingMedia = { type: "image" | "video"; url: string };
+
+export type Finding = {
+  id: string;
+  title: string;
+  brand: string | null;
+  store: string | null;
+  description: string | null;
+  price: number | null;
+  previousPrice: number | null;
+  currency: string;
+  originalUrl: string;
+  normalizedUrl: string;
+  category: string | null;
+  availability: string | null;
+  media: FindingMedia[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FindingInput = Omit<Finding, "id" | "normalizedUrl" | "createdAt" | "updatedAt">;
+
 export type Summary = {
   wantCount: number;
   boughtCount: number;

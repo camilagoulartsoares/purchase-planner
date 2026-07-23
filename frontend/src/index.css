@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./findings.css";
 
 :root {
   --cream: #f7f3ee;

@@ -10,6 +10,8 @@ import type {
   PromoRadarResponse,
   Summary,
   User,
+  Finding,
+  FindingInput,
 } from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
@@ -134,4 +136,28 @@ export async function syncMercadoLivreFavorites() {
 export async function disconnectMercadoLivre() {
   const res = await api.delete("/integrations/mercadolivre/disconnect");
   return res.data.data as { disconnected: true };
+}
+
+export async function previewFinding(url: string) {
+  const res = await api.post("/findings/preview", { url }, { timeout: 30000 });
+  return res.data.data as FindingInput & { normalizedUrl: string };
+}
+
+export async function fetchFindings() {
+  const res = await api.get("/findings");
+  return res.data.data as Finding[];
+}
+
+export async function createFinding(data: FindingInput) {
+  const res = await api.post("/findings", data);
+  return res.data.data as Finding;
+}
+
+export async function updateFinding(id: string, data: Partial<FindingInput>) {
+  const res = await api.put(`/findings/${id}`, data);
+  return res.data.data as Finding;
+}
+
+export async function deleteFinding(id: string) {
+  await api.delete(`/findings/${id}`);
 }
