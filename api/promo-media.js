@@ -18,7 +18,8 @@ export default async function handler(req, res) {
       try { return new URL(value, url).toString(); } catch { return null; }
     };
     const unique = (values) => [...new Set(values.filter(Boolean))];
-    const images = unique([...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
+    const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const images = unique([absolute(ogImage), ...[...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
       .map((match) => absolute(match[1]))
       .filter((item) => item?.includes("/produtos/"))).slice(0, 12);
     const videos = unique([...html.matchAll(/<(?:video|source)[^>]+src=["']([^"']+)["']/gi)]

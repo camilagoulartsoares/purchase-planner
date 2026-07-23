@@ -40,12 +40,13 @@ export async function fetchPromoRadar() {
 export async function fetchPromotionMedia(url: string) {
   try {
     const res = await api.get("/dashboard/promo-media", { params: { url } });
-    return res.data.data as Array<{ type: "image" | "video"; url: string }>;
+    const media = res.data.data as Array<{ type: "image" | "video"; url: string }>;
+    if (media.length) return media;
   } catch {
-    const response = await fetch(`/api/promo-media?url=${encodeURIComponent(url)}`);
-    if (!response.ok) return [];
-    return ((await response.json()) as { data?: Array<{ type: "image" | "video"; url: string }> }).data || [];
   }
+  const response = await fetch(`/api/promo-media?url=${encodeURIComponent(url)}`);
+  if (!response.ok) return [];
+  return ((await response.json()) as { data?: Array<{ type: "image" | "video"; url: string }> }).data || [];
 }
 
 export async function fetchProducts(params: ProductQuery) {

@@ -1403,9 +1403,10 @@ export const promoRadarService = {
     if (!/(^|\.)useelizah\.com\.br$/i.test(url.hostname)) return [];
     const page = await fetchPage(url.toString());
     if (page.unavailable || page.blocked) return [];
+    const ogImage = page.html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
     const imageUrls = uniqueStrings(
-      [...page.html.matchAll(/<(?:img)[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
-        .map((match) => absoluteUrl(page.finalUrl, match[1]))
+      [absoluteUrl(page.finalUrl, ogImage), ...[...page.html.matchAll(/<(?:img)[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
+        .map((match) => absoluteUrl(page.finalUrl, match[1]))]
         .filter((item) => item?.includes("/produtos/")),
     ).slice(0, 12);
     const videoUrls = uniqueStrings(
