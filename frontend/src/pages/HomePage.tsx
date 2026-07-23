@@ -1367,7 +1367,11 @@ export function HomePage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/70 p-4" onClick={() => setPromotionPreview(null)}>
           <div className="card-soft relative w-full max-w-xl overflow-hidden p-3" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="combo-preview-close" onClick={() => setPromotionPreview(null)} aria-label="Fechar foto"><X size={18} /></button>
-            <iframe title={`Galeria ${promotionPreview.name}`} src={promotionPreview.purchaseUrl} className="h-[72vh] w-full rounded-xl border border-line bg-white" />
+            {promotionPreview.imageUrl ? (
+              <img src={mediaUrl(promotionPreview.imageUrl)} alt={promotionPreview.name} className="max-h-[72vh] w-full rounded-xl object-contain" />
+            ) : (
+              <div className="grid h-72 place-items-center rounded-xl bg-cream-deep text-muted">Foto indisponível</div>
+            )}
             <div className="mt-3 flex items-center justify-between gap-3 px-2 pb-1">
               <div><strong>{promotionPreview.name}</strong><p className="text-sm text-muted">{formatBRL(promotionPreview.salePrice)} · {promotionPreview.discountPercentage}% OFF</p></div>
               <a className="btn-ghost" href={promotionPreview.purchaseUrl} target="_blank" rel="noreferrer">Ver na loja</a>
