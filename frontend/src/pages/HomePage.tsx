@@ -228,6 +228,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [addingPromotionId, setAddingPromotionId] = useState("");
+  const [promotionPreview, setPromotionPreview] = useState<PromoRadarResponse["externalPromotions"][number] | null>(null);
   const [dismissedPromos, setDismissedPromos] = useState<string[]>(() => {
     try {
       return JSON.parse(window.localStorage.getItem("purchase-planner-dismissed-promos") || "[]");
@@ -273,6 +274,15 @@ export function HomePage() {
   const externalPromotions = useMemo(
     () => ((promoRadar?.externalPromotions?.length ? promoRadar.externalPromotions : USE_ELIZAH_PROMOS)).filter((item) => !dismissedPromos.includes(item.id)),
     [dismissedPromos, promoRadar],
+  );
+  const externalPromotionBrands = useMemo(
+    () => Array.from(externalPromotions.reduce((groups, item) => {
+      const group = groups.get(item.brand) || [];
+      group.push(item);
+      groups.set(item.brand, group);
+      return groups;
+    }, new Map<string, typeof externalPromotions>()).entries()),
+    [externalPromotions],
   );
 
   const refreshMercadoLivreStatus = useCallback(async () => {
@@ -963,22 +973,22 @@ export function HomePage() {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {externalPromotions.length ? (
-              <article className="planner-shopping-plan">
+            {externalPromotionBrands.map(([brand, promotions]) => (
+              <article key={brand} className="planner-shopping-plan">
                 <div className="planner-shopping-plan-head">
                   <div>
-                    <p>Use Elizah</p>
-                    <strong>{externalPromotions.length} ofertas novas</strong>
+                    <p>{brand}</p>
+                    <strong>{promotions.length} ofertas novas</strong>
                   </div>
-                  <div className="planner-shopping-plan-meta"><span>useelizah.com.br</span></div>
+                  <div className="planner-shopping-plan-meta"><span>{new URL(promotions[0].purchaseUrl).hostname.replace("www.", "")}</span></div>
                 </div>
                 <p className="mt-3 text-sm text-ink">Promoções encontradas diretamente na loja.</p>
                 <div className="planner-shopping-list external-promo-list">
-                  {externalPromotions.map((item) => (
+                  {promotions.map((item) => (
                     <div key={item.id} className="planner-shopping-item">
                       <div className="planner-shopping-item-main">
                         {item.imageUrl ? (
-                          <img src={mediaUrl(item.imageUrl)} alt={item.name} className="planner-shopping-thumb" />
+                          <button type="button" className="planner-shopping-thumb" onClick={() => setPromotionPreview(item)} aria-label={`Ampliar ${item.name}`}><img src={mediaUrl(item.imageUrl)} alt={item.name} className="h-full w-full object-cover" /></button>
                         ) : (
                           <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
                         )}
@@ -998,7 +1008,7 @@ export function HomePage() {
                   ))}
                 </div>
               </article>
-            ) : null}
+            ))}
             {(promoRadar?.brands || []).map((brand) => (
               <article key={brand.brandId} className="planner-shopping-plan">
                 <div className="planner-shopping-plan-head">
@@ -1346,6 +1356,19 @@ export function HomePage() {
           >
             Próxima
           </button>
+        </div>
+      ) : null}
+
+      {promotionPreview ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/70 p-4" onClick={() => setPromotionPreview(null)}>
+          <div className="card-soft relative w-full max-w-xl overflow-hidden p-3" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="combo-preview-close" onClick={() => setPromotionPreview(null)} aria-label="Fechar foto"><X size={18} /></button>
+            <img src={mediaUrl(promotionPreview.imageUrl)} alt={promotionPreview.name} className="max-h-[78vh] w-full rounded-xl object-contain" />
+            <div className="mt-3 flex items-center justify-between gap-3 px-2 pb-1">
+              <div><strong>{promotionPreview.name}</strong><p className="text-sm text-muted">{formatBRL(promotionPreview.salePrice)} · {promotionPreview.discountPercentage}% OFF</p></div>
+              <button type="button" className="btn-primary" onClick={() => void addExternalPromotion(promotionPreview)}>Adicionar</button>
+            </div>
+          </div>
         </div>
       ) : null}
 
