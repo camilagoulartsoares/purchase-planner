@@ -206,14 +206,15 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const titleSource = String(product.name || ogTitle || readerTitle || "");
   const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
   const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
+  const readerMainPrice = readerTitle ? html.match(/(?:^|\n)\s*R\$\s*([\d.,]+)\s*(?:\n|$)/m)?.[1] : undefined;
   const pricePair = html.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
   return {
     title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
-    price: numberOrNull(offer.price || meta(html, "product:price:amount") || pricePair?.[2] || priceFromTitle),
-    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice || pricePair?.[1]),
+    price: numberOrNull(offer.price || meta(html, "product:price:amount") || readerMainPrice || pricePair?.[2] || priceFromTitle),
+    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
     availability: availabilityRaw.includes("instock") || availabilityRaw.includes("in_stock") ? "in_stock" : availabilityRaw.includes("outofstock") ? "out_of_stock" : "unknown",
