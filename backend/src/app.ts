@@ -13,6 +13,7 @@ import { productRoutes } from "./routes/productRoutes.js";
 import { dashboardRoutes } from "./routes/dashboardRoutes.js";
 import { brandRoutes } from "./routes/brandRoutes.js";
 import { integrationRoutes } from "./routes/integrationRoutes.js";
+import { findingRoutes } from "./routes/findingRoutes.js";
 import { uploadsDir } from "./services/imageService.js";
 import { backupService } from "./services/backupService.js";
 import { cloudinaryConfigured } from "./config/env.js";
@@ -155,6 +156,7 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/brands", brandRoutes);
   app.use("/api/products", productRoutes);
+  app.use("/api/findings", findingRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/integrations", integrationRoutes);
 

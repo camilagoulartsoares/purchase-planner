@@ -19,6 +19,42 @@ model User {
   mercadoLivreIntegration    MercadoLivreIntegration?
   mercadoLivreOauthStates    MercadoLivreOAuthState[]
   notifications              UserNotification[]
+  findings                   Finding[]
+}
+
+model Finding {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  brand         String?
+  store         String?
+  description   String?
+  price         Decimal?
+  previousPrice Decimal?
+  currency      String        @default("BRL")
+  originalUrl   String
+  normalizedUrl String
+  category      String?
+  availability  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  media         FindingMedia[]
+
+  @@unique([userId, normalizedUrl])
+  @@index([userId, createdAt])
+}
+
+model FindingMedia {
+  id        String   @id @default(cuid())
+  findingId String
+  finding   Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  type      String
+  url       String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([findingId, position])
 }
 
 model Brand {
