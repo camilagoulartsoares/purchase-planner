@@ -35,6 +35,21 @@ Deploy: https://purchase-planner.vercel.app
 - API com persistência em PostgreSQL.
 - Upload de imagens com Cloudinary.
 - Deploy do frontend e backend.
+- **Meus achados**: salve produtos de outras lojas apenas colando o link.
+
+## Adicionar produto por link
+
+Na Home, a seÃ§Ã£o **Meus achados** tem o botÃ£o **Adicionar por link**. Cole a URL de um produto, revise os dados encontrados e salve sem precisar criar um card manualmente.
+
+- A prÃ©via busca nome, loja, descriÃ§Ã£o, preÃ§o, imagens e vÃ­deos quando a loja os disponibiliza.
+- A galeria usa apenas mÃ­dias identificadas como sendo do produto; imagens de banners e recomendaÃ§Ãµes sÃ£o descartadas.
+- Antes de salvar, todos os campos podem ser corrigidos manualmente.
+- Os achados ficam separados do Radar de promoÃ§Ãµes e podem ser editados, compartilhados ou removidos.
+- O mesmo link normalizado nÃ£o pode ser salvo duas vezes.
+
+### Limites de dados externos
+
+Cada loja expÃµe informaÃ§Ãµes de um jeito. Quando uma loja bloqueia leitura automÃ¡tica ou exige carrinho, login, CAPTCHA ou CEP para o frete, o app preserva apenas os dados que foram realmente encontrados e deixa os demais campos para preenchimento manual. Nenhum preÃ§o, frete, marca ou imagem Ã© inventado.
 
 ## Planejador Inteligente
 
