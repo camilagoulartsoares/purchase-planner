@@ -19,9 +19,12 @@ module.exports = async function handler(req, res) {
     };
     const unique = (values) => [...new Set(values.filter(Boolean))];
     const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
-    const images = unique([absolute(ogImage), ...[...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
-      .map((match) => absolute(match[1]))
-      .filter((item) => item?.includes("/produtos/"))).slice(0, 12);
+    const images = unique([
+      absolute(ogImage),
+      ...[...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
+        .map((match) => absolute(match[1]))
+        .filter((item) => item?.includes("/produtos/")),
+    ]).slice(0, 12);
     const videos = unique([...html.matchAll(/<(?:video|source)[^>]+src=["']([^"']+)["']/gi)]
       .map((match) => absolute(match[1]))).slice(0, 4);
     return res.status(200).json({ data: [...images.map((url) => ({ type: "image", url })), ...videos.map((url) => ({ type: "video", url }))] });
