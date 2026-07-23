@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const rawUrl = String(req.query?.url || "");
   let url;
   try {
