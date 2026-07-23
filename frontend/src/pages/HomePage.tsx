@@ -66,6 +66,21 @@ const MAX_FILTER_PRICE = 2000;
 const PRICE_STEP = 10;
 const DEFAULT_BUDGET = 400;
 
+const USE_ELIZAH_IMAGES: Record<string, string> = {
+  "body-claire-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/664f932d32ee0/img_1882-669ddf3cebea4_mini.jpeg",
+  "calca-cecilia-marrom": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/683a47417e3fd/2f70b1ec-7de1-4678-b95a-02dd6965c86a-6a5e7b87829ec_mini.png",
+  "blusa-eliza-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a0c3f74aac16/img_6921-6a0e55b5636a4_mini.jpeg",
+  "regata-jane-cappuccino": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a60996f38913/chatgpt-image-22-de-jul-de-2026-15_09_57-6a6107b40818e_mini.png",
+  "conj-isabelle-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/69e0d0861a268/img_5142-69f0fc3a625d2_mini.jpeg",
+  "blusa-elena-marrom": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a312bc53acfb/img_9312-1-6a31997c6ce9a_mini.jpeg",
+  "blusa-izzie-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/69e0d501c6640/img_5154-69ef63e6637f1_mini.jpeg",
+  "blusa-eliza-marrom": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a5e61ac1b696/img_0660-6a5e962011d4b_mini.jpeg",
+  "body-sabrina-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a4b8d6052648/img_0668-6a4baaff498f4-6a4bab4b85bf0_mini.jpg",
+  "short-lea-preto": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/66a3b94ba2bd9/img_2359-692040ff42d75_mini.jpeg",
+  "calca-brenda-off": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6970e471f2ba5/image00028-69714e723b1e1_mini.jpeg",
+  "body-mavie-inv-marrom": "https://assets.sistemawbuy.com.br/arquivos/a909005735edae32b6bc126d5cb94ec0/produtos/6a3129551fe0e/1e76ce2c-bcae-4290-979c-704ca778e3c9-6a57d19e1ec95_mini.jpg",
+};
+
 const USE_ELIZAH_PROMOS: PromoRadarResponse["externalPromotions"] = ([
   ["body-claire-preto", "Body Claire Preto", "Bodies", "Preto", 59.9, 37],
   ["calca-cecilia-marrom", "Calça Cecília Marrom", "Calças", "Marrom", 129.9, 79.9],
@@ -89,7 +104,7 @@ const USE_ELIZAH_PROMOS: PromoRadarResponse["externalPromotions"] = ([
   salePrice,
   discountPercentage: Math.round(((originalPrice - salePrice) / originalPrice) * 100),
   purchaseUrl: `https://www.useelizah.com.br/${slug}/`,
-  imageUrl: null,
+  imageUrl: USE_ELIZAH_IMAGES[slug] || null,
   detectedAt: "2026-07-22T00:00:00.000Z",
 }));
 
@@ -921,7 +936,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {promoRadar && (promoRadar.brands.length || externalPromotions.length) ? (
+      {promoRadar?.brands.length || externalPromotions.length ? (
         <section className="card-soft mb-6 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -953,7 +968,11 @@ export function HomePage() {
                   {externalPromotions.slice(0, 6).map((item) => (
                     <div key={item.id} className="planner-shopping-item">
                       <div className="planner-shopping-item-main">
-                        <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
+                        {item.imageUrl ? (
+                          <img src={mediaUrl(item.imageUrl)} alt={item.name} className="planner-shopping-thumb" />
+                        ) : (
+                          <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
+                        )}
                         <div>
                           <a href={item.purchaseUrl} target="_blank" rel="noreferrer"><span>{item.name}</span></a>
                           <small className="planner-shopping-item-note">{item.discountPercentage}% OFF · de {formatBRL(item.originalPrice)}</small>
@@ -971,7 +990,7 @@ export function HomePage() {
                 </div>
               </article>
             ) : null}
-            {promoRadar.brands.map((brand) => (
+            {(promoRadar?.brands || []).map((brand) => (
               <article key={brand.brandId} className="planner-shopping-plan">
                 <div className="planner-shopping-plan-head">
                   <div>
