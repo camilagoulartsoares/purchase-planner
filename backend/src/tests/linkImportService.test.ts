@@ -26,4 +26,11 @@ describe("linkImportService", () => {
     expect(result.price).toBeNull();
     expect(result.brand).toBe("");
   });
+
+  it("interpreta a resposta do leitor quando a loja apresenta anti-bot", () => {
+    const result = extractProductFromHtml("Title: Comprar BODY CINTHIA - PRETO - R$39,90\n![frente](https://assets.example/produtos/123/frente.jpg)\n![costas](https://assets.example/produtos/123/costas.jpg)", "https://www.useelizah.com.br/body-cinthia-preto/");
+    expect(result.title).toBe("BODY CINTHIA - PRETO");
+    expect(result.price).toBe(39.9);
+    expect(result.media).toHaveLength(2);
+  });
 });

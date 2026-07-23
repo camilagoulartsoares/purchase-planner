@@ -93,6 +93,19 @@ async function fetchPublicPage(initialUrl: string) {
   throw new AppError("Muitos redirecionamentos ao acessar o link.", 422);
 }
 
+async function fetchReaderFallback(url: string) {
+  const source = new URL(url);
+  if (source.hostname !== "useelizah.com.br" && source.hostname !== "www.useelizah.com.br") {
+    throw new AppError("A leitura alternativa nao esta disponivel para esta loja.", 422);
+  }
+  const response = await fetch(`https://r.jina.ai/http://${source.host}${source.pathname}`, {
+    signal: AbortSignal.timeout(20_000),
+    headers: { accept: "text/plain" },
+  });
+  if (!response.ok) throw new AppError("Nao foi possivel ler a pagina bloqueada.", 422);
+  return response.text();
+}
+
 function meta(html: string, name: string) {
   const tags = html.match(/<meta\b[^>]*>/gi) || [];
   for (const tag of tags) {
@@ -153,20 +166,27 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
   const offer = typeof offers === "object" && offers ? offers as Record<string, unknown> : {};
   const productImageUrls = strings(product.image).concat(strings(product.associatedMedia));
-  const htmlImageUrls = [...html.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
+  const htmlImageUrls = [
+    ...[...html.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]),
+    ...[...html.matchAll(/!\[[^\]]*\]\((https?:[^)\s]+)[^)]*\)/gi)].map((m) => m[1]),
+  ];
   const ogImages = [meta(html, "og:image"), meta(html, "twitter:image")];
   const videoUrls = [
     ...strings(product.video),
     ...[...html.matchAll(/<(?:video|source)\b[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
   ];
-  const images = productImageUrls.concat(ogImages, htmlImageUrls)
-    .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 40);
+  const imageCandidates = productImageUrls.concat(ogImages, htmlImageUrls)
+    .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
+  const productImages = imageCandidates.filter((url) => /\/produtos\//i.test(url));
+  const images = (productImages.length ? productImages : imageCandidates).slice(0, 40);
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
   const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
   const ogTitle = meta(html, "og:title");
-  const title = String(product.name || ogTitle || "").replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
-  const priceFromTitle = ogTitle.match(/R\$\s*([\d.,]+)/i)?.[1];
+  const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
+  const titleSource = String(product.name || ogTitle || readerTitle || "");
+  const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
+  const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
   return {
     title,
     brand,
@@ -186,7 +206,11 @@ export const linkImportService = {
     const normalizedUrl = normalizeFindingUrl(raw);
     const { response, finalUrl } = await fetchPublicPage(normalizedUrl);
     const originalUrl = normalizeFindingUrl(response.url || finalUrl);
-    const parsed = extractProductFromHtml(await response.text(), originalUrl);
-    return { ...parsed, originalUrl, normalizedUrl: originalUrl };
+    const isBotCheck = new URL(originalUrl).pathname.includes("anti-bot-check");
+    const isElizah = new URL(normalizedUrl).hostname.replace(/^www\./, "") === "useelizah.com.br";
+    const content = isBotCheck && isElizah ? await fetchReaderFallback(normalizedUrl) : await response.text();
+    const productUrl = isBotCheck ? normalizedUrl : originalUrl;
+    const parsed = extractProductFromHtml(content, productUrl);
+    return { ...parsed, originalUrl: productUrl, normalizedUrl: productUrl };
   },
 };
