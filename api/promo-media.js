@@ -18,10 +18,12 @@ module.exports = async function handler(req, res) {
       try { return new URL(value, url).toString(); } catch { return null; }
     };
     const unique = (values) => [...new Set(values.filter(Boolean))];
-    const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const ogImage = html.match(/<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const assetImages = [...html.matchAll(/https?:[^"'\s]+\/produtos\/[^"'\s]+?\.(?:jpe?g|png|webp)/gi)].map((match) => match[0]);
     const images = unique([
-      absolute(ogImage),
-      ...[...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
+      ...(ogImage ? [absolute(ogImage)] : []),
+      ...assetImages,
+      ...[...html.matchAll(/<img[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)]
         .map((match) => absolute(match[1]))
         .filter((item) => item?.includes("/produtos/")),
     ]).slice(0, 12);
