@@ -159,7 +159,7 @@ function dedupeMedia(items: FindingMediaInput[]) {
   });
 }
 
-function selectProductImages(candidates: string[]) {
+function selectProductImages(candidates: string[], allowUnscoped = false) {
   const grouped = new Map<string, string[]>();
   for (const url of candidates) {
     const productId = url.match(/\/produtos\/([^/]+)\//i)?.[1];
@@ -167,7 +167,7 @@ function selectProductImages(candidates: string[]) {
     grouped.set(productId, [...(grouped.get(productId) || []), url]);
   }
   const group = [...grouped.values()].sort((a, b) => b.length - a.length)[0];
-  const source = group?.length ? group : candidates;
+  const source = group?.length ? group : allowUnscoped ? candidates : [];
   const byPhoto = new Map<string, string>();
   for (const url of source) {
     const key = url.replace(/_mini(?=\.[a-z]{2,5}(?:\?|$))/i, "");
@@ -190,23 +190,31 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
   const offer = typeof offers === "object" && offers ? offers as Record<string, unknown> : {};
   const productImageUrls = strings(product.image).concat(strings(product.associatedMedia));
-  const htmlImageUrls = [
-    ...[...html.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]),
-    ...[...html.matchAll(/!\[[^\]]*\]\((https?:[^)\s]+)[^)]*\)/gi)].map((m) => m[1]),
-  ];
+  const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
+  const htmlImageUrls = [...html.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
+  const readerGallery = readerTitle
+    ? html.split(/PRODUTOS RELACIONADOS/i)[0]
+    : "";
+  const readerImageUrls = [...readerGallery.matchAll(/!\[[^\]]*\]\((https?:[^)\s]+)[^)]*\)/gi)].map((m) => m[1]);
   const ogImages = [meta(html, "og:image"), meta(html, "twitter:image")];
   const videoUrls = [
     ...strings(product.video),
     ...[...html.matchAll(/<(?:video|source)\b[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
   ];
-  const imageCandidates = productImageUrls.concat(ogImages, htmlImageUrls)
+  const structuredImages = productImageUrls
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
-  const images = selectProductImages(imageCandidates);
+  const pageImages = (readerTitle ? readerImageUrls : htmlImageUrls)
+    .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
+  const images = structuredImages.length
+    ? selectProductImages(structuredImages, true)
+    : selectProductImages(pageImages);
+  const fallbackImages = ogImages
+    .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
+  const selectedImages = images.length ? images : selectProductImages(fallbackImages, true).slice(0, 1);
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
   const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
   const ogTitle = meta(html, "og:title");
-  const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
   const titleSource = String(product.name || ogTitle || readerTitle || "");
   const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
   const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
@@ -225,7 +233,7 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
     availability: availabilityRaw.includes("instock") || availabilityRaw.includes("in_stock") ? "in_stock" : availabilityRaw.includes("outofstock") ? "out_of_stock" : "unknown",
-    media: dedupeMedia([...images.map((url) => ({ type: "image" as const, url })), ...videos.map((url) => ({ type: "video" as const, url }))]),
+    media: dedupeMedia([...selectedImages.map((url) => ({ type: "image" as const, url })), ...videos.map((url) => ({ type: "video" as const, url }))]),
   };
 }
 

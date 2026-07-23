@@ -15,7 +15,7 @@ describe("linkImportService", () => {
     expect(result).toMatchObject({ title: "Vestido Aurora", brand: "Marca X", price: 199.9, availability: "in_stock" });
     expect(result.media).toEqual(expect.arrayContaining([
       { type: "image", url: "https://loja.example/one.jpg" },
-      { type: "image", url: "https://loja.example/three.jpg" },
+      { type: "image", url: "https://cdn.example/two.jpg" },
       { type: "video", url: "https://loja.example/look.mp4" },
       { type: "video", url: "https://cdn.example/detail.mp4" },
     ]));
