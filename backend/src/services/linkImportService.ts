@@ -77,7 +77,11 @@ async function fetchPublicPage(initialUrl: string) {
     const response = await fetch(url, {
       redirect: "manual",
       signal: AbortSignal.timeout(12_000),
-      headers: { "user-agent": "Mozilla/5.0 (compatible; PurchasePlanner/1.0)" },
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
     });
     if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
       url = normalizeFindingUrl(new URL(response.headers.get("location")!, url).toString());
@@ -160,12 +164,15 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
   const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
+  const ogTitle = meta(html, "og:title");
+  const title = String(product.name || ogTitle || "").replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
+  const priceFromTitle = ogTitle.match(/R\$\s*([\d.,]+)/i)?.[1];
   return {
-    title: String(product.name || meta(html, "og:title") || ""),
+    title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
-    price: numberOrNull(offer.price || meta(html, "product:price:amount")),
+    price: numberOrNull(offer.price || meta(html, "product:price:amount") || priceFromTitle),
     previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
