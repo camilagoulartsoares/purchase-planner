@@ -121,6 +121,7 @@ function numberOrNull(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const normalized = value.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
+    if (!normalized) return null;
     const number = Number(normalized);
     return Number.isFinite(number) ? number : null;
   }

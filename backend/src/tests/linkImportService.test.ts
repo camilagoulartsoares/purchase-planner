@@ -20,4 +20,10 @@ describe("linkImportService", () => {
       { type: "video", url: "https://cdn.example/detail.mp4" },
     ]));
   });
+
+  it("mantem preco vazio quando a pagina nao informa valor", () => {
+    const result = extractProductFromHtml("<html><head><title>Sem preco</title></head><body></body></html>", "https://loja.example/sem-preco");
+    expect(result.price).toBeNull();
+    expect(result.brand).toBe("");
+  });
 });
