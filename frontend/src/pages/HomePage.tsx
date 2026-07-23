@@ -229,6 +229,8 @@ export function HomePage() {
   const [toast, setToast] = useState("");
   const [addingPromotionId, setAddingPromotionId] = useState("");
   const [promotionPreview, setPromotionPreview] = useState<PromoRadarResponse["externalPromotions"][number] | null>(null);
+  const [promotionMedia, setPromotionMedia] = useState<Array<{ type: "image" | "video"; url: string }>>([]);
+  const [promotionMediaLoading, setPromotionMediaLoading] = useState(false);
   const [dismissedPromos, setDismissedPromos] = useState<string[]>(() => {
     try {
       return JSON.parse(window.localStorage.getItem("purchase-planner-dismissed-promos") || "[]");
@@ -689,6 +691,18 @@ export function HomePage() {
     });
   };
 
+  const previewExternalPromotion = async (promotion: PromoRadarResponse["externalPromotions"][number]) => {
+    setPromotionPreview(promotion);
+    setPromotionMedia(promotion.imageUrl ? [{ type: "image", url: promotion.imageUrl }] : []);
+    setPromotionMediaLoading(true);
+    try {
+      const media = await api.fetchPromotionMedia(promotion.purchaseUrl);
+      if (media.length) setPromotionMedia(media);
+    } finally {
+      setPromotionMediaLoading(false);
+    }
+  };
+
   const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
     setBuying({ item, repurchase });
     setPaid(String(item.effectivePrice));
@@ -988,7 +1002,7 @@ export function HomePage() {
                     <div key={item.id} className="planner-shopping-item">
                       <div className="planner-shopping-item-main">
                         {item.imageUrl ? (
-                          <button type="button" className="planner-shopping-thumb" onClick={() => setPromotionPreview(item)} aria-label={`Ampliar ${item.name}`}><img src={mediaUrl(item.imageUrl)} alt={item.name} className="h-full w-full object-cover" /></button>
+                          <button type="button" className="planner-shopping-thumb" onClick={() => void previewExternalPromotion(item)} aria-label={`Ampliar ${item.name}`}><img src={mediaUrl(item.imageUrl)} alt={item.name} className="h-full w-full object-cover" /></button>
                         ) : (
                           <div className="planner-shopping-thumb planner-shopping-thumb-empty" />
                         )}
@@ -1363,7 +1377,14 @@ export function HomePage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/70 p-4" onClick={() => setPromotionPreview(null)}>
           <div className="card-soft relative w-full max-w-xl overflow-hidden p-3" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="combo-preview-close" onClick={() => setPromotionPreview(null)} aria-label="Fechar foto"><X size={18} /></button>
-            <img src={mediaUrl(promotionPreview.imageUrl)} alt={promotionPreview.name} className="max-h-[78vh] w-full rounded-xl object-contain" />
+            <div className="grid max-h-[78vh] grid-cols-2 gap-2 overflow-y-auto rounded-xl bg-cream-deep p-2 sm:grid-cols-3">
+              {promotionMedia.map((media) => media.type === "video" ? (
+                <video key={media.url} src={mediaUrl(media.url)} controls className="aspect-[3/4] w-full rounded-lg object-cover" />
+              ) : (
+                <img key={media.url} src={mediaUrl(media.url)} alt={promotionPreview.name} className="aspect-[3/4] w-full rounded-lg object-cover" />
+              ))}
+              {promotionMediaLoading ? <p className="col-span-full p-4 text-center text-sm text-muted">Carregando todas as fotos e vídeos…</p> : null}
+            </div>
             <div className="mt-3 flex items-center justify-between gap-3 px-2 pb-1">
               <div><strong>{promotionPreview.name}</strong><p className="text-sm text-muted">{formatBRL(promotionPreview.salePrice)} · {promotionPreview.discountPercentage}% OFF</p></div>
               <button type="button" className="btn-primary" onClick={() => void addExternalPromotion(promotionPreview)}>Adicionar</button>

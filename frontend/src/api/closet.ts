@@ -37,6 +37,11 @@ export async function fetchPromoRadar() {
   return res.data.data as PromoRadarResponse;
 }
 
+export async function fetchPromotionMedia(url: string) {
+  const res = await api.get("/dashboard/promo-media", { params: { url } });
+  return res.data.data as Array<{ type: "image" | "video"; url: string }>;
+}
+
 export async function fetchProducts(params: ProductQuery) {
   const res = await api.get("/products", { params });
   return res.data.data as {

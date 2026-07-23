@@ -156,4 +156,12 @@ export const productController = {
       return next(err);
     }
   },
+  async externalPromotionMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      const url = String(req.query.url || "");
+      return ok(res, await promoRadarService.externalPromotionMedia(url));
+    } catch (err) {
+      return next(err);
+    }
+  },
 };

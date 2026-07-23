@@ -7,3 +7,4 @@ export const dashboardRoutes = Router();
 dashboardRoutes.use(authMiddleware);
 dashboardRoutes.get("/summary", productController.summary);
 dashboardRoutes.get("/promo-radar", productController.promoRadar);
+dashboardRoutes.get("/promo-media", productController.externalPromotionMedia);

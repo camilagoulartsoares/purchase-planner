@@ -1398,6 +1398,22 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
 }
 
 export const promoRadarService = {
+  async externalPromotionMedia(rawUrl: string) {
+    const url = new URL(rawUrl);
+    if (!/(^|\.)useelizah\.com\.br$/i.test(url.hostname)) return [];
+    const page = await fetchPage(url.toString());
+    if (page.unavailable || page.blocked) return [];
+    const imageUrls = uniqueStrings(
+      [...page.html.matchAll(/<(?:img)[^>]+(?:src|data-src)=["']([^"']+)["']/gi)]
+        .map((match) => absoluteUrl(page.finalUrl, match[1]))
+        .filter((item) => item?.includes("/produtos/")),
+    ).slice(0, 12);
+    const videoUrls = uniqueStrings(
+      [...page.html.matchAll(/<(?:video|source)[^>]+src=["']([^"']+)["']/gi)]
+        .map((match) => absoluteUrl(page.finalUrl, match[1])),
+    ).slice(0, 4);
+    return [...imageUrls.map((url) => ({ type: "image" as const, url })), ...videoUrls.map((url) => ({ type: "video" as const, url }))];
+  },
   async weeklyBrandPromotions(userId: string): Promise<PromoRadarResponse> {
     const cached = cache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
