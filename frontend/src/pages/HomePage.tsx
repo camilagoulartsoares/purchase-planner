@@ -227,6 +227,7 @@ export function HomePage() {
   const [debouncedQuery, setDebouncedQuery] = useState(emptyQuery);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
+  const [addingPromotionId, setAddingPromotionId] = useState("");
   const [dismissedPromos, setDismissedPromos] = useState<string[]>(() => {
     try {
       return JSON.parse(window.localStorage.getItem("purchase-planner-dismissed-promos") || "[]");
@@ -647,6 +648,8 @@ export function HomePage() {
   };
 
   const addExternalPromotion = async (promotion: NonNullable<PromoRadarResponse["externalPromotions"]>[number]) => {
+    if (addingPromotionId) return;
+    setAddingPromotionId(promotion.id);
     const form = new FormData();
     form.set("name", promotion.name);
     form.set("category", promotion.category);
@@ -656,10 +659,16 @@ export function HomePage() {
     form.set("promotionalPrice", String(promotion.salePrice));
     form.set("purchaseUrl", promotion.purchaseUrl);
     form.set("color", promotion.color || "");
+    form.set("imageUrl", promotion.imageUrl || "");
     form.set("priority", "Quero");
     form.set("status", "Quero comprar");
     form.set("notes", `Promoção detectada pelo radar: ${promotion.discountPercentage}% OFF.`);
-    await onSave(form);
+    try {
+      await onSave(form);
+      setToast(`✓ ${promotion.name} foi adicionada à sua lista`);
+    } finally {
+      setAddingPromotionId("");
+    }
   };
 
   const dismissExternalPromotion = (id: string) => {
@@ -964,8 +973,8 @@ export function HomePage() {
                   <div className="planner-shopping-plan-meta"><span>useelizah.com.br</span></div>
                 </div>
                 <p className="mt-3 text-sm text-ink">Promoções encontradas diretamente na loja.</p>
-                <div className="planner-shopping-list">
-                  {externalPromotions.slice(0, 6).map((item) => (
+                <div className="planner-shopping-list external-promo-list">
+                  {externalPromotions.map((item) => (
                     <div key={item.id} className="planner-shopping-item">
                       <div className="planner-shopping-item-main">
                         {item.imageUrl ? (
@@ -982,7 +991,7 @@ export function HomePage() {
                         <strong>{formatBRL(item.salePrice)}</strong>
                         <div className="flex gap-2">
                           <button type="button" className="btn-ghost" onClick={() => dismissExternalPromotion(item.id)}>Remover</button>
-                          <button type="button" className="btn-primary" onClick={() => void addExternalPromotion(item)}>Adicionar</button>
+                          <button type="button" className="btn-primary" disabled={Boolean(addingPromotionId)} onClick={() => void addExternalPromotion(item)}>{addingPromotionId === item.id ? "Adicionando..." : "Adicionar"}</button>
                         </div>
                       </div>
                     </div>

@@ -149,6 +149,12 @@ export const productService = {
     file?: Express.Multer.File,
     files?: Express.Multer.File[],
   ) {
+    if (data.purchaseUrl) {
+      const existing = (await productRepository.findAllByUser(userId)).find(
+        (product) => product.purchaseUrl === String(data.purchaseUrl),
+      );
+      if (existing) return serialize(existing)!;
+    }
     const brand = await brandRepository.findOrCreate(
       userId,
       String(data.brand),
@@ -178,7 +184,7 @@ export const productService = {
       priority: String(data.priority || "Quero"),
       status: String(data.status || "Quero comprar"),
       notes: data.notes ? String(data.notes) : null,
-      imageUrl: main?.imageUrl,
+      imageUrl: main?.imageUrl || (data.imageUrl ? String(data.imageUrl) : null),
       imagePublicId: main?.imagePublicId,
       images: uploads.length
         ? {

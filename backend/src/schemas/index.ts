@@ -80,6 +80,7 @@ export const productBodySchema = z
       .nullable()
       .refine((v) => !v || isHttpUrl(v), "Link deve começar com http:// ou https://"),
     color: z.string().optional().nullable(),
+    imageUrl: z.string().optional().nullable(),
     size: z.string().optional().nullable(),
     priority: z.enum(PRIORITIES).default("Quero"),
     status: z.enum(STATUSES).default("Quero comprar"),

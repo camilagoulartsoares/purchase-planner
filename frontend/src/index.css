@@ -642,6 +642,11 @@ body {
   cursor: pointer;
   text-align: left;
 }
+.external-promo-list {
+  max-height: 34rem;
+  overflow-y: auto;
+  padding-right: .35rem;
+}
 .planner-shopping-item:hover {
   background: rgba(255,255,255,.7);
   transform: translateY(-1px);
