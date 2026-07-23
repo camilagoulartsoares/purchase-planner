@@ -229,6 +229,8 @@ export function HomePage() {
   const [toast, setToast] = useState("");
   const [addingPromotionId, setAddingPromotionId] = useState("");
   const [promotionPreview, setPromotionPreview] = useState<PromoRadarResponse["externalPromotions"][number] | null>(null);
+  const [promotionMedia, setPromotionMedia] = useState<Array<{ type: "image" | "video"; url: string }>>([]);
+  const [promotionMediaIndex, setPromotionMediaIndex] = useState(0);
   const [dismissedPromos, setDismissedPromos] = useState<string[]>(() => {
     try {
       return JSON.parse(window.localStorage.getItem("purchase-planner-dismissed-promos") || "[]");
@@ -271,9 +273,11 @@ export function HomePage() {
     () => buildPromoByProductId(promoRadar?.products || []),
     [promoRadar],
   );
+  // A vitrine da Elizah é independente do radar de marcas já salvas (ex.: Cha Matte).
+  // Assim, uma resposta lenta ou vazia do radar nunca apaga as ofertas externas.
   const externalPromotions = useMemo(
-    () => ((promoRadar?.externalPromotions?.length ? promoRadar.externalPromotions : USE_ELIZAH_PROMOS)).filter((item) => !dismissedPromos.includes(item.id)),
-    [dismissedPromos, promoRadar],
+    () => USE_ELIZAH_PROMOS.filter((item) => !dismissedPromos.includes(item.id)),
+    [dismissedPromos],
   );
   const externalPromotionBrands = useMemo(
     () => Array.from(externalPromotions.reduce((groups, item) => {
@@ -691,6 +695,10 @@ export function HomePage() {
 
   const previewExternalPromotion = async (promotion: PromoRadarResponse["externalPromotions"][number]) => {
     setPromotionPreview(promotion);
+    setPromotionMedia(promotion.imageUrl ? [{ type: "image", url: promotion.imageUrl }] : []);
+    setPromotionMediaIndex(0);
+    const media = await api.fetchPromotionMedia(promotion.purchaseUrl);
+    if (media.length) setPromotionMedia(media);
   };
 
   const openBuyModal = (item: Product | PlannerCandidate, repurchase = false) => {
@@ -1367,11 +1375,14 @@ export function HomePage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-brown-deep/70 p-4" onClick={() => setPromotionPreview(null)}>
           <div className="card-soft relative w-full max-w-xl overflow-hidden p-3" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="combo-preview-close" onClick={() => setPromotionPreview(null)} aria-label="Fechar foto"><X size={18} /></button>
-            {promotionPreview.imageUrl ? (
-              <img src={mediaUrl(promotionPreview.imageUrl)} alt={promotionPreview.name} className="max-h-[72vh] w-full rounded-xl object-contain" />
+            {promotionMedia[promotionMediaIndex]?.type === "video" ? (
+              <video src={mediaUrl(promotionMedia[promotionMediaIndex].url)} controls className="max-h-[72vh] w-full rounded-xl" />
+            ) : promotionMedia[promotionMediaIndex]?.url ? (
+              <img src={mediaUrl(promotionMedia[promotionMediaIndex].url)} alt={promotionPreview.name} className="max-h-[72vh] w-full rounded-xl object-contain" />
             ) : (
               <div className="grid h-72 place-items-center rounded-xl bg-cream-deep text-muted">Foto indisponível</div>
             )}
+            {promotionMedia.length > 1 ? <div className="mt-2 flex items-center justify-center gap-2"><button className="btn-ghost" onClick={() => setPromotionMediaIndex((i) => (i - 1 + promotionMedia.length) % promotionMedia.length)}>Anterior</button><span className="text-sm text-muted">{promotionMediaIndex + 1} / {promotionMedia.length}</span><button className="btn-ghost" onClick={() => setPromotionMediaIndex((i) => (i + 1) % promotionMedia.length)}>Próxima</button></div> : null}
             <div className="mt-3 flex items-center justify-between gap-3 px-2 pb-1">
               <div><strong>{promotionPreview.name}</strong><p className="text-sm text-muted">{formatBRL(promotionPreview.salePrice)} · {promotionPreview.discountPercentage}% OFF</p></div>
               <a className="btn-ghost" href={promotionPreview.purchaseUrl} target="_blank" rel="noreferrer">Ver na loja</a>
