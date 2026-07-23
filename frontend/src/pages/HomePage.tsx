@@ -271,7 +271,7 @@ export function HomePage() {
     [promoRadar],
   );
   const externalPromotions = useMemo(
-    () => ((promoRadar?.externalPromotions?.length ? promoRadar.externalPromotions : USE_ELIZAH_PROMOS)).filter((item) => !dismissedPromos.includes(item.id)),
+    () => ((promoRadar?.externalPromotions === undefined ? USE_ELIZAH_PROMOS : promoRadar.externalPromotions)).filter((item) => !dismissedPromos.includes(item.id)),
     [dismissedPromos, promoRadar],
   );
 
