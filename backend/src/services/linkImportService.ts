@@ -155,6 +155,26 @@ function dedupeMedia(items: FindingMediaInput[]) {
   });
 }
 
+function selectProductImages(candidates: string[]) {
+  const grouped = new Map<string, string[]>();
+  for (const url of candidates) {
+    const productId = url.match(/\/produtos\/([^/]+)\//i)?.[1];
+    if (!productId) continue;
+    grouped.set(productId, [...(grouped.get(productId) || []), url]);
+  }
+  const group = [...grouped.values()].sort((a, b) => b.length - a.length)[0];
+  const source = group?.length ? group : candidates;
+  const byPhoto = new Map<string, string>();
+  for (const url of source) {
+    const key = url.replace(/_mini(?=\.[a-z]{2,5}(?:\?|$))/i, "");
+    const current = byPhoto.get(key);
+    if (!current || (/_mini(?=\.[a-z]{2,5}(?:\?|$))/i.test(current) && !/_mini(?=\.[a-z]{2,5}(?:\?|$))/i.test(url))) {
+      byPhoto.set(key, url);
+    }
+  }
+  return [...byPhoto.values()].slice(0, 24);
+}
+
 export function extractProductFromHtml(html: string, finalUrl: string): Omit<LinkPreview, "originalUrl" | "normalizedUrl"> {
   const base = new URL(finalUrl);
   const json = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
@@ -177,8 +197,7 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   ];
   const imageCandidates = productImageUrls.concat(ogImages, htmlImageUrls)
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
-  const productImages = imageCandidates.filter((url) => /\/produtos\//i.test(url));
-  const images = (productImages.length ? productImages : imageCandidates).slice(0, 40);
+  const images = selectProductImages(imageCandidates);
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
   const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
@@ -187,13 +206,14 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const titleSource = String(product.name || ogTitle || readerTitle || "");
   const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
   const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
+  const pricePair = html.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
   return {
     title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
-    price: numberOrNull(offer.price || meta(html, "product:price:amount") || priceFromTitle),
-    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
+    price: numberOrNull(offer.price || meta(html, "product:price:amount") || pricePair?.[2] || priceFromTitle),
+    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice || pricePair?.[1]),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
     availability: availabilityRaw.includes("instock") || availabilityRaw.includes("in_stock") ? "in_stock" : availabilityRaw.includes("outofstock") ? "out_of_stock" : "unknown",
