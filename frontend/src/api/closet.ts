@@ -12,6 +12,7 @@ import type {
   User,
   Finding,
   FindingInput,
+  ShippingMap,
 } from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
@@ -160,4 +161,13 @@ export async function updateFinding(id: string, data: Partial<FindingInput>) {
 
 export async function deleteFinding(id: string) {
   await api.delete(`/findings/${id}`);
+}
+
+export async function fetchShippingMap() {
+  const res = await api.get("/dashboard/shipping-map");
+  return res.data.data as ShippingMap;
+}
+export async function updateShippingMapLink(id: string, purchaseUrl: string) {
+  const res = await api.post(`/dashboard/shipping-map/${id}/link`, { purchaseUrl });
+  return res.data.data as { productId: string; purchaseUrl: string };
 }
