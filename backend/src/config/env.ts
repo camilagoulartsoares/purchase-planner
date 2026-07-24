@@ -40,6 +40,11 @@ export const env = {
   databaseUrl,
   jwtSecret: process.env.JWT_SECRET || "dev-secret",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  ai: {
+    apiKey: process.env.AI_API_KEY || "",
+    apiUrl: process.env.AI_API_URL || "https://api.openai.com/v1/chat/completions",
+    model: process.env.AI_MODEL || "gpt-4o-mini",
+  },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
     apiKey: process.env.CLOUDINARY_API_KEY || "",

@@ -104,6 +104,10 @@ export const statusSchema = z.object({
   repurchase: z.coerce.boolean().optional(),
 });
 
+export const shoppingAssistantSchema = z.object({
+  message: z.string().trim().min(2, "Escreva uma pergunta para o assistente.").max(700, "A mensagem pode ter no máximo 700 caracteres."),
+});
+
 export const productQuerySchema = z.object({
   search: z.string().optional(),
   department: z.enum(DEPARTMENTS).or(z.literal("")).optional(),

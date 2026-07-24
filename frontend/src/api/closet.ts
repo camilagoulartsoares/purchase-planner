@@ -161,3 +161,12 @@ export async function updateFinding(id: string, data: Partial<FindingInput>) {
 export async function deleteFinding(id: string) {
   await api.delete(`/findings/${id}`);
 }
+
+export async function askShoppingAssistant(message: string) {
+  const res = await api.post("/shopping-assistant/ask", { message }, { timeout: 30000 });
+  return res.data.data as {
+    answer: string; recommendedProductIds: string[]; alternativeProductIds: string[]; total: number; remainingBudget: number | null;
+    reasoningFactors: string[]; warnings: string[]; mode: "ai" | "local";
+    products: Array<{ id: string; name: string; category: string; brand: string; store: string; price: number; imageUrl: string | null }>;
+  };
+}

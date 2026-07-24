@@ -36,6 +36,23 @@ Deploy: https://purchase-planner.vercel.app
 - Upload de imagens com Cloudinary.
 - Deploy do frontend e backend.
 - **Meus achados**: salve produtos de outras lojas apenas colando o link.
+- **Assistente de compras**: chat que recomenda apenas itens já cadastrados na conta, com modo local quando a IA não estiver configurada.
+
+## Assistente “O que eu compro?”
+
+Na Home, use o **Assistente de compras** para pedir recomendações, combos, favoritos dentro de um orçamento ou itens para adiar. A rota consulta os produtos do usuário autenticado no backend; o frontend nunca envia uma lista de produtos como fonte de verdade.
+
+O modo local reconhece orçamento (por exemplo, `R$ 500`), combo/combinação/looks, academia, trabalho, casa, favoritos e perguntas sobre adiar, pior custo-benefício ou itens caros para a prioridade. Ele também funciona sem configuração externa.
+
+Para habilitar IA, configure somente no backend/Render:
+
+```env
+AI_API_KEY=sua-chave
+AI_API_URL=https://api.openai.com/v1/chat/completions
+AI_MODEL=gpt-4o-mini
+```
+
+`AI_API_KEY` nunca deve ser configurada no frontend. Se a chamada falhar ou a resposta não for válida, o assistente usa automaticamente o modo local.
 
 ## Adicionar produto por link
 
