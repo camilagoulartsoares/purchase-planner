@@ -566,45 +566,22 @@ export function HomePage() {
       .sort(compareCandidates);
     const withinBudgetCount = baseCandidates.filter((item) => item.effectivePrice <= monthlyBudget).length;
     const topPick = onBudget[0] || null;
-    const planCandidates = onBudget.slice(0, allowDuplicates ? 28 : 18);
-
-    const comparePlans = (
-      current: { items: PlannerCandidate[]; spent: number; score: number },
-      next: { items: PlannerCandidate[]; spent: number; score: number },
-    ) => {
-      const currentGap = Math.max(0, monthlyBudget - current.spent);
-      const nextGap = Math.max(0, monthlyBudget - next.spent);
-
-      if (!allowRemainder && currentGap !== nextGap) return nextGap < currentGap ? next : current;
-      if (next.score !== current.score) return next.score > current.score ? next : current;
-      if (next.items.length !== current.items.length) {
-        return next.items.length > current.items.length ? next : current;
-      }
-      if (next.spent !== current.spent) return next.spent > current.spent ? next : current;
-      return current;
-    };
-
+    // O combo prioriza quantidade: peças baratas não ficam escondidas por uma
+    // única peça cara quando todas cabem no mesmo orçamento.
+    const planCandidates = [...onBudget].sort(
+      (a, b) => a.effectivePrice - b.effectivePrice || compareCandidates(a, b),
+    );
     const shoppingPlan = planCandidates.reduce(
-      (best, item) => {
-        const price = item.effectivePrice;
-        const score = plannerItemScore(item, item.plannerSource, item.plannerQuantity);
-        const nextPlans = best.plans
-          .filter((plan) => plan.spent + price <= monthlyBudget)
-          .map((plan) => ({
-            items: [...plan.items, item],
-            spent: plan.spent + price,
-            score: plan.score + score,
-          }));
-        const plans = [...best.plans, ...nextPlans];
-        const winner = plans.reduce(comparePlans, best.winner);
-
-        return { plans, winner };
+      (plan, item) => {
+        if (plan.spent + item.effectivePrice > monthlyBudget) return plan;
+        return {
+          items: [...plan.items, item],
+          spent: plan.spent + item.effectivePrice,
+          score: plan.score + plannerItemScore(item, item.plannerSource, item.plannerQuantity),
+        };
       },
-      {
-        plans: [{ items: [] as PlannerCandidate[], spent: 0, score: 0 }],
-        winner: { items: [] as PlannerCandidate[], spent: 0, score: 0 },
-      },
-    ).winner;
+      { items: [] as PlannerCandidate[], spent: 0, score: 0 },
+    );
 
     const cheapest = baseCandidates.length
       ? baseCandidates.reduce((current, item) =>
@@ -899,7 +876,7 @@ export function HomePage() {
                 </div>
               </div>
               <div className="planner-shopping-list">
-                {planner.shoppingPlan.items.slice(0, 5).map((item) => (
+                {planner.shoppingPlan.items.map((item) => (
                   <button
                     key={item.plannerKey}
                     type="button"
@@ -930,12 +907,6 @@ export function HomePage() {
                 ))}
               </div>
               <p className="planner-shopping-hint">Clique em uma peça para abrir os detalhes sem sair da página.</p>
-              {planner.shoppingPlan.items.length > 5 ? (
-                <p className="planner-shopping-extra">
-                  +{planner.shoppingPlan.items.length - 5} peça
-                  {planner.shoppingPlan.items.length - 5 > 1 ? "s" : ""} no combo
-                </p>
-              ) : null}
             </div>
           ) : null}
         </div>

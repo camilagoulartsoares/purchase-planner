@@ -622,6 +622,9 @@ body {
   display: grid;
   gap: .45rem;
   margin-top: .75rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: .35rem;
 }
 .planner-shopping-item {
   display: flex;
