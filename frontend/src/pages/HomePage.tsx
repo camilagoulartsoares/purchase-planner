@@ -603,13 +603,12 @@ export function HomePage() {
       );
 
     const scoreFirst = [...onBudget].sort(compareCandidates);
-    const alternatives = [shoppingPlan, ...scoreFirst.slice(0, 20).map((first) => fillCombo(first, planCandidates))]
+    const alternatives = [shoppingPlan, ...scoreFirst.map((first) => fillCombo(first, planCandidates))]
       .filter((plan) => plan.items.length > 0)
       .filter((plan, index, plans) => {
         const signature = [...plan.items].map((item) => item.plannerKey).sort().join("|");
         return plans.findIndex((candidate) => [...candidate.items].map((item) => item.plannerKey).sort().join("|") === signature) === index;
       })
-      .slice(0, 6);
 
     const cheapest = baseCandidates.length
       ? baseCandidates.reduce((current, item) =>
@@ -902,7 +901,7 @@ export function HomePage() {
                 </div>
                 <div className="planner-shopping-plan-meta">
                   <span>{planner.shoppingPlan.items.length} peça{planner.shoppingPlan.items.length > 1 ? "s" : ""}</span>
-                  {allowRemainder && planner.planRemainder > 0 ? <span>Folga {formatBRL(planner.planRemainder)}</span> : null}
+                  <span>Sobra {formatBRL(planner.planRemainder)}</span>
                 </div>
               </div>
               <div className="planner-shopping-list">
@@ -940,16 +939,16 @@ export function HomePage() {
             </div>
             {planner.shoppingPlans.length > 1 ? (
               <div className="planner-combo-options">
-                <p className="planner-combo-options-title">Outros combos que cabem no orçamento</p>
+                <p className="planner-combo-options-title">Todas as outras opções que cabem no orçamento ({planner.shoppingPlans.length - 1})</p>
                 <div className="planner-combo-options-list">
                   {planner.shoppingPlans.slice(1).map((plan, index) => (
                     <article key={plan.items.map((item) => item.plannerKey).join("|")} className="planner-combo-option">
                       <div className="planner-shopping-plan-head">
                         <div><p>Opção {index + 2}</p><strong>{formatBRL(plan.spent)}</strong></div>
-                        <div className="planner-shopping-plan-meta"><span>{plan.items.length} peça{plan.items.length > 1 ? "s" : ""}</span></div>
+                        <div className="planner-shopping-plan-meta"><span>{plan.items.length} peça{plan.items.length > 1 ? "s" : ""}</span><span>Sobra {formatBRL(Math.max(0, monthlyBudget - plan.spent))}</span></div>
                       </div>
                       <div className="planner-combo-option-items">
-                        {plan.items.map((item) => <button key={item.plannerKey} type="button" onClick={() => setComboPreview(item)}>{item.name} <strong>{formatBRL(item.effectivePrice)}</strong></button>)}
+                        {plan.items.map((item) => <button key={item.plannerKey} type="button" onClick={() => setComboPreview(item)}><span className="planner-combo-option-item-main">{plannerImage(item) ? <img src={plannerImage(item)} alt="" /> : <span className="planner-combo-option-image-empty" />}<span>{item.name}</span></span><strong>{formatBRL(item.effectivePrice)}</strong></button>)}
                       </div>
                     </article>
                   ))}

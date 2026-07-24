@@ -628,10 +628,12 @@ body {
 }
 .planner-combo-options { margin-top: .8rem; }
 .planner-combo-options-title { color: var(--ink); font-size: .82rem; font-weight: 800; }
-.planner-combo-options-list { display: grid; gap: .6rem; max-height: 31rem; overflow-y: auto; margin-top: .5rem; padding-right: .35rem; }
+.planner-combo-options-list { display: grid; gap: .6rem; max-height: 42rem; overflow-y: auto; margin-top: .5rem; padding-right: .35rem; }
 .planner-combo-option { border: 1px solid rgba(228,216,204,.88); border-radius: .8rem; background: rgba(255,255,255,.5); padding: .72rem; }
 .planner-combo-option-items { display: grid; gap: .28rem; max-height: 10rem; overflow-y: auto; margin-top: .5rem; }
-.planner-combo-option-items button { display: flex; justify-content: space-between; gap: .8rem; width: 100%; border: 0; border-top: 1px solid rgba(228,216,204,.72); padding: .4rem 0 0; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-size: .8rem; }
+.planner-combo-option-items button { display: flex; align-items: center; justify-content: space-between; gap: .8rem; width: 100%; border: 0; border-top: 1px solid rgba(228,216,204,.72); padding: .4rem 0 0; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-size: .8rem; }
+.planner-combo-option-item-main { display: flex; align-items: center; min-width: 0; gap: .45rem; }
+.planner-combo-option-item-main img, .planner-combo-option-image-empty { width: 2.15rem; height: 2.15rem; flex: 0 0 auto; border: 1px solid rgba(228,216,204,.85); border-radius: .45rem; background: var(--cream-deep); object-fit: cover; }
 .planner-shopping-item {
   display: flex;
   align-items: center;
