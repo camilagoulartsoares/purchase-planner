@@ -154,9 +154,6 @@ export type Finding = {
 
 export type FindingInput = Omit<Finding, "id" | "normalizedUrl" | "createdAt" | "updatedAt">;
 
-export type ShippingMapItem = { productId: string; name: string; brand: string; store: string; purchaseUrl: string | null; price: number; shipping: number | null; coupon: string | null; couponNote: string | null; discount: number; total: number | null; deliveryDays: number | null; checkedAt: string; shippingStatus: "available" | "unavailable" | "missing_link"; shippingMessage: string; };
-export type ShippingMap = { cep: string; checkedAt: string; items: ShippingMapItem[] };
-
 export type Summary = {
   wantCount: number;
   boughtCount: number;
