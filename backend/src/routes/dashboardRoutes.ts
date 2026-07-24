@@ -10,4 +10,5 @@ dashboardRoutes.get("/summary", productController.summary);
 dashboardRoutes.get("/promo-radar", productController.promoRadar);
 dashboardRoutes.get("/promo-media", productController.externalPromotionMedia);
 dashboardRoutes.get("/shipping-map", shippingMapController.list);
+dashboardRoutes.post("/shipping-map/refresh", shippingMapController.refresh);
 dashboardRoutes.post("/shipping-map/:id/link", shippingMapController.updateLink);

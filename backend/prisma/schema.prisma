@@ -110,12 +110,29 @@ model Product {
   images                ProductImage[]
   priceHistory          ProductPriceHistory[]
   notifications         UserNotification[]
+  shippingQuotes        ShippingQuote[]
 
   @@index([userId])
   @@index([userId, status])
   @@index([userId, category])
   @@index([brandId])
   @@index([userId, marketplace])
+}
+
+model ShippingQuote {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cep            String
+  shippingPrice  Decimal
+  deliveryDays   Int?
+  service        String?
+  checkedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([productId, cep])
+  @@index([cep, checkedAt])
 }
 
 model ProductImage {

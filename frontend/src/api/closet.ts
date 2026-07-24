@@ -167,6 +167,10 @@ export async function fetchShippingMap() {
   const res = await api.get("/dashboard/shipping-map");
   return res.data.data as ShippingMap;
 }
+export async function refreshShippingMap() {
+  const res = await api.post("/dashboard/shipping-map/refresh");
+  return res.data.data as ShippingMap;
+}
 export async function updateShippingMapLink(id: string, purchaseUrl: string) {
   const res = await api.post(`/dashboard/shipping-map/${id}/link`, { purchaseUrl });
   return res.data.data as { productId: string; purchaseUrl: string };
