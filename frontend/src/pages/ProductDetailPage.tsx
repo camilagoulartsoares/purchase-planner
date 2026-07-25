@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ExternalLink, Pencil } from "lucide-react";
 import * as api from "../api/closet";
 import { AppShell } from "../components/AppShell";
 import { ProductGallery } from "../components/ProductGallery";
 import { ProductFormModal } from "../components/ProductFormModal";
 import { ProductDetailSkeleton } from "../components/Skeletons";
+import { PurchaseAnalysisModal } from "../components/PurchaseAnalysisModal";
 import { formatBRL, type Product } from "../types";
 
 export function ProductDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -156,6 +158,7 @@ export function ProductDetailPage() {
             >
               <Pencil size={14} /> Editar
             </button>
+            {product.status !== "Já comprei" ? <button type="button" className="btn-ghost" onClick={() => setSearchParams({ analysis: "1" })}>Vale a pena comprar?</button> : null}
             <button type="button" className="btn-ghost" onClick={() => navigate(-1)}>
               Voltar
             </button>
@@ -172,6 +175,7 @@ export function ProductDetailPage() {
           await load();
         }}
       />
+      <PurchaseAnalysisModal product={product} open={searchParams.get("analysis") === "1"} onClose={() => setSearchParams({})} />
     </AppShell>
   );
 }

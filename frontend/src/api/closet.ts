@@ -111,6 +111,20 @@ export async function toggleFavorite(id: string) {
   return res.data.data as Product;
 }
 
+export type PurchaseAnalysis = {
+  score: number; classification: string; positiveReasons: string[]; warningReasons: string[]; estimatedCostPerUse: number | null; budgetPercent: number | null; daysSaved: number;
+  budgetImpact: { budget: number | null; productPrice: number; remainingBudget: number | null; budgetPercent: number | null; productsNoLongerAffordableCount: number };
+  similarProducts: Array<{ id: string; name: string; category: string; brand: string; price: number; imageUrl: string | null }>;
+  productsStillAffordable: Array<{ id: string; name: string; category: string; brand: string; price: number; imageUrl: string | null }>;
+  productsNoLongerAffordable: Array<{ id: string; name: string; category: string; brand: string; price: number; imageUrl: string | null }>;
+  nextRecommendedProduct: { id: string; name: string; category: string; brand: string; price: number; imageUrl: string | null } | null;
+  updatedSuggestedCombo: { products: Array<{ id: string; name: string; category: string; brand: string; price: number; imageUrl: string | null }>; total: number | null };
+};
+export async function fetchPurchaseAnalysis(id: string, budget: number | null) {
+  const res = await api.post(`/products/${id}/purchase-analysis`, { budget });
+  return res.data.data as PurchaseAnalysis;
+}
+
 export async function fetchMercadoLivrePublicConfig() {
   const res = await api.get("/integrations/mercadolivre/public-config");
   return res.data.data as MercadoLivrePublicConfig;

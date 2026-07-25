@@ -107,6 +107,11 @@ export type Product = {
   size?: string | null;
   priority: string;
   status: string;
+  purchaseIntent: "NEED" | "WANT";
+  estimatedUses?: number | null;
+  timesPostponed: number;
+  decisionStatus?: string | null;
+  lastAnalyzedAt?: string | null;
   notes?: string | null;
   isFavorite?: boolean;
   purchasedPrice?: number | null;

@@ -208,6 +208,11 @@ export function ProductCard({
               <ExternalLink size={14} /> Comprar na loja
             </a>
           ) : null}
+          {product.status !== "Já comprei" ? (
+            <Link className="btn-ghost" to={`/produtos/${product.id}?analysis=1`}>
+              Vale a pena comprar?
+            </Link>
+          ) : null}
           {onMarkBought && product.status !== "Já comprei" ? (
             <button
               type="button"

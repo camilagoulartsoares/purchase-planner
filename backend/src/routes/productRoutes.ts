@@ -2,6 +2,7 @@ import { Router } from "express";
 import { productController } from "../controllers/productController.js";
 import { authMiddleware } from "../middlewares/auth.js";
 import { upload } from "../middlewares/upload.js";
+import { purchaseAnalysisController } from "../controllers/purchaseAnalysisController.js";
 
 export const productRoutes = Router();
 
@@ -31,6 +32,7 @@ function normalizeFiles(
 }
 
 productRoutes.get("/", productController.list);
+productRoutes.post("/:id/purchase-analysis", purchaseAnalysisController.analyze);
 productRoutes.get("/:id", productController.get);
 productRoutes.post("/", imagesUpload, normalizeFiles, productController.create);
 productRoutes.put("/:id", imagesUpload, normalizeFiles, productController.update);

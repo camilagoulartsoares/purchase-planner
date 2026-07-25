@@ -105,6 +105,11 @@ model Product {
   lastMarketplaceSyncAt DateTime?
   targetPrice           Decimal?
   availability          String?
+  purchaseIntent        String               @default("WANT")
+  estimatedUses         Int?
+  timesPostponed        Int                  @default(0)
+  decisionStatus        String?
+  lastAnalyzedAt        DateTime?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   images                ProductImage[]

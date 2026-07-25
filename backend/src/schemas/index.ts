@@ -84,6 +84,10 @@ export const productBodySchema = z
     size: z.string().optional().nullable(),
     priority: z.enum(PRIORITIES).default("Quero"),
     status: z.enum(STATUSES).default("Quero comprar"),
+    purchaseIntent: z.enum(["NEED", "WANT"]).default("WANT"),
+    estimatedUses: z.coerce.number().int().positive().optional().nullable(),
+    timesPostponed: z.coerce.number().int().nonnegative().default(0),
+    decisionStatus: z.string().max(80).optional().nullable(),
     notes: z.string().optional().nullable(),
   })
   .refine(
@@ -95,6 +99,10 @@ export const productBodySchema = z
       path: ["promotionalPrice"],
     },
   );
+
+export const purchaseAnalysisSchema = z.object({
+  budget: z.coerce.number().positive().max(100_000).optional().nullable(),
+});
 
 export const statusSchema = z.object({
   status: z.enum(STATUSES),

@@ -127,6 +127,9 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
     size: "",
     priority: "Quero",
     status: "Quero comprar",
+    purchaseIntent: "WANT",
+    estimatedUses: "",
+    timesPostponed: "0",
     notes: "",
   });
 
@@ -148,6 +151,9 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         size: initial.size || "",
         priority: initial.priority,
         status: initial.status,
+        purchaseIntent: initial.purchaseIntent || "WANT",
+        estimatedUses: initial.estimatedUses != null ? String(initial.estimatedUses) : "",
+        timesPostponed: String(initial.timesPostponed || 0),
         notes: initial.notes || "",
       });
       const existing =
@@ -185,6 +191,9 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         size: "",
         priority: "Quero",
         status: "Quero comprar",
+        purchaseIntent: "WANT",
+        estimatedUses: "",
+        timesPostponed: "0",
         notes: "",
       });
       setGallery([]);
@@ -396,6 +405,20 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             options={STATUSES}
             onChange={(status) => setForm({ ...form, status })}
           />
+          <ModalSelect
+            label="Tipo de compra"
+            value={form.purchaseIntent}
+            options={["WANT", "NEED"]}
+            onChange={(purchaseIntent) => setForm({ ...form, purchaseIntent })}
+          />
+          <label className="field">
+            <span>Usos estimados</span>
+            <input type="number" min="1" inputMode="numeric" value={form.estimatedUses} onChange={(e) => setForm({ ...form, estimatedUses: e.target.value })} />
+          </label>
+          <label className="field">
+            <span>Vezes adiada</span>
+            <input type="number" min="0" inputMode="numeric" value={form.timesPostponed} onChange={(e) => setForm({ ...form, timesPostponed: e.target.value })} />
+          </label>
           <label className="field sm:col-span-2">
             <span>Observacoes</span>
             <textarea
