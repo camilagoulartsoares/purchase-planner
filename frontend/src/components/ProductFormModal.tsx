@@ -50,6 +50,12 @@ function moneyNumber(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function selectLabel(value: string) {
+  if (value === "NEED") return "Necessidade";
+  if (value === "WANT") return "Desejo";
+  return value;
+}
+
 function ModalSelect({
   label,
   value,
@@ -83,7 +89,7 @@ function ModalSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span>{value}</span>
+        <span>{selectLabel(value)}</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open ? (
@@ -100,7 +106,7 @@ function ModalSelect({
               role="option"
               aria-selected={option === value}
             >
-              <span>{option}</span>
+              <span>{selectLabel(option)}</span>
               {option === value ? <Check size={14} /> : null}
             </button>
           ))}
