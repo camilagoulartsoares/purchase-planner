@@ -417,6 +417,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             options={["WANT", "NEED"]}
             onChange={(purchaseIntent) => setForm({ ...form, purchaseIntent })}
           />
+          <p className="-mt-2 text-xs text-muted">Essa escolha é usada na Análise de Compra Consciente.</p>
           <label className="field">
             <span>Usos estimados</span>
             <input type="number" min="1" inputMode="numeric" value={form.estimatedUses} onChange={(e) => setForm({ ...form, estimatedUses: e.target.value })} />
