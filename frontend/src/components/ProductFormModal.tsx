@@ -425,6 +425,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <label className="field">
             <span>Vezes adiada</span>
             <input type="number" min="0" inputMode="numeric" value={form.timesPostponed} onChange={(e) => setForm({ ...form, timesPostponed: e.target.value })} />
+            <small className="text-muted">Adiamentos reduzem a recomendação de compra.</small>
           </label>
           <label className="field sm:col-span-2">
             <span>Observacoes</span>
