@@ -149,6 +149,12 @@ export function ProductDetailPage() {
                 <dd>{product.decisionStatus}</dd>
               </div>
             ) : null}
+            {product.lastAnalyzedAt ? (
+              <div className="flex justify-between border-b border-line py-2">
+                <dt className="text-muted">Analisado em</dt>
+                <dd>{new Date(product.lastAnalyzedAt).toLocaleDateString("pt-BR")}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-muted">Status</dt>
               <dd>{product.status}</dd>
