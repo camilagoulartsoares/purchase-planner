@@ -421,6 +421,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <label className="field">
             <span>Usos estimados</span>
             <input type="number" min="1" inputMode="numeric" value={form.estimatedUses} onChange={(e) => setForm({ ...form, estimatedUses: e.target.value })} />
+            <small className="text-muted">Usado para calcular o custo por uso na análise.</small>
           </label>
           <label className="field">
             <span>Vezes adiada</span>
