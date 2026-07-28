@@ -137,6 +137,12 @@ export function ProductDetailPage() {
                 <dd>{product.estimatedUses}</dd>
               </div>
             ) : null}
+            {product.timesPostponed > 0 ? (
+              <div className="flex justify-between border-b border-line py-2">
+                <dt className="text-muted">Vezes adiada</dt>
+                <dd>{product.timesPostponed}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-muted">Status</dt>
               <dd>{product.status}</dd>
