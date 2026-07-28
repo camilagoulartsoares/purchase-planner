@@ -128,6 +128,10 @@ export function ProductDetailPage() {
               <dd>{product.priority}</dd>
             </div>
             <div className="flex justify-between border-b border-line py-2">
+              <dt className="text-muted">Tipo de compra</dt>
+              <dd>{product.purchaseIntent === "NEED" ? "Necessidade" : "Desejo"}</dd>
+            </div>
+            <div className="flex justify-between border-b border-line py-2">
               <dt className="text-muted">Status</dt>
               <dd>{product.status}</dd>
             </div>
