@@ -143,6 +143,12 @@ export function ProductDetailPage() {
                 <dd>{product.timesPostponed}</dd>
               </div>
             ) : null}
+            {product.decisionStatus ? (
+              <div className="flex justify-between border-b border-line py-2">
+                <dt className="text-muted">Última análise</dt>
+                <dd>{product.decisionStatus}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-muted">Status</dt>
               <dd>{product.status}</dd>
