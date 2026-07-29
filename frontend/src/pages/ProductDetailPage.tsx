@@ -133,7 +133,7 @@ export function ProductDetailPage() {
             </div>
             {product.estimatedUses ? (
               <div className="flex justify-between border-b border-line py-2">
-                <dt className="text-muted">Usos estimados</dt>
+                <dt className="text-muted">Usos previstos</dt>
                 <dd>{product.estimatedUses}</dd>
               </div>
             ) : null}
