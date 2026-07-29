@@ -209,7 +209,7 @@ export function ProductCard({
             </a>
           ) : null}
           {product.status !== "Já comprei" ? (
-            <Link className="btn-ghost" title={`Analisar compra de ${product.name}`} to={`/produtos/${product.id}?analysis=1`}>
+            <Link className="btn-ghost" title={`Analisar compra de ${product.name}`} aria-label={`Analisar se vale a pena comprar ${product.name}`} to={`/produtos/${product.id}?analysis=1`}>
               Vale a pena comprar?
             </Link>
           ) : null}
