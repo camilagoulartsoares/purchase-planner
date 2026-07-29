@@ -425,8 +425,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           </label>
           <label className="field">
             <span>Vezes adiada</span>
-            <input type="number" min="0" inputMode="numeric" placeholder="Ex.: 1" value={form.timesPostponed} onChange={(e) => setForm({ ...form, timesPostponed: e.target.value })} />
-            <small className="text-muted">Adiamentos reduzem a recomendação de compra.</small>
+            <input type="number" min="0" inputMode="numeric" aria-describedby="postponed-help" placeholder="Ex.: 1" value={form.timesPostponed} onChange={(e) => setForm({ ...form, timesPostponed: e.target.value })} />
+            <small id="postponed-help" className="text-muted">Adiamentos reduzem a recomendação de compra.</small>
           </label>
           <label className="field sm:col-span-2">
             <span>Observacoes</span>
