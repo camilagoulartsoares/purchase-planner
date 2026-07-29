@@ -139,7 +139,7 @@ export function ProductDetailPage() {
             ) : null}
             {product.timesPostponed > 0 ? (
               <div className="flex justify-between border-b border-line py-2">
-                <dt className="text-muted">Vezes adiada</dt>
+                <dt className="text-muted">{product.timesPostponed === 1 ? "Vez adiada" : "Vezes adiada"}</dt>
                 <dd>{product.timesPostponed}</dd>
               </div>
             ) : null}
