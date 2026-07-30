@@ -78,6 +78,7 @@ export function ProductCard({
             }`}
             onClick={() => onFavorite(product)}
             aria-label={product.isFavorite ? "Remover dos favoritos" : "Favoritar"}
+            aria-pressed={product.isFavorite}
             title={product.isFavorite ? "Remover dos favoritos" : "Favoritar"}
           >
             <Heart
