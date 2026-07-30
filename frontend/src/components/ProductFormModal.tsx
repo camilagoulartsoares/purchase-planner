@@ -420,7 +420,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <p className="-mt-2 text-xs text-muted">Essa escolha é usada na Análise de Compra Consciente.</p>
           <label className="field">
             <span>Usos estimados</span>
-            <input type="number" min="1" inputMode="numeric" aria-describedby="estimated-uses-help" placeholder="Ex.: 30" value={form.estimatedUses} onChange={(e) => setForm({ ...form, estimatedUses: e.target.value })} />
+            <input type="number" min="1" step="1" inputMode="numeric" aria-describedby="estimated-uses-help" placeholder="Ex.: 30" value={form.estimatedUses} onChange={(e) => setForm({ ...form, estimatedUses: e.target.value })} />
             <small id="estimated-uses-help" className="text-muted">Usado para calcular o custo por uso na análise.</small>
           </label>
           <label className="field">
