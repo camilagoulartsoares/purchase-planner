@@ -186,7 +186,7 @@ export function ProductDetailPage() {
             >
               <Pencil size={14} /> Editar
             </button>
-            {product.status !== "Já comprei" ? <button type="button" className="btn-ghost" onClick={() => setSearchParams({ analysis: "1" })}>Vale a pena comprar?</button> : null}
+            {product.status !== "Já comprei" ? <button type="button" className="btn-ghost" title="Abrir análise de compra" onClick={() => setSearchParams({ analysis: "1" })}>Vale a pena comprar?</button> : null}
             <button type="button" className="btn-ghost" onClick={() => navigate(-1)}>
               Voltar
             </button>
