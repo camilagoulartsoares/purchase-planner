@@ -97,6 +97,7 @@ export function ProductCard({
             <Link
               to={`/produtos/${product.id}`}
               className="font-display mt-1 block text-xl font-semibold text-brown-deep hover:text-rose"
+              aria-label={`Abrir detalhes de ${product.name}`}
             >
               {product.name}
             </Link>
