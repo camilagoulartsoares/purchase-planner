@@ -316,7 +316,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <h2 className="font-display text-2xl font-semibold text-brown-deep">
             {initial ? "Editar peca" : "Adicionar peca"}
           </h2>
-          <button type="button" className="btn-ghost" onClick={onClose} aria-label="Fechar">
+          <button type="button" className="btn-ghost" onClick={onClose} aria-label="Fechar" title="Fechar formulário">
             <X size={16} />
           </button>
         </div>
