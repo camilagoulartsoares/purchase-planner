@@ -141,6 +141,7 @@ export function ProductCard({
               className="btn-ghost !px-2"
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Mais opcoes"
+              aria-expanded={menuOpen}
             >
               <MoreVertical size={16} />
             </button>
