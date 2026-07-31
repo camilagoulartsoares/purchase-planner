@@ -183,6 +183,7 @@ export function ProductDetailPage() {
               type="button"
               className="btn-ghost"
               onClick={() => setFormOpen(true)}
+              title="Editar esta peça"
             >
               <Pencil size={14} /> Editar
             </button>
