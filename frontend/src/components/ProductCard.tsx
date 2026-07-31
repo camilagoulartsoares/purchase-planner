@@ -223,6 +223,7 @@ export function ProductCard({
               type="button"
               className="btn-ghost"
               onClick={() => onMarkBought(product)}
+              title="Registrar esta peça como comprada"
             >
               <ShoppingBag size={14} /> Marcar como comprada
             </button>
