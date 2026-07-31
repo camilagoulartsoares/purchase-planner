@@ -142,6 +142,7 @@ export function ProductCard({
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Mais opcoes"
               aria-expanded={menuOpen}
+              aria-haspopup="menu"
             >
               <MoreVertical size={16} />
             </button>
