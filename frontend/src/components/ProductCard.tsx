@@ -208,6 +208,7 @@ export function ProductCard({
               href={product.purchaseUrl}
               target="_blank"
               rel="noreferrer"
+              title={`Abrir ${product.brand || "a loja"} em nova aba`}
             >
               <ExternalLink size={14} /> Comprar na loja
             </a>
