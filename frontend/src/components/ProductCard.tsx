@@ -172,6 +172,7 @@ export function ProductCard({
                       onStatus(product, "Desisti da compra");
                     }}
                     title={`Marcar ${product.name} como não desejada`}
+                    aria-label={`Marcar ${product.name} como não desejada`}
                   >
                     Nao quero mais
                   </button>
