@@ -68,7 +68,7 @@ export function ProductDetailPage() {
           Marcas
         </Link>
         <span className="mx-2">→</span>
-        <Link to={`/marcas/${product.brandSlug}`} className="text-rose hover:underline">
+        <Link to={`/marcas/${product.brandSlug}`} className="text-rose hover:underline" title={`Ver produtos da marca ${product.brand}`}>
           {product.brand}
         </Link>
         <span className="mx-2">→</span>
