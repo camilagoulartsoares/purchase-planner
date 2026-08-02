@@ -63,7 +63,7 @@ export function ProductDetailPage() {
 
   return (
     <AppShell>
-      <nav className="mb-6 text-sm text-muted">
+      <nav className="mb-6 text-sm text-muted" aria-label="Navegação estrutural do produto">
         <Link to="/marcas" className="text-rose hover:underline">
           Marcas
         </Link>
