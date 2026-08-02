@@ -44,7 +44,7 @@ export function ProductDetailPage() {
     return (
       <AppShell>
         <p className="text-muted">Produto não encontrado.</p>
-        <Link className="btn-ghost mt-4 inline-flex" to="/" aria-label="Voltar para a lista de produtos">
+        <Link className="btn-ghost mt-4 inline-flex" to="/" aria-label="Voltar para a lista de produtos" title="Voltar para a lista de produtos">
           Voltar
         </Link>
       </AppShell>
