@@ -75,6 +75,7 @@ export function ProductDetailPage() {
         <Link
           to={`/marcas/${product.brandSlug}/${encodeURIComponent(product.category)}`}
           className="text-rose hover:underline"
+          title={`Ver produtos em ${product.category}`}
         >
           {product.category}
         </Link>
