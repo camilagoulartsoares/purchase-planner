@@ -169,6 +169,7 @@ export function ProductCard({
                       setMenuOpen(false);
                       onStatus(product, "Desisti da compra");
                     }}
+                    title={`Marcar ${product.name} como não desejada`}
                   >
                     Nao quero mais
                   </button>
