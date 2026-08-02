@@ -158,6 +158,7 @@ export function ProductCard({
                       onEdit(product);
                     }}
                     title={`Editar ${product.name}`}
+                    aria-label={`Editar ${product.name}`}
                   >
                     Editar
                   </button>
