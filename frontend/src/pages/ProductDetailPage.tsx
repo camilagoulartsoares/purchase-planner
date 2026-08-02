@@ -176,6 +176,7 @@ export function ProductDetailPage() {
                 href={product.purchaseUrl}
                 target="_blank"
                 rel="noreferrer"
+                title={`Abrir ${buyLabel} em nova aba`}
               >
                 <ExternalLink size={16} /> {buyLabel}
               </a>
