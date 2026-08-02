@@ -186,6 +186,7 @@ export function ProductDetailPage() {
               className="btn-ghost"
               onClick={() => setFormOpen(true)}
               title="Editar esta peça"
+              aria-label={`Editar ${product.name}`}
             >
               <Pencil size={14} /> Editar
             </button>
