@@ -156,6 +156,7 @@ export function ProductCard({
                       setMenuOpen(false);
                       onEdit(product);
                     }}
+                    title={`Editar ${product.name}`}
                   >
                     Editar
                   </button>
