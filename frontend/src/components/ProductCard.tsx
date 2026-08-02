@@ -143,6 +143,7 @@ export function ProductCard({
               aria-label="Mais opcoes"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
+              title="Mais opções da peça"
             >
               <MoreVertical size={16} />
             </button>
