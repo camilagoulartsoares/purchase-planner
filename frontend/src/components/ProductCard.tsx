@@ -185,6 +185,7 @@ export function ProductCard({
                       setMenuOpen(false);
                       onMarkBought(product);
                     }}
+                    title={`Marcar ${product.name} como comprada`}
                   >
                     Marcar como comprada
                   </button>
