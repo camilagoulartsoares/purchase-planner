@@ -187,6 +187,7 @@ export function ProductCard({
                       onMarkBought(product);
                     }}
                     title={`Marcar ${product.name} como comprada`}
+                    aria-label={`Marcar ${product.name} como comprada`}
                   >
                     Marcar como comprada
                   </button>
