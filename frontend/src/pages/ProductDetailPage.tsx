@@ -177,6 +177,7 @@ export function ProductDetailPage() {
                 target="_blank"
                 rel="noreferrer"
                 title={`Abrir ${buyLabel} em nova aba`}
+                aria-label={`Abrir ${buyLabel} em nova aba`}
               >
                 <ExternalLink size={16} /> {buyLabel}
               </a>
