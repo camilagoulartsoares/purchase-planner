@@ -199,6 +199,7 @@ export function ProductCard({
                       onDelete(product);
                     }}
                     title={`Excluir ${product.name} definitivamente`}
+                    aria-label={`Excluir ${product.name} definitivamente`}
                   >
                     Excluir definitivamente
                   </button>
