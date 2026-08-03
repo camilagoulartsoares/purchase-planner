@@ -233,6 +233,7 @@ export function ProductCard({
               className="btn-ghost"
               onClick={() => onMarkBought(product)}
               title="Registrar esta peça como comprada"
+              aria-label={`Registrar ${product.name} como comprada`}
             >
               <ShoppingBag size={14} /> Marcar como comprada
             </button>

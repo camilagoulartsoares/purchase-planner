@@ -496,7 +496,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           <button className="btn-primary" disabled={loading} title="Salvar alterações da peça">
             {loading ? "Salvando..." : "Salvar"}
           </button>
-          <button type="button" className="btn-ghost" onClick={onClose} title="Cancelar alterações">
+          <button type="button" className="btn-ghost" onClick={onClose} title="Cancelar alterações" aria-label="Cancelar alterações">
             Cancelar
           </button>
         </div>
