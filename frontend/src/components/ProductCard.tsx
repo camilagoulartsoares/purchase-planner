@@ -198,6 +198,7 @@ export function ProductCard({
                       setMenuOpen(false);
                       onDelete(product);
                     }}
+                    title={`Excluir ${product.name} definitivamente`}
                   >
                     Excluir definitivamente
                   </button>
