@@ -496,7 +496,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         {error ? <p className="mt-3 text-sm text-rose-deep">{error}</p> : null}
 
         <div className="mt-5 flex gap-2">
-          <button className="btn-primary" disabled={loading} title="Salvar alterações da peça">
+          <button className="btn-primary" disabled={loading} title="Salvar alterações da peça" aria-label="Salvar alterações da peça">
             {loading ? "Salvando..." : "Salvar"}
           </button>
           <button type="button" className="btn-ghost" onClick={onClose} title="Cancelar alterações" aria-label="Cancelar alterações">
