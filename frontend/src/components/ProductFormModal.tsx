@@ -372,6 +372,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
               <input
                 type="text"
                 inputMode="decimal"
+                aria-label="Frete"
                 pattern="[0-9.,]*"
                 autoComplete="off"
                 placeholder="Ex: 25,22"
