@@ -345,6 +345,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <input
               type="text"
               inputMode="decimal"
+              aria-label="Preço original"
               pattern="[0-9.,]*"
               autoComplete="off"
               placeholder="Ex: 129,90"
