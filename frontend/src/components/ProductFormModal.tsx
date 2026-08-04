@@ -338,7 +338,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
           />
           <label className="field">
             <span>Loja</span>
-            <input value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
+            <input value={form.store} aria-label="Nome da loja" onChange={(e) => setForm({ ...form, store: e.target.value })} />
           </label>
           <label className="field">
             <span>Preco original</span>
