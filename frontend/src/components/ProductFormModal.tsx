@@ -357,9 +357,10 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
             <label className="field">
               <span>Preco atual / promo</span>
               <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
+              type="text"
+              inputMode="decimal"
+              aria-label="Preço promocional"
+              pattern="[0-9.,]*"
                 autoComplete="off"
                 placeholder="Ex: 99,90"
                 value={form.promotionalPrice}
