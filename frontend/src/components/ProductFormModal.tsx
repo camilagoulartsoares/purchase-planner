@@ -481,8 +481,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
                       type="button"
                       className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-rose-deep shadow"
                       onClick={() => removeItem(i)}
-                      title="Remover foto"
-                      aria-label="Remover foto"
+                      title={`Remover foto ${i + 1}`}
+                      aria-label={`Remover foto ${i + 1}`}
                     >
                       <X size={12} />
                     </button>
