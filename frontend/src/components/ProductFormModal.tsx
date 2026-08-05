@@ -89,6 +89,7 @@ function ModalSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`Selecionar ${label}`}
+        aria-label={`Selecionar ${label}`}
       >
         <span>{selectLabel(value)}</span>
         <ChevronDown size={16} aria-hidden="true" />
