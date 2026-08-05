@@ -472,8 +472,8 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
                       type="button"
                       className="absolute left-1 top-1 rounded-full bg-white/90 p-1 text-brown-deep shadow"
                       onClick={() => setMain(i)}
-                      title="Definir como principal"
-                      aria-label="Definir como principal"
+                      title={`Definir foto ${i + 1} como principal`}
+                      aria-label={`Definir foto ${i + 1} como principal`}
                     >
                       <Star size={12} fill={item.isMain ? "currentColor" : "none"} />
                     </button>
