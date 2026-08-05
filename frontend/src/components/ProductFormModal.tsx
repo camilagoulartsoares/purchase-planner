@@ -463,7 +463,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
                   <div key={item.kind === "existing" ? item.id : item.key} className="relative shrink-0">
                     <img
                       src={item.url}
-                      alt=""
+                      alt={`Foto ${i + 1} de ${gallery.length}`}
                       className={`h-28 w-20 rounded-md object-cover ${
                         item.isMain ? "ring-2 ring-rose" : "ring-1 ring-black/10"
                       }`}
