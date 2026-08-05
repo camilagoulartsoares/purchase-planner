@@ -109,7 +109,7 @@ function ModalSelect({
               aria-selected={option === value}
             >
               <span>{selectLabel(option)}</span>
-              {option === value ? <Check size={14} /> : null}
+              {option === value ? <Check size={14} aria-hidden="true" /> : null}
             </button>
           ))}
         </div>
