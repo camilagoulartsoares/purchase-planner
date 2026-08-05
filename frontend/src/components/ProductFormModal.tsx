@@ -95,7 +95,7 @@ function ModalSelect({
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="modal-select-menu" role="listbox">
+        <div className="modal-select-menu" role="listbox" aria-label={label}>
           {options.map((option) => (
             <button
               key={option}
