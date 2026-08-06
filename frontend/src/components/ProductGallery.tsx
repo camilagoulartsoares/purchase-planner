@@ -155,6 +155,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 className={`h-16 w-12 shrink-0 overflow-hidden rounded-md border ${
                   i === index ? "border-rose" : "border-line"
                 }`}
+                title={`Ver foto ${i + 1}`}
               >
                 <img src={mediaUrl(img.imageUrl)} alt="" className="h-full w-full object-cover" />
               </button>
