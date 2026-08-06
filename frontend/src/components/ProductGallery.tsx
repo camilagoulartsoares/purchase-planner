@@ -92,6 +92,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 className={`${arrowClass} left-2`}
                 onClick={prev}
                 aria-label="Foto anterior"
+                title="Foto anterior"
               >
                 <ChevronLeft size={compact ? 16 : 18} />
               </button>
