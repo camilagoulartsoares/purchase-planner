@@ -179,6 +179,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
               setZoomed(false);
             }}
             aria-label="Fechar"
+            title="Fechar foto ampliada"
           >
             <X size={18} />
           </button>
