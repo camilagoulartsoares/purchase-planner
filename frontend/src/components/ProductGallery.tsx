@@ -138,6 +138,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                     setIndex(i);
                   }}
                   aria-label={`Foto ${i + 1}`}
+                  aria-current={i === index ? "true" : undefined}
                 />
               ))}
             </div>
