@@ -118,6 +118,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 setZoomed(true);
               }}
               aria-label="Ampliar"
+              title="Ampliar foto"
             >
               <ZoomIn size={16} />
             </button>
