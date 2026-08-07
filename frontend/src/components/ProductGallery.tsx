@@ -194,6 +194,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2"
                 onClick={prev}
                 aria-label="Foto anterior"
+                title="Foto anterior ampliada"
               >
                 <ChevronLeft size={22} />
               </button>
