@@ -34,7 +34,9 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
   async search(query: ShopperQuery) {
     if (!this.available()) return [];
     const params = new URLSearchParams({ engine: "google_shopping", q: query.query, gl: "br", hl: "pt-br", num: "20", api_key: env.serpApi.apiKey });
-    if (query.maxPrice != null) params.set("max_price", String(query.maxPrice));
+    // Google Shopping via SerpApi pode retornar uma lista vazia no Brasil quando
+    // recebe max_price, mesmo havendo itens abaixo do teto. Buscamos o catálogo
+    // normal e aplicamos o limite rígido localmente em visibleResults().
     let response: Response;
     try {
       response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) });
