@@ -93,3 +93,9 @@ npx --prefix backend prisma migrate deploy
 ```
 
 Para testar, entre na Home, abra **Encontre para mim** e envie: `Quero um Crocs até R$ 70`. Com uma `SERPAPI_API_KEY` válida, os cards retornam produtos reais; use **Salvar** para Meus achados ou **Planner** para criar uma peça na lista.
+
+## Lojas e orçamento do Personal Shopper
+
+O provider inicial é o Google Shopping via SerpApi. Os resultados podem incluir Mercado Livre, Shopee e outras lojas na mesma busca. Um teto rígido, como `até R$ 80`, é aplicado sobre os preços reais recebidos do provider: itens acima desse valor não são exibidos.
+
+Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProvider`, permitindo adicionar integrações diretas no futuro sem alterar o chat, os cards, Meus achados ou o Planner.
