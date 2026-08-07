@@ -157,6 +157,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 }`}
                 title={`Ver foto ${i + 1}`}
                 aria-label={`Ver foto ${i + 1}`}
+                aria-current={i === index ? "true" : undefined}
               >
                 <img src={mediaUrl(img.imageUrl)} alt="" className="h-full w-full object-cover" />
               </button>
