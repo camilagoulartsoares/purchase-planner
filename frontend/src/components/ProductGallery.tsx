@@ -101,7 +101,6 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
                 className={`${arrowClass} right-2`}
                 onClick={next}
                 aria-label="Próxima foto"
-                title="Próxima foto ampliada"
                 title="Próxima foto"
               >
                 <ChevronRight size={compact ? 16 : 18} />
