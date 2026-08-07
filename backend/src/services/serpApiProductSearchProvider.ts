@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { AppError } from "../middlewares/errorHandler.js";
 import type { ProductSearchProvider, SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 
 type SerpResult = {
@@ -34,7 +35,12 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
     if (!this.available()) return [];
     const params = new URLSearchParams({ engine: "google_shopping", q: query.query, gl: "br", hl: "pt-br", num: "20", api_key: env.serpApi.apiKey });
     if (query.maxPrice != null) params.set("max_price", String(query.maxPrice));
-    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(15_000) });
+    let response: Response;
+    try {
+      response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) });
+    } catch {
+      throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
+    }
     if (!response.ok) throw new Error("Não foi possível consultar o Google Shopping agora.");
     const body = await response.json() as { shopping_results?: SerpResult[] };
     const seen = new Set<string>();
