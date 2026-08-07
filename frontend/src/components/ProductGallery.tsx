@@ -80,7 +80,7 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           onTouchEnd={onTouchEnd}
         >
           {src ? (
-            <img src={src} alt={alt} className="h-full w-full object-cover" draggable={false} />
+            <img src={src} alt={alt} className="h-full w-full object-cover" draggable={false} decoding="async" />
           ) : (
             <div className="grid h-full place-items-center text-sm text-muted">Sem foto</div>
           )}
