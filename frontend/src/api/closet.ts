@@ -12,6 +12,8 @@ import type {
   User,
   Finding,
   FindingInput,
+  ShopperConversation,
+  ShopperReply,
 } from "../types";
 
 export async function register(data: { name: string; email: string; password: string }) {
@@ -183,4 +185,24 @@ export async function askShoppingAssistant(message: string) {
     reasoningFactors: string[]; warnings: string[]; mode: "ai" | "local";
     products: Array<{ id: string; name: string; category: string; brand: string; store: string; price: number; imageUrl: string | null }>;
   };
+}
+
+export async function fetchShopperConversations() {
+  const res = await api.get("/personal-shopper/conversations");
+  return res.data.data as ShopperConversation[];
+}
+
+export async function fetchShopperConversation(id: string) {
+  const res = await api.get(`/personal-shopper/conversations/${id}`);
+  return res.data.data as { id: string; messages: Array<{ role: "user" | "assistant"; content: string; createdAt: string }>; searches: Array<{ results: ShopperReply["results"] }> };
+}
+
+export async function sendShopperMessage(message: string, conversationId?: string) {
+  const res = await api.post("/personal-shopper/messages", { message, conversationId }, { timeout: 35000 });
+  return res.data.data as ShopperReply;
+}
+
+export async function shopperAction(conversationId: string, resultId: string, action: "save" | "add-to-planner") {
+  const res = await api.post(`/personal-shopper/conversations/${conversationId}/actions`, { resultId, action }, { timeout: 30000 });
+  return res.data.data as { action: string; finding?: Finding; product?: Product };
 }

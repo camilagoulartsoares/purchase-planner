@@ -24,6 +24,7 @@ import { AppShell } from "../components/AppShell";
 import { HomeSkeleton, ProductGridSkeleton } from "../components/Skeletons";
 import { FindingsSection } from "../components/FindingsSection";
 import { ShoppingAssistant } from "../components/ShoppingAssistant";
+import { PersonalShopper } from "../components/PersonalShopper";
 import { buildPromoByProductId } from "../utils/promo";
 
 const emptyQuery: ProductQuery & {
@@ -776,6 +777,8 @@ export function HomePage() {
       ) : null}
 
       <FindingsSection />
+
+      <PersonalShopper />
 
       <ShoppingAssistant />
 

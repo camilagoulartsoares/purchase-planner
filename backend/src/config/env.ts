@@ -45,6 +45,14 @@ export const env = {
     apiUrl: process.env.AI_API_URL || "https://api.openai.com/v1/chat/completions",
     model: process.env.AI_MODEL || "gpt-4o-mini",
   },
+  shopperAi: {
+    apiKey: process.env.SHOPPER_AI_API_KEY || process.env.AI_API_KEY || "",
+    apiUrl: process.env.SHOPPER_AI_API_URL || "https://api.openai.com/v1/responses",
+    model: process.env.SHOPPER_AI_MODEL || process.env.AI_MODEL || "gpt-4o-mini",
+  },
+  serpApi: {
+    apiKey: process.env.SERPAPI_API_KEY || "",
+  },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
     apiKey: process.env.CLOUDINARY_API_KEY || "",

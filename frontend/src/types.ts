@@ -152,10 +152,17 @@ export type Finding = {
   normalizedUrl: string;
   category: string | null;
   availability: string | null;
+  provider?: string | null;
+  foundAt?: string | null;
   media: FindingMedia[];
   createdAt: string;
   updatedAt: string;
 };
+
+export type ShopperQuery = { query: string; category: string | null; maxPrice: number | null; maxPriceIsHard: boolean; currency: "BRL"; colors: string[]; size: string | null; brands: string[]; usage: string | null; style: string[]; exclude: string[]; originalOnly: boolean; sortPreference: "best_match" | "lowest_price" | "best_rated" };
+export type ShopperResult = { id: string; provider: string; title: string; price: number | null; previousPrice: number | null; currency: "BRL"; store: string | null; brand: string | null; imageUrl: string | null; productUrl: string; rating: number | null; reviewCount: number | null; shipping: string | null; availability: string | null; discountPercent: number | null; match: { query: number; budget: number; style: number; completeness: number; total: number }; reason: string };
+export type ShopperConversation = { id: string; title: string | null; updatedAt: string; _count?: { messages: number } };
+export type ShopperReply = { conversationId: string; query: ShopperQuery; answer: string; results: ShopperResult[]; provider: string; suggestions: string[] };
 
 export type FindingInput = Omit<Finding, "id" | "normalizedUrl" | "createdAt" | "updatedAt">;
 

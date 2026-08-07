@@ -14,6 +14,8 @@ export type FindingPayload = {
   originalUrl?: string;
   category?: string | null;
   availability?: string | null;
+  provider?: string | null;
+  foundAt?: string | Date | null;
   media?: FindingMediaInput[];
 };
 
@@ -67,6 +69,8 @@ function dataFrom(payload: FindingPayload, requireUrl: boolean) {
     ...(payload.currency !== undefined ? { currency: nullableString(payload.currency)?.toUpperCase() || "BRL" } : {}),
     ...(payload.category !== undefined ? { category: nullableString(payload.category) } : {}),
     ...(payload.availability !== undefined ? { availability: nullableString(payload.availability) } : {}),
+    ...(payload.provider !== undefined ? { provider: nullableString(payload.provider) } : {}),
+    ...(payload.foundAt !== undefined ? { foundAt: payload.foundAt ? new Date(payload.foundAt) : null } : {}),
   };
 }
 
@@ -77,7 +81,7 @@ export const findingService = {
     const existing = await prisma.finding.findUnique({ where: { userId_normalizedUrl: { userId, normalizedUrl: data.normalizedUrl! } } });
     if (existing) throw new AppError("Este produto ja esta salvo nos seus achados.", 409);
     const finding = await prisma.finding.create({
-      data: { userId, title: data.title || "", brand: data.brand, store: data.store, description: data.description, price: data.price, previousPrice: data.previousPrice, currency: data.currency || "BRL", originalUrl: data.originalUrl!, normalizedUrl: data.normalizedUrl!, category: data.category, availability: data.availability, media: { create: media.map((item, position) => ({ ...item, position })) } },
+      data: { userId, title: data.title || "", brand: data.brand, store: data.store, description: data.description, price: data.price, previousPrice: data.previousPrice, currency: data.currency || "BRL", originalUrl: data.originalUrl!, normalizedUrl: data.normalizedUrl!, category: data.category, availability: data.availability, provider: data.provider, foundAt: data.foundAt, media: { create: media.map((item, position) => ({ ...item, position })) } },
       include: { media: true },
     });
     return serialize(finding);

@@ -61,3 +61,35 @@ npm --prefix backend run build
 npm --prefix frontend run build
 npm --prefix backend test
 ```
+
+## Encontre para mim — Personal Shopper IA
+
+A Home agora inclui a área **Encontre para mim**, com conversa contextual e cards de produtos reais retornados pelo Google Shopping via SerpApi. A busca preserva o contexto da conversa (por exemplo, cor, tamanho e orçamento), mantém histórico e permite salvar o resultado em **Meus achados** ou adicioná-lo diretamente ao Planner.
+
+Os dados comerciais exibidos nos cards — preço, loja, imagem, frete, avaliação e link — vêm exclusivamente do provider. Quando um dado não é fornecido pela fonte, ele não é inventado nem exibido.
+
+### Variáveis do backend
+
+Configure estas variáveis no arquivo `backend/.env` para desenvolvimento e no serviço do Render para produção:
+
+```env
+# Obrigatória para consultar produtos reais no Google Shopping
+SERPAPI_API_KEY=sua_chave_da_serpapi
+
+# Opcional, mas recomendada para interpretar pedidos conversacionais com a Responses API.
+# Se ausente, a aplicação usa o interpretador local como fallback.
+SHOPPER_AI_API_KEY=sua_chave_da_openai
+SHOPPER_AI_API_URL=https://api.openai.com/v1/responses
+SHOPPER_AI_MODEL=gpt-4o-mini
+```
+
+`SHOPPER_AI_API_KEY` pode reutilizar `AI_API_KEY` caso já esteja configurada. Nenhuma dessas chaves deve ser criada no frontend ou na Vercel. O frontend continua usando apenas `VITE_API_URL` para apontar para a API publicada.
+
+Depois de configurar `DATABASE_URL`, aplique a migration do Personal Shopper no backend:
+
+```bash
+npm --prefix backend run prisma:generate
+npx --prefix backend prisma migrate deploy
+```
+
+Para testar, entre na Home, abra **Encontre para mim** e envie: `Quero um Crocs até R$ 70`. Com uma `SERPAPI_API_KEY` válida, os cards retornam produtos reais; use **Salvar** para Meus achados ou **Planner** para criar uma peça na lista.

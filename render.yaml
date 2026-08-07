@@ -42,6 +42,15 @@ services:
         sync: false
       - key: MELI_TOKEN_ENCRYPTION_KEY
         sync: false
+      # Personal Shopper IA: segredos configurados diretamente no Render.
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: SHOPPER_AI_API_KEY
+        sync: false
+      - key: SHOPPER_AI_API_URL
+        value: https://api.openai.com/v1/responses
+      - key: SHOPPER_AI_MODEL
+        value: gpt-4o-mini
 
 databases:
   - name: closet-sonhos-db

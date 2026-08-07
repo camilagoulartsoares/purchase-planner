@@ -116,6 +116,19 @@ export const shoppingAssistantSchema = z.object({
   message: z.string().trim().min(2, "Escreva uma pergunta para o assistente.").max(700, "A mensagem pode ter no máximo 700 caracteres."),
 });
 
+export const personalShopperMessageSchema = z.object({
+  conversationId: z.string().cuid().optional(),
+  message: z.string().trim().min(2, "Escreva o que você procura.").max(700, "A mensagem pode ter no máximo 700 caracteres."),
+});
+
+export const personalShopperActionSchema = z.object({
+  resultId: z.string().min(1),
+  action: z.enum(["save", "add-to-planner"]),
+  category: z.string().max(80).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  purchaseIntent: z.enum(["NEED", "WANT"]).optional(),
+});
+
 export const productQuerySchema = z.object({
   search: z.string().optional(),
   department: z.enum(DEPARTMENTS).or(z.literal("")).optional(),
