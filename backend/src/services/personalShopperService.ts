@@ -25,6 +25,17 @@ function localQuery(message: string, previous: ShopperQuery | null): ShopperQuer
   return querySchema.parse({ ...inherited, query: explicitProduct ? message : query, category: categoryFrom(message) || inherited?.category || null, maxPrice: maxPrice ?? inherited?.maxPrice ?? null, maxPriceIsHard: maxPrice != null ? hardBudget : inherited?.maxPriceIsHard || false, colors: requestedColors.length ? requestedColors : inherited?.colors || [], size, originalOnly: /original|oficial/.test(text) || inherited?.originalOnly || false, style: [...new Set([...(inherited?.style || []), ...["clean", "delicado", "elegante", "minimalista", "casual"].filter((word) => text.includes(word))])], usage: /academia/.test(text) ? "academia" : /trabalho/.test(text) ? "trabalho" : inherited?.usage || null, sortPreference: /mais barato/.test(text) ? "lowest_price" : /avali/.test(text) ? "best_rated" : "best_match" });
 }
 
+function enforceExplicitConstraints(query: ShopperQuery, message: string, previous: ShopperQuery | null) {
+  const text = plain(message);
+  const mentionedPrice = moneyFrom(message);
+  const hardBudget = /\bate\b|\bno maximo\b|\bso posso\b|\btem que ser\b|\bnao passar\b/.test(text);
+  return querySchema.parse({
+    ...query,
+    maxPrice: mentionedPrice ?? query.maxPrice ?? previous?.maxPrice ?? null,
+    maxPriceIsHard: mentionedPrice != null ? hardBudget : query.maxPriceIsHard || previous?.maxPriceIsHard || false,
+  });
+}
+
 async function aiQuery(message: string, previous: ShopperQuery | null) {
   if (!env.shopperAi.apiKey) return null;
   const tool = { type: "function", name: "search_products", description: "Interpreta o pedido de compra em critérios de busca. Nunca retorna catálogo.", strict: true, parameters: { type: "object", additionalProperties: false, properties: { query: { type: "string" }, category: { type: ["string", "null"] }, maxPrice: { type: ["number", "null"] }, maxPriceIsHard: { type: "boolean" }, currency: { type: "string", enum: ["BRL"] }, colors: { type: "array", items: { type: "string" } }, size: { type: ["string", "null"] }, brands: { type: "array", items: { type: "string" } }, usage: { type: ["string", "null"] }, style: { type: "array", items: { type: "string" } }, exclude: { type: "array", items: { type: "string" } }, originalOnly: { type: "boolean" }, sortPreference: { type: "string", enum: ["best_match", "lowest_price", "best_rated"] } }, required: ["query", "category", "maxPrice", "maxPriceIsHard", "currency", "colors", "size", "brands", "usage", "style", "exclude", "originalOnly", "sortPreference"] } };
@@ -49,7 +60,8 @@ export const personalShopperService = {
     if (!conversation) throw new AppError("Conversa não encontrada.", 404);
     const previous = conversation.context ? querySchema.safeParse(conversation.context).data || null : null;
     await prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "user", content: message } });
-    const query = await aiQuery(message, previous) || localQuery(message, previous);
+    const interpreted = await aiQuery(message, previous) || localQuery(message, previous);
+    const query = enforceExplicitConstraints(interpreted, message, previous);
     const last = await prisma.shopperSearch.findFirst({ where: { conversationId: conversation.id, provider: "serpapi-google-shopping", createdAt: { gte: new Date(Date.now() - 15 * 60_000) }, query: { equals: json(query) } }, orderBy: { createdAt: "desc" } });
     const provider = new SerpApiProductSearchProvider();
     if (!provider.available()) throw new AppError("Busca externa ainda não está configurada. Configure SERPAPI_API_KEY no backend.", 503);
