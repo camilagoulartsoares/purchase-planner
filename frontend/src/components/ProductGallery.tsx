@@ -172,6 +172,8 @@ export function ProductGallery({ images, alt, className = "", compact }: Props) 
           onClick={() => setZoomed(false)}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
+          role="dialog"
+          aria-modal="true"
         >
           <button
             type="button"
