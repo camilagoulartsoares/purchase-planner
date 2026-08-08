@@ -10,3 +10,4 @@ A result can be saved to Meus achados while retaining its provider and discovery
 A priced external result can be added directly to the Planner as a WANT item.
 The interface supports selecting up to three returned products for side-by-side comparison.
 Slow provider responses receive a friendly unavailable-source response instead of an internal error.
+Google Shopping may include Mercado Livre, Shopee and other stores in the same result set.
