@@ -13,3 +13,4 @@ Slow provider responses receive a friendly unavailable-source response instead o
 Google Shopping may include Mercado Livre, Shopee and other stores in the same result set.
 New direct marketplace integrations can implement ProductSearchProvider without changing the chat.
 The intent model interprets a request but never creates product, store, price or URL data.
+Product cards expose the source URL in a separate new-tab action.
