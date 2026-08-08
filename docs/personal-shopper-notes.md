@@ -12,3 +12,4 @@ The interface supports selecting up to three returned products for side-by-side 
 Slow provider responses receive a friendly unavailable-source response instead of an internal error.
 Google Shopping may include Mercado Livre, Shopee and other stores in the same result set.
 New direct marketplace integrations can implement ProductSearchProvider without changing the chat.
+The intent model interprets a request but never creates product, store, price or URL data.
