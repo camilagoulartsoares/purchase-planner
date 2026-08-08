@@ -8,3 +8,4 @@ Follow-up preferences such as color keep the active conversation budget and prod
 Conversation context and normalized result snapshots are persisted for reopening a search.
 A result can be saved to Meus achados while retaining its provider and discovery date.
 A priced external result can be added directly to the Planner as a WANT item.
+The interface supports selecting up to three returned products for side-by-side comparison.
