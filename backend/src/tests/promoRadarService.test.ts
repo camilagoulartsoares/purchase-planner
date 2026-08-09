@@ -5,6 +5,7 @@ import {
   extractStructuredPriceData,
   matchProductToPage,
   normalizeUrl,
+  requestedSizeAvailability,
 } from "../services/promoRadarService.js";
 import type { ProductWithRelations } from "../repositories/productRepository.js";
 
@@ -80,6 +81,12 @@ function makePage(html: string, overrides: Partial<{
 }
 
 describe("promoRadarService", () => {
+  it("identifica tamanho P indisponivel em seletores de lojas diferentes", () => {
+    expect(requestedSizeAvailability('<select aria-label="Tamanho"><option>P</option><option disabled>M</option></select>', "P")).toBe(true);
+    expect(requestedSizeAvailability('<button class="size sold-out">P</button><button class="size">M</button>', "P")).toBe(false);
+    expect(requestedSizeAvailability('<script>{"option1":"P","available":false}</script>', "P")).toBe(false);
+  });
+
   it("normaliza URL removendo tracking e barra final", () => {
     expect(
       normalizeUrl(
