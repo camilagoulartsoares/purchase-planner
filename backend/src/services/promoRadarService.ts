@@ -109,6 +109,7 @@ type PageProductData = {
   category: string | null;
   color: string | null;
   size: string | null;
+  availableSizes?: string[];
   sku: string | null;
   description: string | null;
   title: string | null;
@@ -567,6 +568,23 @@ function detectAvailability(text: string, html: string, jsonLdProducts: Record<s
   return "unknown" as const;
 }
 
+function extractAvailableSizes(html: string) {
+  const sizeArea = html.match(/<div\b[^>]*class=["'][^"']*\bvariacoes\b[^"']*["'][^>]*>[\s\S]{0,12000}?<div\b[^>]*class=["'][^"']*\bbotoes\b/i)?.[0] || "";
+  if (!/tamanhos?/i.test(sizeArea)) return [];
+  return uniqueStrings(
+    [...sizeArea.matchAll(/<div\b[^>]*class=["'][^"']*\bitem\b[^"']*["'][^>]*>\s*([^<]+?)\s*<\/div>/gi)]
+      .map((match) => match[1].replace(/&nbsp;/gi, " ").trim())
+      .filter(Boolean),
+  );
+}
+
+function pageHasRequestedSize(html: string, requestedSize: string) {
+  const sizes = extractAvailableSizes(html);
+  if (!sizes.length) return false;
+  const wanted = normalizeText(requestedSize);
+  return sizes.some((size) => normalizeText(size) === wanted);
+}
+
 function extractConditionalOffers(html: string, visibleText: string) {
   const offers: ConditionalOffer[] = [];
 
@@ -747,6 +765,7 @@ function parsePageData(page: FetchPageResult) {
     category: String(jsonLdCategory || embeddedCategory || "").trim() || null,
     color: String(embeddedColor || "").trim() || null,
     size: String(embeddedSize || "").trim() || null,
+    availableSizes: extractAvailableSizes(html),
     sku: String(jsonLdSku || embeddedSku || "").trim() || null,
     description: String(jsonLdDescription || description || "").trim() || null,
     title: title || null,
@@ -989,6 +1008,12 @@ export function analyzeProductWithPage(
     };
   }
 
+  const availableSizes = pageData.availableSizes || [];
+  const requestedSizeUnavailable = Boolean(
+    product.size && availableSizes.length && !availableSizes.some((size) => normalizeText(size) === normalizeText(product.size!)),
+  );
+  if (requestedSizeUnavailable) logs.push(`tamanho solicitado ${product.size} indisponivel; tamanhos ativos: ${availableSizes.join(", ")}`);
+
   const originalPrice = round2(pageData.prices.original);
   const salePrice = round2(pageData.prices.current);
   const discountPercentage = percentOff(originalPrice, salePrice);
@@ -1003,11 +1028,13 @@ export function analyzeProductWithPage(
     evidence.push(`Desconto principal de ${discountPercentage}% confirmado`);
   }
 
-  let status: PromoRadarStatus = statusFromPage;
+  let status: PromoRadarStatus = requestedSizeUnavailable ? "out_of_stock" : statusFromPage;
   let reason: string | null = null;
 
   if (status === "out_of_stock") {
-    reason = "Produto identificado como indisponivel na pagina";
+    reason = requestedSizeUnavailable
+      ? `Tamanho ${product.size} indisponivel na pagina`
+      : "Produto identificado como indisponivel na pagina";
   } else if (salePrice == null && originalPrice == null) {
     status = "price_not_found";
     reason = "Nao foi possivel identificar preco principal na pagina";
@@ -1015,6 +1042,7 @@ export function analyzeProductWithPage(
 
   const isOnSale =
     match.productMatched &&
+    !requestedSizeUnavailable &&
     originalPrice != null &&
     salePrice != null &&
     salePrice < originalPrice &&
@@ -1256,7 +1284,7 @@ async function discoverUseElizahPromotions(): Promise<ExternalPromotion[]> {
       /<div class="prod\b[\s\S]*?<a href="([^"?#]+)\/[^"]*"[\s\S]*?<h3[^>]*>([^<]+)<\/h3>[\s\S]*?<p class="valor_de">[\s\S]*?R\$\s*([\d.,]+)[\s\S]*?<p class="valor(?:_final)?"><span>R\$\s*([\d.,]+)/gi,
     )];
 
-    return cards
+    const promotions = cards
       .map<ExternalPromotion | null>((match) => {
         const originalPrice = moneyFromBrazilian(match[3]);
         const salePrice = moneyFromBrazilian(match[4]);
@@ -1281,6 +1309,19 @@ async function discoverUseElizahPromotions(): Promise<ExternalPromotion[]> {
       .filter((item): item is ExternalPromotion => Boolean(item))
       .sort((a, b) => b.discountPercentage - a.discountPercentage)
       .slice(0, 12);
+
+    // The Elizah home page lists offers even when a specific size sold out.
+    // The planner uses P for this account, so only show promotions whose
+    // product page still exposes P as an active size.
+    const available = await mapWithConcurrency(promotions, 4, async (promotion) => {
+      try {
+        const detail = await fetchPage(promotion.purchaseUrl);
+        return !detail.blocked && !detail.unavailable && pageHasRequestedSize(detail.html, "P") ? promotion : null;
+      } catch {
+        return null;
+      }
+    });
+    return available.filter((item): item is ExternalPromotion => Boolean(item));
   } catch {
     return [];
   }

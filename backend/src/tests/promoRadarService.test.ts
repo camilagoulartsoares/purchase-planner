@@ -201,6 +201,25 @@ describe("promoRadarService", () => {
     expect(result.availability).toBe("out_of_stock");
   });
 
+  it("remove a promocao quando o tamanho salvo nao esta entre os tamanhos ativos", () => {
+    const product = makeProduct({ size: "P" });
+    const page = makePage(`
+      <title>Legging Detalhes Preto</title>
+      <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Product","name":"Legging Detalhes Preto","brand":{"@type":"Brand","name":"Cha Matte"},"offers":{"@type":"Offer","price":"156.92","priceCurrency":"BRL","availability":"https://schema.org/InStock"}}
+      </script>
+      <div class="variacoes"><div class="t">Tamanhos</div><div class="list"><div class="item">M</div><div class="item">G</div></div><div class="botoes">
+      <del data-total-compare-price>R$ 170,00</del><ins data-total-price>R$ 156,92</ins>
+    `);
+
+    const result = analyzeProductWithPage(product, page);
+
+    expect(result.status).toBe("out_of_stock");
+    expect(result.isOnSale).toBe(false);
+    expect(result.autoDisplayEligible).toBe(false);
+    expect(result.reason).toContain("Tamanho P indisponivel");
+  });
+
   it("retorna price_not_found quando nao acha preco principal", () => {
     const product = makeProduct();
     const page = makePage(`
