@@ -250,6 +250,13 @@ export function HomePage() {
     [externalPromotions],
   );
 
+  const bodyWithPAvailable = useCallback((item: Product) => {
+    if (!/^body\b/i.test(item.name) && !/^bodies?$/i.test(item.category)) return true;
+    return promoRadar?.products.some((result) => result.productId === item.id && result.availability === "in_stock") || false;
+  }, [promoRadar]);
+  const visibleItems = useMemo(() => items.filter(bodyWithPAvailable), [bodyWithPAvailable, items]);
+  const eligiblePlannerItems = useMemo(() => plannerItems.filter(bodyWithPAvailable), [bodyWithPAvailable, plannerItems]);
+
   const refreshMercadoLivreStatus = useCallback(async () => {
     try {
       const [config, status] = await Promise.all([
@@ -493,10 +500,10 @@ export function HomePage() {
   const priceEnd = ((priceMax - MIN_FILTER_PRICE) / (MAX_FILTER_PRICE - MIN_FILTER_PRICE)) * 100;
 
   const planner = useMemo(() => {
-    const wanted = plannerItems.filter(
+    const wanted = eligiblePlannerItems.filter(
       (item) => item.status !== "Já comprei" && item.status !== "Desisti da compra",
     );
-    const repurchasable = plannerItems.filter((item) => item.status === "Já comprei");
+    const repurchasable = eligiblePlannerItems.filter((item) => item.status === "Já comprei");
     const total = wanted.reduce((sum, item) => sum + item.effectivePrice, 0);
 
     const baseCandidates: PlannerCandidate[] = [
@@ -610,7 +617,7 @@ export function HomePage() {
         ? "Aceita folga para priorizar peças mais fortes, promoções e favoritos."
         : "Tenta encostar no teto do orçamento para montar um combo mais justo.",
     };
-  }, [allowDuplicates, allowRemainder, allowRepurchase, monthlyBudget, plannerItems]);
+  }, [allowDuplicates, allowRemainder, allowRepurchase, eligiblePlannerItems, monthlyBudget]);
 
   const resetFilters = () =>
     setQuery({ ...emptyQuery, department: query.department, status: query.status });
@@ -1302,14 +1309,14 @@ export function HomePage() {
 
       {loading ? (
         <ProductGridSkeleton />
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <div className="card-soft py-16 text-center">
           <p className="font-display text-2xl text-brown-deep">Nenhuma peça por aqui</p>
           <p className="mt-2 text-sm text-muted">Adicione algo quando quiser, no seu ritmo.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <ProductCard
               key={item.id}
               product={item}
