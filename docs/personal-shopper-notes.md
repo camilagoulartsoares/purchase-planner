@@ -25,3 +25,4 @@ The link review modal uses the device viewport height and its content scrolls in
 Media thumbnails remain horizontally scrollable when a linked product has many images or videos.
 The review form keeps its save and cancel controls visible while its fields scroll on mobile.
 A current price is required before a linked item can be added to the price-aware Planner.
+When available, store and brand information from the preview are reused in the Planner item.
