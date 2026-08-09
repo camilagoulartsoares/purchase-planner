@@ -22,3 +22,4 @@ The link review form uses the existing category list to choose a clothing type b
 Planner items created from a link retain the original store URL for later shopping.
 On small screens, finding card actions wrap below the product content for readable controls.
 The link review modal uses the device viewport height and its content scrolls internally on mobile.
+Media thumbnails remain horizontally scrollable when a linked product has many images or videos.
