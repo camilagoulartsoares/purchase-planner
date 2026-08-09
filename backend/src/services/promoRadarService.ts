@@ -1009,11 +1009,14 @@ export function analyzeProductWithPage(
     };
   }
 
+  // Older cards did not store the selected size.  For this planner, P is the
+  // default preference, so an empty legacy field must not bypass stock checks.
+  const requestedSize = product.size || "P";
   const availableSizes = pageData.availableSizes || [];
   const requestedSizeUnavailable = Boolean(
-    product.size && availableSizes.length && !availableSizes.some((size) => normalizeText(size) === normalizeText(product.size!)),
+    availableSizes.length && !availableSizes.some((size) => normalizeText(size) === normalizeText(requestedSize)),
   );
-  if (requestedSizeUnavailable) logs.push(`tamanho solicitado ${product.size} indisponivel; tamanhos ativos: ${availableSizes.join(", ")}`);
+  if (requestedSizeUnavailable) logs.push(`tamanho solicitado ${requestedSize} indisponivel; tamanhos ativos: ${availableSizes.join(", ")}`);
 
   const originalPrice = round2(pageData.prices.original);
   const salePrice = round2(pageData.prices.current);
@@ -1034,7 +1037,7 @@ export function analyzeProductWithPage(
 
   if (status === "out_of_stock") {
     reason = requestedSizeUnavailable
-      ? `Tamanho ${product.size} indisponivel na pagina`
+      ? `Tamanho ${requestedSize} indisponivel na pagina`
       : "Produto identificado como indisponivel na pagina";
   } else if (salePrice == null && originalPrice == null) {
     status = "price_not_found";
