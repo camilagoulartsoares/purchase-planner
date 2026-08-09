@@ -19,3 +19,4 @@ Promotion cards are based on confirmed current campaigns instead of a fixed cata
 An expired campaign is omitted by the next promotion scan and cannot remain marked as a discount.
 A saved product link also creates a Planner item so it can be organized with existing products.
 The link review form uses the existing category list to choose a clothing type before saving.
+Planner items created from a link retain the original store URL for later shopping.
