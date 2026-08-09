@@ -8,7 +8,7 @@ export const brandRepository = {
       orderBy: { name: "asc" },
       include: {
         products: {
-          where: { availability: { not: "out_of_stock" } },
+          where: { OR: [{ availability: null }, { availability: { not: "out_of_stock" } }] },
           include: { images: { orderBy: { position: "asc" } } },
         },
       },
@@ -20,7 +20,7 @@ export const brandRepository = {
       where: { userId, slug },
       include: {
         products: {
-          where: { availability: { not: "out_of_stock" } },
+          where: { OR: [{ availability: null }, { availability: { not: "out_of_stock" } }] },
           include: { images: { orderBy: { position: "asc" } } },
           orderBy: { createdAt: "desc" },
         },
