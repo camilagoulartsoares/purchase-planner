@@ -147,6 +147,7 @@ export type Finding = {
   description: string | null;
   price: number | null;
   previousPrice: number | null;
+  shippingPrice?: number | null;
   currency: string;
   originalUrl: string;
   normalizedUrl: string;
@@ -256,6 +257,7 @@ export type PromoRadarResponse = {
     imageUrl: string | null;
     detectedAt: string;
   }>;
+  removedProductIds?: string[];
 };
 
 export type MercadoLivrePublicConfig = {

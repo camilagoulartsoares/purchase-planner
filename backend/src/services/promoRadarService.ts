@@ -82,6 +82,7 @@ export type PromoRadarResponse = {
   products: ProductPromoRadarResult[];
   brands: PromoRadarBrandSummary[];
   externalPromotions: ExternalPromotion[];
+  removedProductIds?: string[];
 };
 
 type CacheEntry = {
@@ -128,7 +129,7 @@ type PageProductData = {
 
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, PromoRadarExecution>();
-const CACHE_TTL_MS = 1000 * 60 * 20;
+const CACHE_TTL_MS = 1000 * 60 * 2;
 const MAX_PRODUCTS_TO_SCAN = 120;
 const PRODUCT_SCAN_CONCURRENCY = 4;
 const DOMAIN_SCAN_CONCURRENCY = 2;
@@ -1420,11 +1421,21 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
   );
 
   const domainCampaigns = new Map<string, string[]>(domainEntries);
+  const removedProductIds = results
+    .filter((result) => result.status === "out_of_stock")
+    .map((result) => result.productId);
+  await Promise.all(
+    products
+      .filter((product) => removedProductIds.includes(product.id) && product.status === "Quero comprar")
+      .map((product) => productRepository.update(product.id, { status: "Desisti da compra", availability: "out_of_stock" })),
+  );
+
   const data = {
     generatedAt: nowIso(),
     products: results,
     brands: buildBrandSummaries(products, results, domainCampaigns),
     externalPromotions,
+    removedProductIds,
   } satisfies PromoRadarResponse;
 
   cache.set(userId, {

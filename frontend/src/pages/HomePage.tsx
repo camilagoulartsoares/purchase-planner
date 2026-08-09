@@ -281,6 +281,13 @@ export function HomePage() {
     try {
       const promo = await api.fetchPromoRadar();
       setPromoRadar(promo);
+      if (promo.removedProductIds?.length) {
+        const unavailable = new Set(promo.removedProductIds);
+        setItems((current) => current.filter((item) => !unavailable.has(item.id)));
+        setPlannerItems((current) => current.filter((item) => !unavailable.has(item.id)));
+        setMeta((current) => ({ ...current, total: Math.max(0, current.total - unavailable.size) }));
+        setToast("Produtos indisponíveis foram removidos da lista ativa");
+      }
       const hasTrackableItems = items.some((item) => Boolean(item.purchaseUrl));
       if (promo.products.length === 0 && hasTrackableItems && promoRetryCountRef.current < 2) {
         promoRetryCountRef.current += 1;
@@ -431,6 +438,11 @@ export function HomePage() {
     if (loading || promoRadar) return;
     void refreshPromoRadar();
   }, [loading, promoRadar, refreshPromoRadar]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => void refreshPromoRadar(), 120_000);
+    return () => window.clearInterval(interval);
+  }, [refreshPromoRadar]);
 
   useEffect(() => () => clearPromoRetry(), [clearPromoRetry]);
 

@@ -1,5 +1,7 @@
 import dns from "node:dns/promises";
+import { env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
+import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js";
 
 export type FindingMediaInput = { type: "image" | "video"; url: string };
 
@@ -10,6 +12,7 @@ export type LinkPreview = {
   description: string;
   price: number | null;
   previousPrice: number | null;
+  shippingPrice: number | null;
   currency: string;
   category: string;
   originalUrl: string;
@@ -145,6 +148,13 @@ function numberOrNull(value: unknown) {
   return null;
 }
 
+function shippingFromText(value: unknown) {
+  if (typeof value !== "string") return null;
+  if (/frete\s+gr[aá]tis|entrega\s+gr[aá]tis/i.test(value)) return 0;
+  const match = value.match(/(?:frete|entrega|shipping)[^R$]{0,60}R\$\s*([\d.,]+)/i);
+  return match ? numberOrNull(match[1]) : null;
+}
+
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -235,11 +245,61 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
     price: numberOrNull(offer.price || meta(html, "product:price:amount") || pageItempropPrice || readerMainPrice || pricePair?.[2] || priceFromTitle),
     previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
+    shippingPrice: shippingFromText(productPageHtml) ?? shippingFromText(html),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
     availability: availabilityRaw.includes("instock") || availabilityRaw.includes("in_stock") ? "in_stock" : availabilityRaw.includes("outofstock") ? "out_of_stock" : "unknown",
     media: dedupeMedia([...selectedImages.map((url) => ({ type: "image" as const, url })), ...videos.map((url) => ({ type: "video" as const, url }))]),
   };
+}
+
+function previewLooksIncomplete(preview: Omit<LinkPreview, "originalUrl" | "normalizedUrl">) {
+  return !preview.title || /^www\./i.test(preview.title) || preview.price == null || !preview.media.length;
+}
+
+function previewQuery(url: string, title: string) {
+  if (title && !/^www\./i.test(title)) return title;
+  return decodeURIComponent(new URL(url).pathname).replace(/[\/_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+async function shoppingFallback(url: string, title: string) {
+  const provider = new SerpApiProductSearchProvider();
+  if (!provider.available()) return null;
+  const host = new URL(url).hostname.replace(/^www\./, "");
+  const results = await provider.search({ query: previewQuery(url, title), category: null, maxPrice: null, maxPriceIsHard: false, currency: "BRL", colors: [], size: null, brands: [], usage: null, style: [], exclude: [], originalOnly: false, sortPreference: "best_match" });
+  return results.find((item) => {
+    try { return new URL(item.productUrl).hostname.replace(/^www\./, "") === host; } catch { return false; }
+  }) || results.find((item) => item.store?.toLowerCase().replace(/[^a-z0-9]/g, "").includes(host.split(".")[0])) || null;
+}
+
+async function aiFallback(html: string, url: string) {
+  if (!env.shopperAi.apiKey || html.length < 600) return null;
+  try {
+    const response = await fetch(env.shopperAi.apiUrl, {
+      method: "POST",
+      signal: AbortSignal.timeout(18_000),
+      headers: { authorization: `Bearer ${env.shopperAi.apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: env.shopperAi.model,
+        input: [{ role: "system", content: "Extraia somente dados comprovados do HTML de uma pagina de produto. Nunca invente valores ou URLs. Retorne JSON puro com title, brand, price, previousPrice, shippingPrice, description e media (lista de {type:'image'|'video',url})." }, { role: "user", content: JSON.stringify({ url, html: html.slice(0, 70_000) }) }],
+        text: { format: { type: "json_object" } },
+      }),
+    });
+    if (!response.ok) return null;
+    const body = await response.json() as { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> };
+    const raw = body.output_text || body.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("");
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    const media = Array.isArray(data.media) ? data.media.flatMap((item): FindingMediaInput[] => {
+      if (!item || typeof item !== "object") return [];
+      const candidate = item as Record<string, unknown>;
+      const mediaUrl = typeof candidate.url === "string" ? absoluteUrl(candidate.url, new URL(url)) : null;
+      return mediaUrl && (candidate.type === "image" || candidate.type === "video") ? [{ type: candidate.type, url: mediaUrl }] : [];
+    }) : [];
+    return { title: typeof data.title === "string" ? data.title.trim() : "", brand: typeof data.brand === "string" ? data.brand.trim() : "", description: typeof data.description === "string" ? data.description.trim() : "", price: numberOrNull(data.price), previousPrice: numberOrNull(data.previousPrice), shippingPrice: numberOrNull(data.shippingPrice), media: dedupeMedia(media) };
+  } catch {
+    return null;
+  }
 }
 
 export const linkImportService = {
@@ -249,9 +309,29 @@ export const linkImportService = {
     const originalUrl = normalizeFindingUrl(response.url || finalUrl);
     const isBotCheck = new URL(originalUrl).pathname.includes("anti-bot-check");
     const isElizah = new URL(normalizedUrl).hostname.replace(/^www\./, "") === "useelizah.com.br";
-    const content = isBotCheck && isElizah ? await fetchReaderFallback(normalizedUrl) : await response.text();
+    const initialContent = await response.text();
+    const isBotContent = /anti-bot-check|checking your browser|verificando seu navegador/i.test(initialContent);
+    let content = initialContent;
+    if ((isBotCheck || isBotContent) && isElizah) {
+      try { content = await fetchReaderFallback(normalizedUrl); } catch { /* Google Shopping/AI fallback below can still recover the preview. */ }
+    }
     const productUrl = isBotCheck ? normalizedUrl : originalUrl;
     const parsed = extractProductFromHtml(content, productUrl);
-    return { ...parsed, originalUrl: productUrl, normalizedUrl: productUrl };
+    const shopping = previewLooksIncomplete(parsed) ? await shoppingFallback(productUrl, parsed.title) : null;
+    const ai = previewLooksIncomplete(parsed) && !shopping ? await aiFallback(content, productUrl) : null;
+    const media = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
+    return {
+      ...parsed,
+      title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : shopping?.title || ai?.title || "",
+      brand: parsed.brand || shopping?.brand || ai?.brand || "",
+      description: parsed.description || ai?.description || "",
+      price: parsed.price ?? shopping?.price ?? ai?.price ?? null,
+      previousPrice: parsed.previousPrice ?? shopping?.previousPrice ?? ai?.previousPrice ?? null,
+      shippingPrice: parsed.shippingPrice ?? shippingFromText(shopping?.shipping || "") ?? ai?.shippingPrice ?? null,
+      store: parsed.store || shopping?.store || new URL(productUrl).hostname.replace(/^www\./, ""),
+      media,
+      originalUrl: productUrl,
+      normalizedUrl: productUrl,
+    };
   },
 };
