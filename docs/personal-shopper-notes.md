@@ -18,3 +18,4 @@ Production uses the Render backend and the Vercel frontend with the public API U
 Promotion cards are based on confirmed current campaigns instead of a fixed catalog.
 An expired campaign is omitted by the next promotion scan and cannot remain marked as a discount.
 A saved product link also creates a Planner item so it can be organized with existing products.
+The link review form uses the existing category list to choose a clothing type before saving.
