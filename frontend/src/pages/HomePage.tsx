@@ -252,7 +252,9 @@ export function HomePage() {
 
   const bodyWithPAvailable = useCallback((item: Product) => {
     if (!/^body\b/i.test(item.name) && !/^bodies?$/i.test(item.category)) return true;
-    return promoRadar?.products.some((result) => result.productId === item.id && result.availability === "in_stock") || false;
+    // Keep bodies that are still awaiting a scan; only a confirmed stock-out
+    // can remove a card from the active interface.
+    return !promoRadar?.products.some((result) => result.productId === item.id && result.availability === "out_of_stock");
   }, [promoRadar]);
   const visibleItems = useMemo(() => items.filter(bodyWithPAvailable), [bodyWithPAvailable, items]);
   const eligiblePlannerItems = useMemo(() => plannerItems.filter(bodyWithPAvailable), [bodyWithPAvailable, plannerItems]);
