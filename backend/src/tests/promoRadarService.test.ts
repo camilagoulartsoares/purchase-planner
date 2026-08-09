@@ -171,6 +171,17 @@ describe("promoRadarService", () => {
     expect(result.reason).toContain("outro produto");
   });
 
+  it("prioriza esgotado mesmo se o nome da pagina tiver divergencia", () => {
+    const product = makeProduct({ name: "Body Amber Preto", size: null });
+    const page = makePage(`
+      <title>BODY AMBER - PRETO - Preto</title>
+      <div>ESGOTADO</div><div class="variacoes"><div>Tamanhos</div><div class="item">G</div><div class="botoes">
+    `);
+    const result = analyzeProductWithPage(product, page);
+    expect(result.status).toBe("out_of_stock");
+    expect(result.reason).toContain("Tamanho P indisponivel");
+  });
+
   it("aceita redirecionamento quando a pagina final continua sendo o mesmo produto", () => {
     const product = makeProduct();
     const page = makePage(`

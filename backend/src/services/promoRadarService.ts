@@ -1039,7 +1039,40 @@ export function analyzeProductWithPage(
   logs.push(...match.logs);
 
   const statusFromPage = computeStatusFromPage(page, pageData);
+  const requestedSize = product.size || "P";
+  const directSizeAvailability = requestedSizeAvailability(page.html, requestedSize);
+  const knownUnavailable = statusFromPage === "out_of_stock" || directSizeAvailability === false;
   if (!match.productMatched) {
+    if (knownUnavailable) {
+      return {
+        productId: product.id,
+        productName: product.name,
+        productBrand: product.brand.name,
+        imageUrl: productImage(product),
+        purchaseUrl: product.purchaseUrl,
+        normalizedPurchaseUrl: page.normalizedUrl,
+        finalUrl: page.finalUrl,
+        productMatched: false,
+        matchConfidence: match.matchConfidence,
+        isOnSale: false,
+        autoDisplayEligible: false,
+        originalPrice: null,
+        salePrice: null,
+        discountPercentage: null,
+        pixPrice: null,
+        currency: pageData.currency || "BRL",
+        availability: "out_of_stock",
+        variationAnalyzed: pageData.prices.variantLabel,
+        evidence: [],
+        status: "out_of_stock",
+        reason: directSizeAvailability === false ? `Tamanho ${requestedSize} indisponivel na pagina` : "Produto identificado como esgotado na pagina",
+        checkedAt,
+        logs: [...logs, "indisponibilidade confirmada antes da comparacao de nome"],
+        conditionalOffers: pageData.conditionalOffers,
+        pageTitle: pageData.title,
+        matchedFieldScores: match.scores,
+      };
+    }
     return {
       productId: product.id,
       productName: product.name,
@@ -1072,8 +1105,6 @@ export function analyzeProductWithPage(
 
   // Older cards did not store the selected size.  For this planner, P is the
   // default preference, so an empty legacy field must not bypass stock checks.
-  const requestedSize = product.size || "P";
-  const directSizeAvailability = requestedSizeAvailability(page.html, requestedSize);
   const requestedSizeUnavailable = directSizeAvailability === false;
   if (requestedSizeUnavailable) logs.push(`tamanho solicitado ${requestedSize} indisponivel na variante da pagina`);
 
