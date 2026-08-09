@@ -279,8 +279,8 @@ export function HomePage() {
   // A vitrine da Elizah é independente do radar de marcas já salvas (ex.: Cha Matte).
   // Assim, uma resposta lenta ou vazia do radar nunca apaga as ofertas externas.
   const externalPromotions = useMemo(
-    () => USE_ELIZAH_PROMOS.filter((item) => !dismissedPromos.includes(item.id)),
-    [dismissedPromos],
+    () => (promoRadar?.externalPromotions || []).filter((item) => !dismissedPromos.includes(item.id)),
+    [dismissedPromos, promoRadar?.externalPromotions],
   );
   const externalPromotionBrands = useMemo(
     () => Array.from(externalPromotions.reduce((groups, item) => {
