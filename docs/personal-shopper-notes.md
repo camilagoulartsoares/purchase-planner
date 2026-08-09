@@ -17,3 +17,4 @@ Product cards expose the source URL in a separate new-tab action.
 Production uses the Render backend and the Vercel frontend with the public API URL embedded at build time.
 Promotion cards are based on confirmed current campaigns instead of a fixed catalog.
 An expired campaign is omitted by the next promotion scan and cannot remain marked as a discount.
+A saved product link also creates a Planner item so it can be organized with existing products.
