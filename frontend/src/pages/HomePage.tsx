@@ -234,8 +234,8 @@ export function HomePage() {
     () => buildPromoByProductId(promoRadar?.products || []),
     [promoRadar],
   );
-  // A vitrine da Elizah é independente do radar de marcas já salvas (ex.: Cha Matte).
-  // Assim, uma resposta lenta ou vazia do radar nunca apaga as ofertas externas.
+  // A vitrine só exibe promoções confirmadas na varredura atual.
+  // Sem uma campanha vigente, o produto não aparece como desconto.
   const externalPromotions = useMemo(
     () => (promoRadar?.externalPromotions || []).filter((item) => !dismissedPromos.includes(item.id)),
     [dismissedPromos, promoRadar?.externalPromotions],
