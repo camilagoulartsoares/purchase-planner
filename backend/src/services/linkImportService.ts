@@ -98,7 +98,7 @@ async function fetchReaderFallback(url: string) {
   if (source.hostname !== "useelizah.com.br" && source.hostname !== "www.useelizah.com.br") {
     throw new AppError("A leitura alternativa nao esta disponivel para esta loja.", 422);
   }
-  const response = await fetch(`https://r.jina.ai/http://${source.host}${source.pathname}`, {
+  const response = await fetch(`https://r.jina.ai/http://${source.host}${source.pathname}${source.search}`, {
     signal: AbortSignal.timeout(20_000),
     headers: { accept: "text/plain" },
   });
@@ -181,6 +181,9 @@ function selectProductImages(candidates: string[], allowUnscoped = false) {
 
 export function extractProductFromHtml(html: string, finalUrl: string): Omit<LinkPreview, "originalUrl" | "normalizedUrl"> {
   const base = new URL(finalUrl);
+  // Product pages commonly render recommendations below the product.  Never let
+  // their images or prices leak into the preview gallery.
+  const productPageHtml = html.match(/<section\b[^>]*\bid=["']produto["'][^>]*>[\s\S]*?(?=<section\b[^>]*\bid=["']prod-relacionados["']|$)/i)?.[0] || html;
   const json = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
     .flatMap((match) => { try { return flattenJsonLd(JSON.parse(match[1])); } catch { return []; } });
   const product = json.find((item) => {
@@ -191,7 +194,7 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const offer = typeof offers === "object" && offers ? offers as Record<string, unknown> : {};
   const productImageUrls = strings(product.image).concat(strings(product.associatedMedia));
   const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
-  const htmlImageUrls = [...html.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
+  const htmlImageUrls = [...productPageHtml.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
   const readerGallery = readerTitle
     ? html.split(/PRODUTOS RELACIONADOS/i)[0]
     : "";
@@ -199,7 +202,7 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const ogImages = [meta(html, "og:image"), meta(html, "twitter:image")];
   const videoUrls = [
     ...strings(product.video),
-    ...[...html.matchAll(/<(?:video|source)\b[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
+    ...[...productPageHtml.matchAll(/<(?:video|source)\b[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
   ];
   const structuredImages = productImageUrls
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
@@ -222,13 +225,15 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     ? html.match(new RegExp(`###\\s+${escapeRegex(title)}[\\s\\S]{0,5000}`, "i"))?.[0] || ""
     : "";
   const readerMainPrice = readerProductSection.match(/R\$\s*([\d.,]+)/i)?.[1];
-  const pricePair = html.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
+  const pageItempropPrice = productPageHtml.match(/itemprop=["']price["'][^>]*content=["']([^"']+)["']/i)?.[1]
+    || productPageHtml.match(/content=["']([^"']+)["'][^>]*itemprop=["']price["']/i)?.[1];
+  const pricePair = productPageHtml.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
   return {
     title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
-    price: numberOrNull(offer.price || meta(html, "product:price:amount") || readerMainPrice || pricePair?.[2] || priceFromTitle),
+    price: numberOrNull(offer.price || meta(html, "product:price:amount") || pageItempropPrice || readerMainPrice || pricePair?.[2] || priceFromTitle),
     previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),

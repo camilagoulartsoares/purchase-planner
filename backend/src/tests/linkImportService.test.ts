@@ -33,4 +33,17 @@ describe("linkImportService", () => {
     expect(result.price).toBe(39.9);
     expect(result.media).toHaveLength(2);
   });
+
+  it("ignora recomendacoes e usa preco/itemprop da pagina principal", () => {
+    const result = extractProductFromHtml(`
+      <meta property="og:title" content="Calca principal">
+      <section id="produto"><div class="fotos"><img src="/produtos/principal/frente_mini.jpg"><img src="/produtos/principal/costas_mini.jpg"></div><meta itemprop="price" content="219.90"></section>
+      <section id="prod-relacionados"><img src="/produtos/outro/produto.jpg"><p>R$ 49,90</p></section>
+    `, "https://loja.example/calca");
+    expect(result.price).toBe(219.9);
+    expect(result.media).toEqual([
+      { type: "image", url: "https://loja.example/produtos/principal/frente_mini.jpg" },
+      { type: "image", url: "https://loja.example/produtos/principal/costas_mini.jpg" },
+    ]);
+  });
 });
