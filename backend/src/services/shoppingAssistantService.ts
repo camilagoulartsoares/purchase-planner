@@ -92,7 +92,7 @@ async function aiReply(message: string, products: AssistantProduct[]) {
 
 export const shoppingAssistantService = {
   async ask(userId: string, message: string) {
-    const rows = await prisma.product.findMany({ where: { userId }, include: { brand: true, images: { orderBy: { position: "asc" } } }, orderBy: { createdAt: "desc" } });
+    const rows = await prisma.product.findMany({ where: { userId, availability: { not: "out_of_stock" } }, include: { brand: true, images: { orderBy: { position: "asc" } } }, orderBy: { createdAt: "desc" } });
     const products: AssistantProduct[] = rows.map((product) => {
       const originalPrice = Number(product.originalPrice); const promo = product.promotionalPrice == null ? null : Number(product.promotionalPrice);
       const price = promo ?? originalPrice;

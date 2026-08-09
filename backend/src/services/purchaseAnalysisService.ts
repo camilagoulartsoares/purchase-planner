@@ -52,7 +52,7 @@ function serialize(product: AnalysisProduct) { return { id: product.id, name: pr
 
 export const purchaseAnalysisService = {
   async analyze(userId: string, productId: string, budget: number | null) {
-    const rows = await prisma.product.findMany({ where: { userId }, include: { brand: true, images: { orderBy: { position: "asc" } } } });
+    const rows = await prisma.product.findMany({ where: { userId, availability: { not: "out_of_stock" } }, include: { brand: true, images: { orderBy: { position: "asc" } } } });
     const products: AnalysisProduct[] = rows.filter((row) => row.status !== "Já comprei" && row.status !== "Desisti da compra").map((row) => {
       const price = Number(row.promotionalPrice ?? row.originalPrice);
       return { id: row.id, name: row.name, category: row.category, brand: row.brand.name, price, priority: row.priority, isFavorite: row.isFavorite, purchaseIntent: row.purchaseIntent, estimatedUses: row.estimatedUses, timesPostponed: row.timesPostponed, createdAt: row.createdAt, imageUrl: row.images.find((image) => image.isMain)?.imageUrl || row.images[0]?.imageUrl || row.imageUrl };

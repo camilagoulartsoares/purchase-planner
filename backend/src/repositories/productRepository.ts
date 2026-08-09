@@ -87,7 +87,9 @@ function buildBrandShippingMap(
 
 export const productRepository = {
   async findMany(userId: string, filters: ProductFilters) {
-    const where: Prisma.ProductWhereInput = { userId };
+    // Global eligibility rule: products whose requested/default P size was
+    // confirmed unavailable never leave the repository for active features.
+    const where: Prisma.ProductWhereInput = { userId, availability: { not: "out_of_stock" } };
 
     if (filters.category) where.category = filters.category;
     else if (filters.department) {
@@ -125,7 +127,7 @@ export const productRepository = {
         orderBy: { createdAt: "desc" },
       }),
       prisma.product.findMany({
-        where: { userId },
+        where: { userId, availability: { not: "out_of_stock" } },
         select: { brandId: true, shippingPrice: true, createdAt: true },
       }),
     ]);
@@ -226,8 +228,8 @@ export const productRepository = {
   },
 
   findById(id: string) {
-    return prisma.product.findUnique({
-      where: { id },
+    return prisma.product.findFirst({
+      where: { id, availability: { not: "out_of_stock" } },
       include: productInclude,
     });
   },
@@ -253,7 +255,7 @@ export const productRepository = {
 
   findAllByUser(userId: string) {
     return prisma.product.findMany({
-      where: { userId },
+      where: { userId, availability: { not: "out_of_stock" } },
       include: productInclude,
     });
   },
