@@ -236,13 +236,14 @@ describe("promoRadarService", () => {
     expect(result.isOnSale).toBe(false);
     expect(result.autoDisplayEligible).toBe(false);
     expect(result.reason).toContain("Tamanho P indisponivel");
+    expect(result.requestedSizeAvailability).toBe(false);
   });
 
-  it("aplica P como tamanho padrao aos bodys antigos sem tamanho salvo", () => {
-    const product = makeProduct({ name: "Body Aurora Preto", category: "Bodies", size: null });
+  it("aplica P globalmente a produto antigo sem tamanho salvo", () => {
+    const product = makeProduct({ name: "Calca Aurora Preta", category: "Calcas", size: null });
     const page = makePage(`
-      <title>Body Aurora Preto</title>
-      <script type="application/ld+json">{"@type":"Product","name":"Body Aurora Preto","brand":{"name":"Cha Matte"},"offers":{"price":"156.92","availability":"https://schema.org/InStock"}}</script>
+      <title>Calca Aurora Preta</title>
+      <script type="application/ld+json">{"@type":"Product","name":"Calca Aurora Preta","brand":{"name":"Cha Matte"},"offers":{"price":"156.92","availability":"https://schema.org/InStock"}}</script>
       <div class="variacoes"><div>Tamanhos</div><div class="item">M</div><div class="item">G</div><div class="botoes">
       <del data-total-compare-price>R$ 170,00</del><ins data-total-price>R$ 156,92</ins>
     `);
@@ -251,19 +252,32 @@ describe("promoRadarService", () => {
     expect(result.reason).toContain("Tamanho P indisponivel");
   });
 
-  it("mantem body antigo pendente quando a pagina nao comprova o tamanho P", () => {
-    const product = makeProduct({ name: "Body Aurora Preto", category: "Bodies", size: null });
+  it("mantem produto antigo pendente quando a pagina nao comprova uma grade", () => {
+    const product = makeProduct({ name: "Calca Aurora Preta", category: "Calcas", size: null });
     const page = makePage(`
-      <title>Body Aurora Preto</title>
-      <script type="application/ld+json">{"@type":"Product","name":"Body Aurora Preto","brand":{"name":"Cha Matte"},"offers":{"price":"156.92","availability":"https://schema.org/InStock"}}</script>
+      <title>Calca Aurora Preta</title>
+      <script type="application/ld+json">{"@type":"Product","name":"Calca Aurora Preta","brand":{"name":"Cha Matte"},"offers":{"price":"156.92","availability":"https://schema.org/InStock"}}</script>
       <div>Comprar agora</div>
     `);
 
     const result = analyzeProductWithPage(product, page);
 
     expect(result.status).toBe("ok");
-    expect(result.availability).toBe("unknown");
+    expect(result.requestedSizeAvailability).toBeNull();
     expect(result.isOnSale).toBe(false);
+  });
+
+  it("mantem ativo quando a grade confirma P disponivel", () => {
+    const product = makeProduct({ name: "Top Aurora", category: "Tops e corsets", size: null });
+    const page = makePage(`
+      <title>Top Aurora</title>
+      <script type="application/ld+json">{"@type":"Product","name":"Top Aurora","brand":{"name":"Cha Matte"},"offers":{"price":"100.00","availability":"https://schema.org/InStock"}}</script>
+      <select aria-label="Tamanho"><option>P</option><option>M</option></select>
+      <div>Comprar</div>
+    `);
+    const result = analyzeProductWithPage(product, page);
+    expect(result.status).toBe("ok");
+    expect(result.requestedSizeAvailability).toBe(true);
   });
 
   it("retorna price_not_found quando nao acha preco principal", () => {

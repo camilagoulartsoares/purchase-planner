@@ -250,14 +250,21 @@ export function HomePage() {
     [externalPromotions],
   );
 
-  const bodyWithPAvailable = useCallback((item: Product) => {
-    if (!/^body\b/i.test(item.name) && !/^bodies?$/i.test(item.category)) return true;
-    // Keep bodies that are still awaiting a scan; only a confirmed stock-out
-    // can remove a card from the active interface.
-    return !promoRadar?.products.some((result) => result.productId === item.id && result.availability === "out_of_stock");
-  }, [promoRadar]);
-  const visibleItems = useMemo(() => items.filter(bodyWithPAvailable), [bodyWithPAvailable, items]);
-  const eligiblePlannerItems = useMemo(() => plannerItems.filter(bodyWithPAvailable), [bodyWithPAvailable, plannerItems]);
+  const pUnavailableProductIds = useMemo(() => new Set([
+    ...(promoRadar?.removedProductIds || []),
+    ...(promoRadar?.products || [])
+      .filter((result) => result.requestedSizeAvailability === false)
+      .map((result) => result.productId),
+  ]), [promoRadar]);
+  // Mirrors the centralized backend rule during the same screen render. The
+  // server remains authoritative; this only prevents a pre-Radar response
+  // from briefly displaying an item just removed by the fresh scan.
+  const hasPAvailable = useCallback(
+    (item: Product) => !pUnavailableProductIds.has(item.id),
+    [pUnavailableProductIds],
+  );
+  const visibleItems = useMemo(() => items.filter(hasPAvailable), [hasPAvailable, items]);
+  const eligiblePlannerItems = useMemo(() => plannerItems.filter(hasPAvailable), [hasPAvailable, plannerItems]);
 
   const refreshMercadoLivreStatus = useCallback(async () => {
     try {

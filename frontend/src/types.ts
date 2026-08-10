@@ -217,6 +217,7 @@ export type PromoRadarProduct = {
   pixPrice: number | null;
   currency: string;
   availability: PromoRadarAvailability;
+  requestedSizeAvailability?: boolean | null;
   variationAnalyzed: string | null;
   evidence: string[];
   status: PromoRadarStatus;

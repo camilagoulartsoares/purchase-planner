@@ -37,7 +37,9 @@ export async function fetchSummary() {
 }
 
 export async function fetchPromoRadar() {
-  const res = await api.get("/dashboard/promo-radar", { timeout: 60000 });
+  // Always request a fresh size validation when Home starts: stale Radar data
+  // must not keep a P-unavailable product visible for the cache lifetime.
+  const res = await api.get("/dashboard/promo-radar", { params: { refresh: 1 }, timeout: 60000 });
   return res.data.data as PromoRadarResponse;
 }
 

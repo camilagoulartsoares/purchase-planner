@@ -71,6 +71,7 @@ export const productController = {
         req.file,
         filesFrom(req),
       );
+      promoRadarService.invalidate(req.user!.id);
       return ok(res, data, 201);
     } catch (err) {
       if (err instanceof ZodError) {
@@ -95,6 +96,7 @@ export const productController = {
         req.file,
         filesFrom(req),
       );
+      promoRadarService.invalidate(req.user!.id);
       return ok(res, data);
     } catch (err) {
       if (err instanceof ZodError) {
@@ -112,6 +114,7 @@ export const productController = {
         param(req.params.id),
         body,
       );
+      promoRadarService.invalidate(req.user!.id);
       return ok(res, data);
     } catch (err) {
       return next(err);
@@ -121,6 +124,7 @@ export const productController = {
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
       await productService.remove(req.user!.id, param(req.params.id));
+      promoRadarService.invalidate(req.user!.id);
       return ok(res, { deleted: true });
     } catch (err) {
       return next(err);
@@ -150,7 +154,8 @@ export const productController = {
 
   async promoRadar(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await promoRadarService.weeklyBrandPromotions(req.user!.id);
+      const force = String(req.query.refresh || "") === "1";
+      const data = await promoRadarService.weeklyBrandPromotions(req.user!.id, force);
       return ok(res, data);
     } catch (err) {
       return next(err);

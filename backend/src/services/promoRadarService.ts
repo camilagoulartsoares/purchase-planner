@@ -43,6 +43,8 @@ export type ProductPromoRadarResult = {
   pixPrice: number | null;
   currency: string;
   availability: PromoRadarAvailability;
+  /** Availability of P when the original page exposes a size grid. */
+  requestedSizeAvailability?: boolean | null;
   variationAnalyzed: string | null;
   evidence: string[];
   status: PromoRadarStatus;
@@ -265,10 +267,6 @@ function normalizeText(value: string | null | undefined) {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function isBodyProduct(product: Pick<ProductWithRelations, "name" | "category">) {
-  return /^body\b/i.test(product.name.trim()) || /^bodies?$/i.test(product.category.trim());
 }
 
 function tokenize(value: string | null | undefined) {
@@ -1043,7 +1041,7 @@ export function analyzeProductWithPage(
   logs.push(...match.logs);
 
   const statusFromPage = computeStatusFromPage(page, pageData);
-  const requestedSize = isBodyProduct(product) ? "P" : product.size;
+  const requestedSize = "P";
   const directSizeAvailability = requestedSize ? requestedSizeAvailability(page.html, requestedSize) : null;
   const knownUnavailable = statusFromPage === "out_of_stock" || directSizeAvailability === false;
   if (!match.productMatched) {
@@ -1066,6 +1064,7 @@ export function analyzeProductWithPage(
         pixPrice: null,
         currency: pageData.currency || "BRL",
         availability: "out_of_stock",
+        requestedSizeAvailability: directSizeAvailability,
         variationAnalyzed: pageData.prices.variantLabel,
         evidence: [],
         status: "out_of_stock",
@@ -1094,9 +1093,8 @@ export function analyzeProductWithPage(
       discountPercentage: null,
       pixPrice: null,
       currency: pageData.currency || "BRL",
-      // A body without an explicit answer for P must stay pending.  A generic
-      // "in stock" badge is not evidence that the preferred size is available.
-      availability: isBodyProduct(product) && directSizeAvailability == null ? "unknown" : pageData.availability,
+      availability: pageData.availability,
+      requestedSizeAvailability: directSizeAvailability,
       variationAnalyzed: pageData.prices.variantLabel,
       evidence: [],
       status: "product_mismatch",
@@ -1109,8 +1107,8 @@ export function analyzeProductWithPage(
     };
   }
 
-  // Older cards did not store the selected size.  For this planner, P is the
-  // default preference, so an empty legacy field must not bypass stock checks.
+  // P is the global preference. A page only fails this check after its own
+  // size grid/variation data proves P is missing or unavailable.
   const requestedSizeUnavailable = directSizeAvailability === false;
   if (requestedSizeUnavailable) logs.push(`tamanho solicitado ${requestedSize} indisponivel na variante da pagina`);
 
@@ -1177,8 +1175,8 @@ export function analyzeProductWithPage(
     discountPercentage,
     pixPrice: round2(pixPrice),
     currency: pageData.currency || "BRL",
-    // Do not turn an unknown P variation into a confirmed available body.
-    availability: isBodyProduct(product) && directSizeAvailability == null ? "unknown" : pageData.availability,
+    availability: pageData.availability,
+    requestedSizeAvailability: directSizeAvailability,
     variationAnalyzed: pageData.prices.variantLabel,
     evidence,
     status,
@@ -1325,7 +1323,7 @@ function buildBrandSummaries(
 function timeoutResult(
   product: ProductWithRelations,
   reason = "Tempo limite da varredura atingido antes de concluir a analise",
-) {
+): ProductPromoRadarResult {
   return {
     productId: product.id,
     productName: product.name,
@@ -1428,7 +1426,7 @@ async function discoverUseElizahPromotions(): Promise<ExternalPromotion[]> {
   }
 }
 
-function failureResult(product: ProductWithRelations, error: unknown) {
+function failureResult(product: ProductWithRelations, error: unknown): ProductPromoRadarResult {
   return {
     productId: product.id,
     productName: product.name,
@@ -1464,7 +1462,9 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
   const deadline = deadlineFromNow(PROMO_RADAR_TIMEOUT_MS);
 
   const products = (await productRepository.findAllByUserIncludingUnavailable(userId))
-    .filter((product) => product.status !== "Desisti da compra" || isBodyProduct(product))
+    // Recheck previously hidden products too, so a P restock restores them.
+    // Manually abandoned products without an availability marker stay inactive.
+    .filter((product) => product.status !== "Desisti da compra" || product.availability === "out_of_stock")
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, MAX_PRODUCTS_TO_SCAN);
 
@@ -1496,9 +1496,8 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
           return timeoutResult(product);
         }
         const analyzed = analyzeProductWithPage(product, page);
-        // The global rule applies only to bodies.  Other categories keep their
-        // normal product-level availability behaviour.
-        if (!isBodyProduct(product) || !analyzed.productMatched || requestedSizeAvailability(page.html, "P") !== null) {
+        const pAvailability = requestedSizeAvailability(page.html, "P");
+        if (!analyzed.productMatched || pAvailability !== null) {
           return analyzed;
         }
         const aiAvailability = await aiRequestedSizeAvailability(page.html, "P");
@@ -1506,6 +1505,7 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
           return {
             ...analyzed,
             availability: "in_stock" as const,
+            requestedSizeAvailability: true,
             logs: [...analyzed.logs, "IA confirmou disponibilidade do tamanho P"],
           };
         }
@@ -1513,6 +1513,7 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
         return {
           ...analyzed,
           availability: "out_of_stock" as const,
+          requestedSizeAvailability: false,
           status: "out_of_stock" as const,
           isOnSale: false,
           autoDisplayEligible: false,
@@ -1545,18 +1546,19 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
 
   const domainCampaigns = new Map<string, string[]>(domainEntries);
   const removedProductIds = results
-    .filter((result) => result.status === "out_of_stock" && isBodyProduct(products.find((product) => product.id === result.productId)!))
+    .filter((result) => result.requestedSizeAvailability === false)
     .map((result) => result.productId);
   const restoredProductIds = results
-    // For a body, in_stock only reaches this point after P was explicitly
-    // found in the HTML or confirmed by the fallback extractor.
-    .filter((result) => result.availability === "in_stock" && isBodyProduct(products.find((product) => product.id === result.productId)!))
+    .filter((result) => result.requestedSizeAvailability === true)
+    .map((result) => result.productId);
+  const pendingProductIds = results
+    .filter((result) => result.requestedSizeAvailability === null)
     .map((result) => result.productId);
   await Promise.all(
     products
       .filter((product) => removedProductIds.includes(product.id) && product.status !== "Já comprei")
       // Keep the user's list status intact. Availability is the single global
-      // switch that removes a confirmed-P-unavailable body from every active query.
+      // switch that removes a confirmed-P-unavailable product from active APIs.
       .map((product) => productRepository.update(product.id, { availability: "out_of_stock" })),
   );
   await Promise.all(
@@ -1564,11 +1566,22 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
       .filter((product) => restoredProductIds.includes(product.id) && product.availability === "out_of_stock")
       .map((product) => productRepository.update(product.id, { availability: null })),
   );
+  await Promise.all(
+    products
+      // Persist that the page was reached but did not expose a trustworthy
+      // size grid. It remains active and will be retried by the next Radar.
+      .filter((product) => pendingProductIds.includes(product.id) && product.availability == null)
+      .map((product) => productRepository.update(product.id, { availability: "unknown" })),
+  );
 
+  // An item just marked unavailable must not return in this Radar response.
+  const activeProductIds = new Set(products.filter((product) => !removedProductIds.includes(product.id)).map((product) => product.id));
+  const activeResults = results.filter((result) => activeProductIds.has(result.productId));
+  const activeProducts = products.filter((product) => activeProductIds.has(product.id));
   const data = {
     generatedAt: nowIso(),
-    products: results,
-    brands: buildBrandSummaries(products, results, domainCampaigns),
+    products: activeResults,
+    brands: buildBrandSummaries(activeProducts, activeResults, domainCampaigns),
     externalPromotions,
     removedProductIds,
   } satisfies PromoRadarResponse;
@@ -1602,7 +1615,11 @@ export const promoRadarService = {
     ).slice(0, 4);
     return [...imageUrls.map((url) => ({ type: "image" as const, url })), ...videoUrls.map((url) => ({ type: "video" as const, url }))];
   },
-  async weeklyBrandPromotions(userId: string): Promise<PromoRadarResponse> {
+  invalidate(userId: string) {
+    cache.delete(userId);
+  },
+  async weeklyBrandPromotions(userId: string, force = false): Promise<PromoRadarResponse> {
+    if (force) cache.delete(userId);
     const cached = cache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
     const pending = inFlight.get(userId);
