@@ -5,3 +5,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Saved findings retain image and video media as a gallery.
 - Commercial values are displayed only when a source provides them.
 - Promotion cards require current price evidence from their source page.
+- The preferred default size for legacy fashion cards is P.
