@@ -7,3 +7,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Promotion cards require current price evidence from their source page.
 - The preferred default size for legacy fashion cards is P.
 - Confirmed unavailable products are excluded from active product queries.
+- Price combos use only products eligible for active planning.
