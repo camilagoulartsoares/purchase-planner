@@ -267,6 +267,10 @@ function normalizeText(value: string | null | undefined) {
     .trim();
 }
 
+function isBodyProduct(product: Pick<ProductWithRelations, "name" | "category">) {
+  return /^body\b/i.test(product.name.trim()) || /^bodies?$/i.test(product.category.trim());
+}
+
 function tokenize(value: string | null | undefined) {
   return normalizeText(value)
     .split(" ")
@@ -1039,8 +1043,8 @@ export function analyzeProductWithPage(
   logs.push(...match.logs);
 
   const statusFromPage = computeStatusFromPage(page, pageData);
-  const requestedSize = product.size || "P";
-  const directSizeAvailability = requestedSizeAvailability(page.html, requestedSize);
+  const requestedSize = isBodyProduct(product) ? "P" : product.size;
+  const directSizeAvailability = requestedSize ? requestedSizeAvailability(page.html, requestedSize) : null;
   const knownUnavailable = statusFromPage === "out_of_stock" || directSizeAvailability === false;
   if (!match.productMatched) {
     if (knownUnavailable) {
@@ -1090,7 +1094,9 @@ export function analyzeProductWithPage(
       discountPercentage: null,
       pixPrice: null,
       currency: pageData.currency || "BRL",
-      availability: pageData.availability,
+      // A body without an explicit answer for P must stay pending.  A generic
+      // "in stock" badge is not evidence that the preferred size is available.
+      availability: isBodyProduct(product) && directSizeAvailability == null ? "unknown" : pageData.availability,
       variationAnalyzed: pageData.prices.variantLabel,
       evidence: [],
       status: "product_mismatch",
@@ -1171,7 +1177,8 @@ export function analyzeProductWithPage(
     discountPercentage,
     pixPrice: round2(pixPrice),
     currency: pageData.currency || "BRL",
-    availability: pageData.availability,
+    // Do not turn an unknown P variation into a confirmed available body.
+    availability: isBodyProduct(product) && directSizeAvailability == null ? "unknown" : pageData.availability,
     variationAnalyzed: pageData.prices.variantLabel,
     evidence,
     status,
@@ -1456,8 +1463,8 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
   const startedAt = Date.now();
   const deadline = deadlineFromNow(PROMO_RADAR_TIMEOUT_MS);
 
-  const products = (await productRepository.findAllByUser(userId))
-    .filter((product) => product.status !== "Desisti da compra")
+  const products = (await productRepository.findAllByUserIncludingUnavailable(userId))
+    .filter((product) => product.status !== "Desisti da compra" || isBodyProduct(product))
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, MAX_PRODUCTS_TO_SCAN);
 
@@ -1489,10 +1496,19 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
           return timeoutResult(product);
         }
         const analyzed = analyzeProductWithPage(product, page);
-        if (!analyzed.productMatched || requestedSizeAvailability(page.html, product.size || "P") !== null) {
+        // The global rule applies only to bodies.  Other categories keep their
+        // normal product-level availability behaviour.
+        if (!isBodyProduct(product) || !analyzed.productMatched || requestedSizeAvailability(page.html, "P") !== null) {
           return analyzed;
         }
-        const aiAvailability = await aiRequestedSizeAvailability(page.html, product.size || "P");
+        const aiAvailability = await aiRequestedSizeAvailability(page.html, "P");
+        if (aiAvailability === true) {
+          return {
+            ...analyzed,
+            availability: "in_stock" as const,
+            logs: [...analyzed.logs, "IA confirmou disponibilidade do tamanho P"],
+          };
+        }
         if (aiAvailability !== false) return analyzed;
         return {
           ...analyzed,
@@ -1500,8 +1516,8 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
           status: "out_of_stock" as const,
           isOnSale: false,
           autoDisplayEligible: false,
-          reason: `Tamanho ${product.size || "P"} indisponivel na pagina (validado por IA)`,
-          logs: [...analyzed.logs, `IA confirmou indisponibilidade do tamanho ${product.size || "P"}`],
+          reason: "Tamanho P indisponivel na pagina (validado por IA)",
+          logs: [...analyzed.logs, "IA confirmou indisponibilidade do tamanho P"],
         };
       } catch (error) {
         return failureResult(product, error);
@@ -1529,12 +1545,24 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
 
   const domainCampaigns = new Map<string, string[]>(domainEntries);
   const removedProductIds = results
-    .filter((result) => result.status === "out_of_stock")
+    .filter((result) => result.status === "out_of_stock" && isBodyProduct(products.find((product) => product.id === result.productId)!))
+    .map((result) => result.productId);
+  const restoredProductIds = results
+    // For a body, in_stock only reaches this point after P was explicitly
+    // found in the HTML or confirmed by the fallback extractor.
+    .filter((result) => result.availability === "in_stock" && isBodyProduct(products.find((product) => product.id === result.productId)!))
     .map((result) => result.productId);
   await Promise.all(
     products
-      .filter((product) => removedProductIds.includes(product.id) && product.status === "Quero comprar")
-      .map((product) => productRepository.update(product.id, { status: "Desisti da compra", availability: "out_of_stock" })),
+      .filter((product) => removedProductIds.includes(product.id) && product.status !== "Já comprei")
+      // Keep the user's list status intact. Availability is the single global
+      // switch that removes a confirmed-P-unavailable body from every active query.
+      .map((product) => productRepository.update(product.id, { availability: "out_of_stock" })),
+  );
+  await Promise.all(
+    products
+      .filter((product) => restoredProductIds.includes(product.id) && product.availability === "out_of_stock")
+      .map((product) => productRepository.update(product.id, { availability: null })),
   );
 
   const data = {

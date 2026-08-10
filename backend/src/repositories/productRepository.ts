@@ -260,6 +260,13 @@ export const productRepository = {
     });
   },
 
+  findAllByUserIncludingUnavailable(userId: string) {
+    return prisma.product.findMany({
+      where: { userId },
+      include: productInclude,
+    });
+  },
+
   async replaceImages(
     productId: string,
     images: {
