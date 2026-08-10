@@ -8,3 +8,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The preferred default size for legacy fashion cards is P.
 - Confirmed unavailable products are excluded from active product queries.
 - Price combos use only products eligible for active planning.
+- Shopping suggestions receive only products eligible for active planning.
