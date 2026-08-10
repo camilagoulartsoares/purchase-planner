@@ -16,3 +16,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Normalized links prevent duplicate saved findings.
 - Preview failures preserve editable fields instead of fabricating data.
 - The link review dialog keeps its controls reachable on small screens.
+- Structured page data remains the first source before fallback providers.
