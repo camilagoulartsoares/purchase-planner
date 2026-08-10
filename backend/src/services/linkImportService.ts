@@ -97,6 +97,15 @@ async function fetchPublicPage(initialUrl: string) {
   throw new AppError("Muitos redirecionamentos ao acessar o link.", 422);
 }
 
+function htmlRedirectTarget(html: string, baseUrl: string) {
+  const metaRefresh = html.match(/<meta\b[^>]*http-equiv=["']?refresh["']?[^>]*content=["'][^"']*?url=([^"';\s>]+)[^"']*["']/i)?.[1];
+  const scriptRedirect = html.match(/(?:window\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']|(?:window\.)?location\.(?:replace|assign)\(\s*["']([^"']+)["']\s*\)/i);
+  const isRedirectPage = /continuando\s+para\s+a?\s*loja|redirecionando|redirecting/i.test(html);
+  const primaryLink = isRedirectPage ? html.match(/<a\b[^>]*href=["']([^"']+)["']/i)?.[1] : null;
+  const target = metaRefresh || scriptRedirect?.[1] || scriptRedirect?.[2] || primaryLink;
+  return target ? absoluteUrl(decode(target), new URL(baseUrl)) : null;
+}
+
 async function fetchReaderFallback(url: string) {
   const source = new URL(url);
   await assertPublicUrl(source.toString());
@@ -334,10 +343,21 @@ async function aiFallback(html: string, url: string) {
 export const linkImportService = {
   async preview(raw: string): Promise<LinkPreview> {
     const normalizedUrl = normalizeFindingUrl(raw);
-    const { response, finalUrl } = await fetchPublicPage(normalizedUrl);
-    const originalUrl = normalizeFindingUrl(response.url || finalUrl);
+    let { response, finalUrl } = await fetchPublicPage(normalizedUrl);
+    let currentUrl = normalizeFindingUrl(response.url || finalUrl);
+    let initialContent = await response.text();
+    // Search, affiliate and tracking links can return a 200 "continuing to the
+    // store" document instead of an HTTP 3xx. Follow only an explicit HTML or
+    // JavaScript redirect, then scrape the actual product URL.
+    for (let hop = 0; hop < 2; hop += 1) {
+      const target = htmlRedirectTarget(initialContent, currentUrl);
+      if (!target || normalizeFindingUrl(target) === currentUrl) break;
+      ({ response, finalUrl } = await fetchPublicPage(target));
+      currentUrl = normalizeFindingUrl(response.url || finalUrl);
+      initialContent = await response.text();
+    }
+    const originalUrl = currentUrl;
     const isBotCheck = new URL(originalUrl).pathname.includes("anti-bot-check");
-    const initialContent = await response.text();
     const isBotContent = /anti-bot-check|checking your browser|verificando seu navegador/i.test(initialContent);
     let content = initialContent;
     const productUrl = isBotCheck ? normalizedUrl : originalUrl;
