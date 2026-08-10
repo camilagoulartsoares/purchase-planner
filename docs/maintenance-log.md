@@ -17,3 +17,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Preview failures preserve editable fields instead of fabricating data.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
+- Git-connected deployments receive changes from the main branch.
