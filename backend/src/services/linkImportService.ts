@@ -135,7 +135,8 @@ async function fetchReaderFallback(url: string) {
 }
 
 function previewScore(preview: Omit<LinkPreview, "originalUrl" | "normalizedUrl">) {
-  return (preview.title && !/^www\./i.test(preview.title) ? 4 : 0)
+  const landingTitle = /continuando\s+para\s+a?\s*loja|redirecionando|redirecting|checking your browser|anti.bot|can.t be found|not found/i.test(preview.title);
+  return (preview.title && !/^www\./i.test(preview.title) && !landingTitle ? 4 : 0)
     + (preview.price != null ? 3 : 0)
     + Math.min(preview.media.length, 4)
     + (preview.description ? 1 : 0);
@@ -448,17 +449,28 @@ export const linkImportService = {
     const isBotCheck = new URL(originalUrl).pathname.includes("anti-bot-check");
     const isBotContent = /anti-bot-check|checking your browser|verificando seu navegador/i.test(initialContent);
     let content = initialContent;
-    const productUrl = isBotCheck ? normalizedUrl : originalUrl;
+    let productUrl = isBotCheck ? normalizedUrl : originalUrl;
     let parsed = extractProductFromHtml(content, productUrl);
     if (isBotCheck || isBotContent) {
       try {
         const readerContent = await fetchReaderFallback(normalizedUrl);
-        const readerPreview = extractProductFromHtml(readerContent, productUrl);
+        const readerRedirect = htmlRedirectTarget(readerContent, productUrl);
+        let readerUrl = productUrl;
+        let resolvedReaderContent = readerContent;
+        if (readerRedirect && normalizeFindingUrl(readerRedirect) !== productUrl) {
+          const readerResponse = await fetchPublicPage(readerRedirect);
+          readerUrl = normalizeFindingUrl(readerResponse.response.url || readerResponse.finalUrl);
+          resolvedReaderContent = await readerResponse.response.text();
+          productUrl = readerUrl;
+        }
+        const readerPreview = extractProductFromHtml(resolvedReaderContent, readerUrl);
         // The reader can return a generic 404/anti-bot page. Keep the original
         // response unless this alternative actually contains more product data.
         if (previewScore(readerPreview) > previewScore(parsed)) {
-          content = readerContent;
+          content = resolvedReaderContent;
           parsed = readerPreview;
+        } else if (/continuando\s+para\s+a?\s*loja|redirecionando|redirecting/i.test(readerContent)) {
+          errors.push("reader:intermediate_landing_page");
         }
       } catch (error) { errors.push(`reader:${error instanceof Error ? error.message : "failed"}`); }
     }
