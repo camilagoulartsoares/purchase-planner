@@ -12,3 +12,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Purchase analysis excludes products outside active availability.
 - Brand views omit products confirmed as unavailable.
 - The promotion radar refreshes availability on a short cache window.
+- Product media keeps original image and video URLs when available.
