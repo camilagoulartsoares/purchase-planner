@@ -142,6 +142,55 @@ function flattenJsonLd(value: unknown): Record<string, unknown>[] {
   return [record, ...flattenJsonLd(record["@graph"])];
 }
 
+function embeddedProductRecords(html: string) {
+  const records: Record<string, unknown>[] = [];
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((match) => match[1].trim());
+  const balancedObject = (source: string, start: number) => {
+    let depth = 0; let quote = ""; let escaped = false;
+    for (let index = start; index < source.length; index += 1) {
+      const char = source[index];
+      if (quote) { if (escaped) escaped = false; else if (char === "\\") escaped = true; else if (char === quote) quote = ""; continue; }
+      if (char === '"' || char === "'") { quote = char; continue; }
+      if (char === "{") depth += 1;
+      if (char === "}" && --depth === 0) return source.slice(start, index + 1);
+    }
+    return null;
+  };
+  for (const script of scripts) {
+    if (script.length > 1_000_000) continue;
+    const values: unknown[] = [];
+    try {
+      if (/^[{[]/.test(script)) values.push(JSON.parse(script));
+      // Many storefronts expose the current product as a JavaScript assignment
+      // rather than a JSON script tag. Read only explicitly named product/PDP
+      // objects, never product lists or recommendation arrays.
+      for (const match of script.matchAll(/\b(?:product(?:json|data)?|pdp|item)\s*[:=]\s*(\{)/gi)) {
+        const object = balancedObject(script, match.index! + match[0].lastIndexOf("{"));
+        if (object) values.push(JSON.parse(object));
+      }
+      const seen = new WeakSet<object>();
+      const visit = (value: unknown, key = "", depth = 0): void => {
+        if (depth > 12 || !value || typeof value !== "object") return;
+        if (seen.has(value)) return;
+        seen.add(value);
+        if (!Array.isArray(value) && /^(product|productjson|pdp|productdata|item)$/i.test(key)) records.push(value as Record<string, unknown>);
+        if (Array.isArray(value)) { value.slice(0, 80).forEach((child) => visit(child, key, depth + 1)); return; }
+        Object.entries(value as Record<string, unknown>).slice(0, 200).forEach(([childKey, child]) => visit(child, childKey, depth + 1));
+      };
+      values.forEach((value) => visit(value, "product"));
+    } catch { /* Non-JSON executable scripts are intentionally ignored. */ }
+  }
+  return records;
+}
+
+function productScore(item: Record<string, unknown>) {
+  const offers = item.offers || item.offer;
+  return (typeof item.name === "string" || typeof item.title === "string" ? 4 : 0)
+    + (item.image || item.images || item.gallery || item.media ? 3 : 0)
+    + (item.price != null || item.salePrice != null || item.sale_price != null || offers ? 3 : 0)
+    + (item.description || item.shortDescription ? 1 : 0);
+}
+
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
   if (Array.isArray(value)) return value.flatMap(strings);
@@ -165,6 +214,7 @@ function numberOrNull(value: unknown) {
 
 function shippingFromText(value: unknown) {
   if (typeof value !== "string") return null;
+  if (/(?:frete|entrega)\s+gr[aá]tis[^.]{0,80}(?:acima|a partir|minim|above|over)/i.test(value)) return null;
   if (/frete\s+gr[aá]tis|entrega\s+gr[aá]tis/i.test(value)) return 0;
   const match = value.match(/(?:frete|entrega|shipping)[^R$]{0,60}R\$\s*([\d.,]+)/i);
   return match ? numberOrNull(match[1]) : null;
@@ -258,13 +308,15 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const productPageHtml = html.match(/<section\b[^>]*\bid=["']produto["'][^>]*>[\s\S]*?(?=<section\b[^>]*\bid=["']prod-relacionados["']|$)/i)?.[0] || html;
   const json = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
     .flatMap((match) => { try { return flattenJsonLd(JSON.parse(match[1])); } catch { return []; } });
-  const product = json.find((item) => {
+  const jsonLdProduct = json.find((item) => {
     const type = item["@type"];
     return type === "Product" || (Array.isArray(type) && type.includes("Product"));
-  }) || {};
+  });
+  const embeddedProduct = embeddedProductRecords(html).sort((a, b) => productScore(b) - productScore(a))[0];
+  const product = jsonLdProduct || embeddedProduct || {};
   const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
   const offer = typeof offers === "object" && offers ? offers as Record<string, unknown> : {};
-  const productImageUrls = strings(product.image).concat(strings(product.associatedMedia));
+  const productImageUrls = strings(product.image).concat(strings(product.images), strings(product.gallery), strings(product.media), strings(product.associatedMedia));
   const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
   const htmlImageUrls = [...productPageHtml.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
   const readerGallery = readerTitle
@@ -273,7 +325,7 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const readerImageUrls = [...readerGallery.matchAll(/!\[[^\]]*\]\((https?:[^)\s]+)[^)]*\)/gi)].map((m) => m[1]);
   const ogImages = [meta(html, "og:image"), meta(html, "twitter:image")];
   const videoUrls = [
-    ...strings(product.video),
+    ...strings(product.video), ...strings(product.videos),
     ...[...productPageHtml.matchAll(/<(?:video|source)\b[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
   ];
   const structuredImages = productImageUrls
@@ -287,10 +339,10 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
   const selectedImages = images.length ? images : selectProductImages(fallbackImages, true).slice(0, 1);
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
-  const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || "");
+  const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || product.manufacturer || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
   const ogTitle = meta(html, "og:title");
-  const titleSource = String(product.name || ogTitle || readerTitle || "");
+  const titleSource = String(product.name || product.title || ogTitle || readerTitle || "");
   const title = titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim();
   const priceFromTitle = titleSource.match(/R\$\s*([\d.,]+)/i)?.[1];
   const readerProductSection = readerTitle && title
@@ -305,12 +357,12 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
-    description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
-    price: numberOrNull(offer.price || meta(html, "product:price:amount") || pageItempropPrice || readerMainPrice || pricePair?.[2] || priceFromTitle),
-    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice || previousPriceHtml || pricePair?.[1]),
+    description: String(product.description || product.shortDescription || meta(html, "og:description") || meta(html, "description") || ""),
+    price: numberOrNull(offer.price || meta(html, "product:price:amount") || meta(html, "og:price:amount") || product.salePrice || product.sale_price || product.price || pageItempropPrice || readerMainPrice || pricePair?.[2] || priceFromTitle),
+    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice || product.previousPrice || product.listPrice || product.compareAtPrice || previousPriceHtml || pricePair?.[1]),
     shippingPrice: shippingFromText(productPageHtml) ?? shippingFromText(html),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
-    category: String(product.category || ""),
+    category: String(product.category || product.productType || ""),
     availability: availabilityRaw.includes("instock") || availabilityRaw.includes("in_stock") ? "in_stock" : availabilityRaw.includes("outofstock") ? "out_of_stock" : "unknown",
     media: dedupeMedia([...selectedImages.map((url) => ({ type: "image" as const, url })), ...videos.map((url) => ({ type: "video" as const, url }))]),
   };

@@ -46,4 +46,15 @@ describe("linkImportService", () => {
       { type: "image", url: "https://loja.example/produtos/principal/costas_mini.jpg" },
     ]);
   });
+
+  it("usa dados de produto em JSON embutido sem recorrer a itens relacionados", () => {
+    const result = extractProductFromHtml(`
+      <script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"product":{"title":"Bolsa da URL","salePrice":"129.90","listPrice":"159.90","images":["/bolsa-1.jpg","/bolsa-2.jpg"],"brand":"Marca Y"},"relatedProducts":[{"title":"Outro produto","salePrice":"9.90","images":["/outro.jpg"]}]}}}</script>
+    `, "https://loja.example/bolsa-da-url");
+    expect(result).toMatchObject({ title: "Bolsa da URL", brand: "Marca Y", price: 129.9, previousPrice: 159.9 });
+    expect(result.media).toEqual([
+      { type: "image", url: "https://loja.example/bolsa-1.jpg" },
+      { type: "image", url: "https://loja.example/bolsa-2.jpg" },
+    ]);
+  });
 });
