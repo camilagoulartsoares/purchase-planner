@@ -9,6 +9,26 @@ const blank: FindingInput = { title: "", brand: null, store: null, description: 
 const asText = (value: string | null | undefined) => value || "";
 const priceText = (price: number | null, currency = "BRL") => price === null ? "Preço não informado" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(price);
 
+function imageIsReachable(url: string) {
+  return new Promise<boolean>((resolve) => {
+    const image = new Image();
+    const timer = window.setTimeout(() => { image.src = ""; resolve(false); }, 6000);
+    image.onload = () => { window.clearTimeout(timer); resolve(true); };
+    image.onerror = () => { window.clearTimeout(timer); resolve(false); };
+    image.src = url;
+  });
+}
+
+async function prioritizeWorkingMedia(media: FindingMedia[]) {
+  const imageChecks = await Promise.all(media.map(async (entry) => entry.type === "image" ? imageIsReachable(entry.url) : true));
+  // Broken sources are retained for transparency, but never become the main
+  // preview or the image used to create the Product card.
+  return media
+    .map((entry, index) => ({ entry, works: imageChecks[index], score: entry.type === "image" && imageChecks[index] ? 2 : entry.type === "video" ? 1 : 0 }))
+    .sort((left, right) => right.score - left.score)
+    .map(({ entry }) => entry);
+}
+
 function Gallery({ media, alt }: { media: FindingMedia[]; alt: string }) {
   const [active, setActive] = useState(0);
   const [broken, setBroken] = useState<string[]>([]);
@@ -18,7 +38,7 @@ function Gallery({ media, alt }: { media: FindingMedia[]; alt: string }) {
   const choose = (index: number) => setActive((index + media.length) % media.length);
   return <div className="finding-gallery">
     <div className="finding-media-stage">
-      {item.type === "video" ? <video key={item.url} src={item.url} controls preload="metadata" /> : <img src={broken.includes(item.url) ? placeholder : item.url} alt={alt} onError={() => setBroken((old) => old.includes(item.url) ? old : [...old, item.url])} />}
+      {item.type === "video" ? <video key={item.url} src={item.url} controls preload="metadata" /> : <img src={broken.includes(item.url) ? placeholder : item.url} alt={alt} onError={() => { setBroken((old) => old.includes(item.url) ? old : [...old, item.url]); if (media.length > 1) setActive((old) => (old + 1) % media.length); }} />}
       {media.length > 1 ? <><button type="button" className="finding-gallery-arrow is-left" onClick={() => choose(active - 1)} aria-label="Mídia anterior" title="Mídia anterior"><ChevronLeft size={20} /></button><button type="button" className="finding-gallery-arrow is-right" onClick={() => choose(active + 1)} aria-label="Próxima mídia" title="Próxima mídia"><ChevronRight size={20} /></button></> : null}
     </div>
     {media.length > 1 ? <div className="finding-thumbnails" aria-label="Galeria de mídias">{media.map((entry, index) => <button type="button" key={`${entry.type}-${entry.url}`} onClick={() => setActive(index)} className={index === active ? "is-active" : ""} aria-label={`Abrir mídia ${index + 1}`} aria-current={index === active ? "true" : undefined}>{entry.type === "video" ? <video src={entry.url} muted preload="metadata" /> : <img src={broken.includes(entry.url) ? placeholder : entry.url} alt="" onError={() => setBroken((old) => old.includes(entry.url) ? old : [...old, entry.url])} />}{entry.type === "video" ? <span>Vídeo</span> : null}</button>)}</div> : null}
@@ -52,7 +72,7 @@ export function FindingsSection() {
   useEffect(() => { void load(); }, []);
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(""), 2800); return () => window.clearTimeout(id); }, [toast]);
   const close = () => { if (previewLoading || saving || deleting) return; setMode("none"); setModalError(""); };
-  const preview = async () => { if (!url.trim() || previewLoading) return; setPreviewLoading(true); setModalError(""); try { const result = await api.previewFinding(url); setDraft({ ...blank, ...result, media: result.media || [] }); setMode("review"); } catch (error) { setModalError(error instanceof Error ? error.message : "Não foi possível analisar este link."); } finally { setPreviewLoading(false); } };
+  const preview = async () => { if (!url.trim() || previewLoading) return; setPreviewLoading(true); setModalError(""); try { const result = await api.previewFinding(url); const media = await prioritizeWorkingMedia(result.media || []); setDraft({ ...blank, ...result, media }); setMode("review"); } catch (error) { setModalError(error instanceof Error ? error.message : "Não foi possível analisar este link."); } finally { setPreviewLoading(false); } };
   const save = async () => { if (saving) return; setSaving(true); setModalError(""); try { if (draft.price == null || draft.price <= 0) throw new Error("Informe o preço atual para adicionar este produto à sua lista."); const category = CATEGORIES.includes(draft.category as typeof CATEGORIES[number]) ? draft.category! : "Outros"; const product = new FormData(); product.set("name", draft.title || "Produto por link"); product.set("category", category); product.set("brand", draft.brand || draft.store || "Marca não informada"); product.set("store", draft.store || "Loja não informada"); product.set("originalPrice", String(draft.previousPrice && draft.previousPrice > draft.price ? draft.previousPrice : draft.price)); product.set("promotionalPrice", draft.previousPrice && draft.previousPrice > draft.price ? String(draft.price) : ""); product.set("shippingPrice", draft.shippingPrice == null ? "" : String(draft.shippingPrice)); product.set("purchaseUrl", draft.originalUrl); product.set("imageUrl", draft.media.find((media) => media.type === "image")?.url || ""); product.set("priority", "Quero"); product.set("status", "Quero comprar"); product.set("notes", "Adicionado por link."); const isBody = category === "Bodies" || /^body\b/i.test(draft.title || ""); await api.saveProduct(product); if (!isBody) { const created = await api.createFinding(draft); setFindings((old) => [created, ...old]); } setMode("none"); setToast(isBody ? "Body adicionado em Produtos" : "Produto adicionado à sua lista"); window.setTimeout(() => window.location.assign("/?tab=moda"), 650); } catch (error) { const message = error instanceof Error ? error.message : "Não foi possível salvar o produto."; setModalError(/já está salvo|ja esta salvo/i.test(message) ? "Este produto já está nos seus achados" : message); } finally { setSaving(false); } };
   const edit = async () => { if (!selected || saving) return; setSaving(true); setModalError(""); try { const updated = await api.updateFinding(selected.id, draft); setFindings((old) => old.map((item) => item.id === updated.id ? updated : item)); setSelected(updated); setMode("view"); setToast("Achado atualizado"); } catch (error) { setModalError(error instanceof Error ? error.message : "Não foi possível atualizar o achado."); } finally { setSaving(false); } };
   const remove = async () => { if (!selected || deleting) return; setDeleting(true); try { await api.deleteFinding(selected.id); setFindings((old) => old.filter((item) => item.id !== selected.id)); setMode("none"); setToast("Produto removido dos seus achados"); } catch (error) { setModalError(error instanceof Error ? error.message : "Não foi possível remover o achado."); } finally { setDeleting(false); } };
