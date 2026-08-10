@@ -169,6 +169,43 @@ function dedupeMedia(items: FindingMediaInput[]) {
   });
 }
 
+async function validateMedia(item: FindingMediaInput): Promise<FindingMediaInput | null> {
+  let url = item.url;
+  for (let redirects = 0; redirects <= 5; redirects += 1) {
+    try {
+      await assertPublicUrl(url);
+      const response = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(8_000),
+        headers: {
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+          accept: item.type === "image" ? "image/avif,image/webp,image/*,*/*;q=0.7" : "video/*,*/*;q=0.7",
+          range: "bytes=0-1024",
+        },
+      });
+      if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
+        await response.body?.cancel();
+        url = new URL(response.headers.get("location")!, url).toString();
+        continue;
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      await response.body?.cancel();
+      const expectedType = item.type === "image" ? "image/" : "video/";
+      return response.ok && contentType.startsWith(expectedType) ? { ...item, url } : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function keepUsableMedia(items: FindingMediaInput[]) {
+  const candidates = dedupeMedia(items).slice(0, 16);
+  const checked = await Promise.all(candidates.map(validateMedia));
+  return checked.filter((item): item is FindingMediaInput => Boolean(item));
+}
+
 function selectProductImages(candidates: string[], allowUnscoped = false) {
   const grouped = new Map<string, string[]>();
   for (const url of candidates) {
@@ -319,7 +356,10 @@ export const linkImportService = {
     const parsed = extractProductFromHtml(content, productUrl);
     const shopping = previewLooksIncomplete(parsed) ? await shoppingFallback(productUrl, parsed.title) : null;
     const ai = previewLooksIncomplete(parsed) && !shopping ? await aiFallback(content, productUrl) : null;
-    const media = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
+    const rawMedia = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
+    // Never send an anti-bot page, HTML document, or broken asset as the
+    // product photo. The first media item is later used for the Product card.
+    const media = await keepUsableMedia(rawMedia);
     return {
       ...parsed,
       title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : shopping?.title || ai?.title || "",
