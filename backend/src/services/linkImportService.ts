@@ -1,7 +1,6 @@
 import dns from "node:dns/promises";
 import { env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
-import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js";
 import { requestedSizeAvailability } from "./promoRadarService.js";
 import { quoteLowestShipping } from "./shippingQuoteService.js";
 
@@ -302,21 +301,6 @@ function previewLooksIncomplete(preview: Omit<LinkPreview, "originalUrl" | "norm
   return !preview.title || /^www\./i.test(preview.title) || preview.price == null || !preview.media.length;
 }
 
-function previewQuery(url: string, title: string) {
-  if (title && !/^www\./i.test(title)) return title;
-  return decodeURIComponent(new URL(url).pathname).replace(/[\/_-]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-async function shoppingFallback(url: string, title: string) {
-  const provider = new SerpApiProductSearchProvider();
-  if (!provider.available()) return null;
-  const host = new URL(url).hostname.replace(/^www\./, "");
-  const results = await provider.search({ query: previewQuery(url, title), category: null, maxPrice: null, maxPriceIsHard: false, currency: "BRL", colors: [], size: null, brands: [], usage: null, style: [], exclude: [], originalOnly: false, sortPreference: "best_match" });
-  return results.find((item) => {
-    try { return new URL(item.productUrl).hostname.replace(/^www\./, "") === host; } catch { return false; }
-  }) || results.find((item) => item.store?.toLowerCase().replace(/[^a-z0-9]/g, "").includes(host.split(".")[0])) || null;
-}
-
 async function aiFallback(html: string, url: string) {
   if (!env.shopperAi.apiKey || html.length < 600) return null;
   try {
@@ -368,14 +352,15 @@ export const linkImportService = {
           content = readerContent;
           parsed = readerPreview;
         }
-      } catch { /* Shopping/AI fallback below can still recover the preview. */ }
+      } catch { /* The source response remains the only source of truth. */ }
     }
-    const shopping = previewLooksIncomplete(parsed) ? await shoppingFallback(productUrl, parsed.title) : null;
     const directPAvailability = requestedSizeAvailability(content, "P");
     const shouldAskSizeAi = directPAvailability === null && /tamanho|sizes?|variac|option/i.test(content);
-    const ai = (previewLooksIncomplete(parsed) || shouldAskSizeAi) && !shopping ? await aiFallback(content, productUrl) : null;
+    // AI receives only this page's HTML. It is a parser of the submitted URL,
+    // never a product-search fallback.
+    const ai = (previewLooksIncomplete(parsed) || shouldAskSizeAi) ? await aiFallback(content, productUrl) : null;
     const pAvailability = directPAvailability ?? ai?.pAvailability ?? null;
-    const rawMedia = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
+    const rawMedia = dedupeMedia([...(parsed.media || []), ...(ai?.media || [])]);
     // Never send an anti-bot page, HTML document, or broken asset as the
     // product photo. The first media item is later used for the Product card.
     const [validatedMedia, shippingQuote] = await Promise.all([
@@ -388,13 +373,13 @@ export const linkImportService = {
     const media = validatedMedia.length ? validatedMedia : rawMedia;
     return {
       ...parsed,
-      title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : shopping?.title || ai?.title || "",
-      brand: parsed.brand || shopping?.brand || ai?.brand || "",
+      title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : ai?.title || "",
+      brand: parsed.brand || ai?.brand || "",
       description: parsed.description || ai?.description || "",
-      price: parsed.price ?? shopping?.price ?? ai?.price ?? null,
-      previousPrice: parsed.previousPrice ?? shopping?.previousPrice ?? ai?.previousPrice ?? null,
-      shippingPrice: shippingQuote?.price ?? parsed.shippingPrice ?? shippingFromText(shopping?.shipping || "") ?? ai?.shippingPrice ?? null,
-      store: parsed.store || shopping?.store || new URL(productUrl).hostname.replace(/^www\./, ""),
+      price: parsed.price ?? ai?.price ?? null,
+      previousPrice: parsed.previousPrice ?? ai?.previousPrice ?? null,
+      shippingPrice: shippingQuote?.price ?? parsed.shippingPrice ?? ai?.shippingPrice ?? null,
+      store: parsed.store || new URL(productUrl).hostname.replace(/^www\./, ""),
       // For a link import, availability means the preferred P variation, not
       // merely a generic buy button for another size.
       availability: pAvailability === true ? "in_stock" : pAvailability === false ? "out_of_stock" : "unknown",
