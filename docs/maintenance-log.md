@@ -15,3 +15,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Product media keeps original image and video URLs when available.
 - Normalized links prevent duplicate saved findings.
 - Preview failures preserve editable fields instead of fabricating data.
+- The link review dialog keeps its controls reachable on small screens.
