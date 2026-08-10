@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
 import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js";
 import { requestedSizeAvailability } from "./promoRadarService.js";
+import { quoteLowestShipping } from "./shippingQuoteService.js";
 
 export type FindingMediaInput = { type: "image" | "video"; url: string };
 
@@ -99,15 +100,20 @@ async function fetchPublicPage(initialUrl: string) {
 
 async function fetchReaderFallback(url: string) {
   const source = new URL(url);
-  if (source.hostname !== "useelizah.com.br" && source.hostname !== "www.useelizah.com.br") {
-    throw new AppError("A leitura alternativa nao esta disponivel para esta loja.", 422);
-  }
+  await assertPublicUrl(source.toString());
   const response = await fetch(`https://r.jina.ai/http://${source.host}${source.pathname}${source.search}`, {
     signal: AbortSignal.timeout(20_000),
     headers: { accept: "text/plain" },
   });
   if (!response.ok) throw new AppError("Nao foi possivel ler a pagina bloqueada.", 422);
   return response.text();
+}
+
+function previewScore(preview: Omit<LinkPreview, "originalUrl" | "normalizedUrl">) {
+  return (preview.title && !/^www\./i.test(preview.title) ? 4 : 0)
+    + (preview.price != null ? 3 : 0)
+    + Math.min(preview.media.length, 4)
+    + (preview.description ? 1 : 0);
 }
 
 function meta(html: string, name: string) {
@@ -276,13 +282,14 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const pageItempropPrice = productPageHtml.match(/itemprop=["']price["'][^>]*content=["']([^"']+)["']/i)?.[1]
     || productPageHtml.match(/content=["']([^"']+)["'][^>]*itemprop=["']price["']/i)?.[1];
   const pricePair = productPageHtml.match(/de\s*R\$\s*([\d.,]+)\s*por\s*(?:\n|\s)*R\$\s*([\d.,]+)/i);
+  const previousPriceHtml = productPageHtml.match(/class=["'][^"']*\bvalor_de\b[^"']*["'][^>]*>[\s\S]{0,500}?R\$\s*([\d.,]+)/i)?.[1];
   return {
     title,
     brand,
     store: base.hostname.replace(/^www\./, ""),
     description: String(product.description || meta(html, "og:description") || meta(html, "description") || ""),
     price: numberOrNull(offer.price || meta(html, "product:price:amount") || pageItempropPrice || readerMainPrice || pricePair?.[2] || priceFromTitle),
-    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice),
+    previousPrice: numberOrNull(offer.highPrice || offer.priceBefore || offer.compareAtPrice || previousPriceHtml || pricePair?.[1]),
     shippingPrice: shippingFromText(productPageHtml) ?? shippingFromText(html),
     currency: String(offer.priceCurrency || meta(html, "product:price:currency") || "BRL"),
     category: String(product.category || ""),
@@ -346,15 +353,23 @@ export const linkImportService = {
     const { response, finalUrl } = await fetchPublicPage(normalizedUrl);
     const originalUrl = normalizeFindingUrl(response.url || finalUrl);
     const isBotCheck = new URL(originalUrl).pathname.includes("anti-bot-check");
-    const isElizah = new URL(normalizedUrl).hostname.replace(/^www\./, "") === "useelizah.com.br";
     const initialContent = await response.text();
     const isBotContent = /anti-bot-check|checking your browser|verificando seu navegador/i.test(initialContent);
     let content = initialContent;
-    if ((isBotCheck || isBotContent) && isElizah) {
-      try { content = await fetchReaderFallback(normalizedUrl); } catch { /* Google Shopping/AI fallback below can still recover the preview. */ }
-    }
     const productUrl = isBotCheck ? normalizedUrl : originalUrl;
-    const parsed = extractProductFromHtml(content, productUrl);
+    let parsed = extractProductFromHtml(content, productUrl);
+    if (isBotCheck || isBotContent) {
+      try {
+        const readerContent = await fetchReaderFallback(normalizedUrl);
+        const readerPreview = extractProductFromHtml(readerContent, productUrl);
+        // The reader can return a generic 404/anti-bot page. Keep the original
+        // response unless this alternative actually contains more product data.
+        if (previewScore(readerPreview) > previewScore(parsed)) {
+          content = readerContent;
+          parsed = readerPreview;
+        }
+      } catch { /* Shopping/AI fallback below can still recover the preview. */ }
+    }
     const shopping = previewLooksIncomplete(parsed) ? await shoppingFallback(productUrl, parsed.title) : null;
     const directPAvailability = requestedSizeAvailability(content, "P");
     const shouldAskSizeAi = directPAvailability === null && /tamanho|sizes?|variac|option/i.test(content);
@@ -363,7 +378,14 @@ export const linkImportService = {
     const rawMedia = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
     // Never send an anti-bot page, HTML document, or broken asset as the
     // product photo. The first media item is later used for the Product card.
-    const media = await keepUsableMedia(rawMedia);
+    const [validatedMedia, shippingQuote] = await Promise.all([
+      keepUsableMedia(rawMedia),
+      quoteLowestShipping(productUrl).catch(() => null),
+    ]);
+    // Some stores reject server-side range requests even though their CDN image
+    // works in the customer's browser. Preserve the original gallery in that
+    // case instead of returning an empty product preview.
+    const media = validatedMedia.length ? validatedMedia : rawMedia;
     return {
       ...parsed,
       title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : shopping?.title || ai?.title || "",
@@ -371,7 +393,7 @@ export const linkImportService = {
       description: parsed.description || ai?.description || "",
       price: parsed.price ?? shopping?.price ?? ai?.price ?? null,
       previousPrice: parsed.previousPrice ?? shopping?.previousPrice ?? ai?.previousPrice ?? null,
-      shippingPrice: parsed.shippingPrice ?? shippingFromText(shopping?.shipping || "") ?? ai?.shippingPrice ?? null,
+      shippingPrice: shippingQuote?.price ?? parsed.shippingPrice ?? shippingFromText(shopping?.shipping || "") ?? ai?.shippingPrice ?? null,
       store: parsed.store || shopping?.store || new URL(productUrl).hostname.replace(/^www\./, ""),
       // For a link import, availability means the preferred P variation, not
       // merely a generic buy button for another size.
