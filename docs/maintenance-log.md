@@ -14,3 +14,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The promotion radar refreshes availability on a short cache window.
 - Product media keeps original image and video URLs when available.
 - Normalized links prevent duplicate saved findings.
+- Preview failures preserve editable fields instead of fabricating data.
