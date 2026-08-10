@@ -152,6 +152,15 @@ export const productController = {
     }
   },
 
+  async refreshShipping(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await productService.refreshShipping(req.user!.id, param(req.params.id));
+      return ok(res, data);
+    } catch (err) {
+      return next(err);
+    }
+  },
+
   async promoRadar(req: Request, res: Response, next: NextFunction) {
     try {
       const force = String(req.query.refresh || "") === "1";

@@ -106,6 +106,11 @@ export async function patchStatus(
   return res.data.data as Product;
 }
 
+export async function refreshProductShipping(id: string) {
+  const res = await api.post(`/products/${id}/shipping-quote`);
+  return res.data.data as { product: Product; quote: { price: number; service: string | null; deliveryDays: number | null; cep: string } };
+}
+
 export async function deleteProduct(id: string) {
   await api.delete(`/products/${id}`);
 }

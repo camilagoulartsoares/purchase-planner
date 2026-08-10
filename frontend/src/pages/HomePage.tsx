@@ -1351,6 +1351,16 @@ export function HomePage() {
                 void refreshPromoRadar();
               }}
               onStatus={(p, status) => void onStatus(p, status)}
+              onRefreshShipping={async (p) => {
+                try {
+                  const result = await api.refreshProductShipping(p.id);
+                  const prazo = result.quote.deliveryDays != null ? ` · ${result.quote.deliveryDays} dias` : "";
+                  setToast(`Menor frete: ${formatBRL(result.quote.price)}${prazo}`);
+                  await load();
+                } catch (error) {
+                  setToast(error instanceof Error ? error.message : "Frete indisponível para consulta automática");
+                }
+              }}
               onDelete={async (p) => {
                 if (!window.confirm(`Excluir definitivamente "${p.name}"?`)) return;
                 await api.deleteProduct(p.id);

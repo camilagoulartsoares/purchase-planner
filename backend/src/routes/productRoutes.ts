@@ -33,6 +33,7 @@ function normalizeFiles(
 
 productRoutes.get("/", productController.list);
 productRoutes.post("/:id/purchase-analysis", purchaseAnalysisController.analyze);
+productRoutes.post("/:id/shipping-quote", productController.refreshShipping);
 productRoutes.get("/:id", productController.get);
 productRoutes.post("/", imagesUpload, normalizeFiles, productController.create);
 productRoutes.put("/:id", imagesUpload, normalizeFiles, productController.update);

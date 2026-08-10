@@ -8,6 +8,7 @@ import { brandRepository } from "../repositories/brandRepository.js";
 import { imageService } from "./imageService.js";
 import { backupService } from "./backupService.js";
 import { effectivePrice } from "../utils/constants.js";
+import { DEFAULT_SHIPPING_CEP, quoteLowestShipping } from "./shippingQuoteService.js";
 
 function safeBackup(reason: string) {
   try {
@@ -146,6 +147,23 @@ export const productService = {
       await productRepository.findAllByUser(userId),
     );
     return serialize(product, brandShipping);
+  },
+
+  async refreshShipping(userId: string, id: string) {
+    const existing = await productRepository.findById(id);
+    if (!existing || existing.userId !== userId) {
+      throw new AppError("Produto não encontrado", 404);
+    }
+    if (!existing.purchaseUrl) {
+      throw new AppError("Este produto não possui link de compra.", 422);
+    }
+    const quote = await quoteLowestShipping(existing.purchaseUrl, DEFAULT_SHIPPING_CEP);
+    if (!quote) {
+      throw new AppError("Frete indisponível para consulta automática.", 422);
+    }
+    const updated = await productRepository.update(id, { shippingPrice: quote.price });
+    const brandShipping = buildBrandShippingMap(await productRepository.findAllByUser(userId));
+    return { product: serialize(updated, brandShipping)!, quote };
   },
 
   async create(

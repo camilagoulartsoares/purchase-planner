@@ -22,6 +22,7 @@ type Props = {
   onFavorite?: (p: Product) => void;
   onStatus?: (p: Product, status: string) => void;
   onDelete?: (p: Product) => void;
+  onRefreshShipping?: (p: Product) => Promise<void> | void;
 };
 
 export function ProductCard({
@@ -36,8 +37,10 @@ export function ProductCard({
   onFavorite,
   onStatus,
   onDelete,
+  onRefreshShipping,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shippingLoading, setShippingLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const shipping = product.effectiveShippingPrice ?? product.shippingPrice;
 
@@ -223,6 +226,20 @@ export function ProductCard({
             >
               <ExternalLink size={14} /> Comprar na loja
             </a>
+          ) : null}
+          {product.purchaseUrl && onRefreshShipping ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={shippingLoading}
+              onClick={async () => {
+                setShippingLoading(true);
+                try { await onRefreshShipping(product); } finally { setShippingLoading(false); }
+              }}
+              title="Calcular o menor frete para o CEP 37500-224"
+            >
+              {shippingLoading ? "Calculando frete..." : "Calcular frete"}
+            </button>
           ) : null}
           {product.status !== "Já comprei" ? (
             <Link className="btn-ghost" title={`Analisar compra de ${product.name}`} aria-label={`Analisar se vale a pena comprar ${product.name}`} to={`/produtos/${product.id}?analysis=1`}>
