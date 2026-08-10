@@ -66,6 +66,7 @@ export const env = {
     tokenEncryptionKey: process.env.MELI_TOKEN_ENCRYPTION_KEY || "",
   },
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 5),
+  linkImportDebugToken: process.env.LINK_IMPORT_DEBUG_TOKEN || "",
 };
 
 export function cloudinaryConfigured() {

@@ -1,4 +1,5 @@
 import dns from "node:dns/promises";
+import { randomUUID } from "node:crypto";
 import { env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
 import { requestedSizeAvailability } from "./promoRadarService.js";
@@ -20,6 +21,22 @@ export type LinkPreview = {
   normalizedUrl: string;
   availability: string;
   media: FindingMediaInput[];
+  debug?: LinkImportDebug;
+};
+
+export type LinkImportDebug = {
+  traceId: string;
+  receivedUrl: string;
+  externalStatus: number | null;
+  finalUrl: string;
+  htmlLength: number;
+  jsonLdFound: boolean;
+  openGraphFound: boolean;
+  embeddedProductFound: boolean;
+  strategies: string[];
+  extractorUsed: string;
+  aiFallbackUsed: boolean;
+  errors: string[];
 };
 
 function isPrivateAddress(address: string) {
@@ -403,9 +420,12 @@ async function aiFallback(html: string, url: string) {
 }
 
 export const linkImportService = {
-  async preview(raw: string): Promise<LinkPreview> {
+  async preview(raw: string, includeDebug = false): Promise<LinkPreview> {
+    const traceId = randomUUID();
+    const errors: string[] = [];
     const normalizedUrl = normalizeFindingUrl(raw);
     let { response, finalUrl } = await fetchPublicPage(normalizedUrl);
+    let externalStatus: number | null = response.status;
     let currentUrl = normalizeFindingUrl(response.url || finalUrl);
     let initialContent = await response.text();
     // Search, affiliate and tracking links can return a 200 "continuing to the
@@ -414,7 +434,13 @@ export const linkImportService = {
     for (let hop = 0; hop < 2; hop += 1) {
       const target = htmlRedirectTarget(initialContent, currentUrl);
       if (!target || normalizeFindingUrl(target) === currentUrl) break;
-      ({ response, finalUrl } = await fetchPublicPage(target));
+      try {
+        ({ response, finalUrl } = await fetchPublicPage(target));
+        externalStatus = response.status;
+      } catch (error) {
+        errors.push(`html_redirect:${error instanceof Error ? error.message : "failed"}`);
+        break;
+      }
       currentUrl = normalizeFindingUrl(response.url || finalUrl);
       initialContent = await response.text();
     }
@@ -434,13 +460,15 @@ export const linkImportService = {
           content = readerContent;
           parsed = readerPreview;
         }
-      } catch { /* The source response remains the only source of truth. */ }
+      } catch (error) { errors.push(`reader:${error instanceof Error ? error.message : "failed"}`); }
     }
     const directPAvailability = requestedSizeAvailability(content, "P");
     const shouldAskSizeAi = directPAvailability === null && /tamanho|sizes?|variac|option/i.test(content);
     // AI receives only this page's HTML. It is a parser of the submitted URL,
     // never a product-search fallback.
-    const ai = (previewLooksIncomplete(parsed) || shouldAskSizeAi) ? await aiFallback(content, productUrl) : null;
+    const aiNeeded = previewLooksIncomplete(parsed) || shouldAskSizeAi;
+    const ai = aiNeeded ? await aiFallback(content, productUrl) : null;
+    if (aiNeeded && !ai) errors.push("ai:no_result_or_not_configured");
     const pAvailability = directPAvailability ?? ai?.pAvailability ?? null;
     const rawMedia = dedupeMedia([...(parsed.media || []), ...(ai?.media || [])])
       // A landing page URL is HTML, not an image. Never pass it to the UI as
@@ -450,13 +478,27 @@ export const linkImportService = {
     // product photo. The first media item is later used for the Product card.
     const [validatedMedia, shippingQuote] = await Promise.all([
       keepUsableMedia(rawMedia),
-      quoteLowestShipping(productUrl).catch(() => null),
+      quoteLowestShipping(productUrl).catch((error) => { errors.push(`shipping:${error instanceof Error ? error.message : "failed"}`); return null; }),
     ]);
     // Some stores reject server-side range requests even though their CDN image
     // works in the customer's browser. Preserve the original gallery in that
     // case instead of returning an empty product preview.
     const media = validatedMedia.length ? validatedMedia : rawMedia;
-    return {
+    const debug: LinkImportDebug = {
+      traceId,
+      receivedUrl: normalizedUrl,
+      externalStatus,
+      finalUrl: productUrl,
+      htmlLength: content.length,
+      jsonLdFound: /application\/ld\+json/i.test(content),
+      openGraphFound: /(?:property|name)=["']og:/i.test(content),
+      embeddedProductFound: /\b(?:product(?:json|data)?|pdp|item)\s*[:=]/i.test(content),
+      strategies: ["http", "redirects", "json-ld", "open-graph", "embedded-json", "html", ...(isBotCheck || isBotContent ? ["reader"] : []), ...(aiNeeded ? ["ai"] : []), "shipping"],
+      extractorUsed: parsed.title || parsed.price != null || parsed.media.length ? "page-content" : ai ? "ai-page-content" : "none",
+      aiFallbackUsed: Boolean(ai),
+      errors,
+    };
+    const result: LinkPreview = {
       ...parsed,
       title: parsed.title && !/^www\./i.test(parsed.title) ? parsed.title : ai?.title || "",
       brand: parsed.brand || ai?.brand || "",
@@ -472,5 +514,7 @@ export const linkImportService = {
       originalUrl: productUrl,
       normalizedUrl: productUrl,
     };
+    console.info("[link-import]", JSON.stringify({ ...debug, result: { title: result.title, price: result.price, mediaCount: result.media.length, availability: result.availability, shippingPrice: result.shippingPrice } }));
+    return includeDebug ? { ...result, debug } : result;
   },
 };
