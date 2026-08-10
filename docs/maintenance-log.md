@@ -9,3 +9,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Confirmed unavailable products are excluded from active product queries.
 - Price combos use only products eligible for active planning.
 - Shopping suggestions receive only products eligible for active planning.
+- Purchase analysis excludes products outside active availability.
