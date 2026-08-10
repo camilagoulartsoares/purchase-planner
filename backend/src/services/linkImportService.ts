@@ -2,6 +2,7 @@ import dns from "node:dns/promises";
 import { env } from "../config/env.js";
 import { AppError } from "../middlewares/errorHandler.js";
 import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js";
+import { requestedSizeAvailability } from "./promoRadarService.js";
 
 export type FindingMediaInput = { type: "image" | "video"; url: string };
 
@@ -318,7 +319,7 @@ async function aiFallback(html: string, url: string) {
       headers: { authorization: `Bearer ${env.shopperAi.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({
         model: env.shopperAi.model,
-        input: [{ role: "system", content: "Extraia somente dados comprovados do HTML de uma pagina de produto. Nunca invente valores ou URLs. Retorne JSON puro com title, brand, price, previousPrice, shippingPrice, description e media (lista de {type:'image'|'video',url})." }, { role: "user", content: JSON.stringify({ url, html: html.slice(0, 70_000) }) }],
+        input: [{ role: "system", content: "Extraia somente dados comprovados do HTML de uma pagina de produto. Nunca invente valores ou URLs. Retorne JSON puro com title, brand, price, previousPrice, shippingPrice, description, pAvailability (true somente se P estiver selecionável; false se P estiver ausente/esgotado; null se não houver evidência) e media (lista de {type:'image'|'video',url})." }, { role: "user", content: JSON.stringify({ url, html: html.slice(0, 70_000) }) }],
         text: { format: { type: "json_object" } },
       }),
     });
@@ -333,7 +334,7 @@ async function aiFallback(html: string, url: string) {
       const mediaUrl = typeof candidate.url === "string" ? absoluteUrl(candidate.url, new URL(url)) : null;
       return mediaUrl && (candidate.type === "image" || candidate.type === "video") ? [{ type: candidate.type, url: mediaUrl }] : [];
     }) : [];
-    return { title: typeof data.title === "string" ? data.title.trim() : "", brand: typeof data.brand === "string" ? data.brand.trim() : "", description: typeof data.description === "string" ? data.description.trim() : "", price: numberOrNull(data.price), previousPrice: numberOrNull(data.previousPrice), shippingPrice: numberOrNull(data.shippingPrice), media: dedupeMedia(media) };
+    return { title: typeof data.title === "string" ? data.title.trim() : "", brand: typeof data.brand === "string" ? data.brand.trim() : "", description: typeof data.description === "string" ? data.description.trim() : "", price: numberOrNull(data.price), previousPrice: numberOrNull(data.previousPrice), shippingPrice: numberOrNull(data.shippingPrice), pAvailability: typeof data.pAvailability === "boolean" ? data.pAvailability : null, media: dedupeMedia(media) };
   } catch {
     return null;
   }
@@ -355,7 +356,10 @@ export const linkImportService = {
     const productUrl = isBotCheck ? normalizedUrl : originalUrl;
     const parsed = extractProductFromHtml(content, productUrl);
     const shopping = previewLooksIncomplete(parsed) ? await shoppingFallback(productUrl, parsed.title) : null;
-    const ai = previewLooksIncomplete(parsed) && !shopping ? await aiFallback(content, productUrl) : null;
+    const directPAvailability = requestedSizeAvailability(content, "P");
+    const shouldAskSizeAi = directPAvailability === null && /tamanho|sizes?|variac|option/i.test(content);
+    const ai = (previewLooksIncomplete(parsed) || shouldAskSizeAi) && !shopping ? await aiFallback(content, productUrl) : null;
+    const pAvailability = directPAvailability ?? ai?.pAvailability ?? null;
     const rawMedia = dedupeMedia([...(parsed.media || []), ...(shopping?.imageUrl ? [{ type: "image" as const, url: shopping.imageUrl }] : []), ...(ai?.media || [])]);
     // Never send an anti-bot page, HTML document, or broken asset as the
     // product photo. The first media item is later used for the Product card.
@@ -369,6 +373,9 @@ export const linkImportService = {
       previousPrice: parsed.previousPrice ?? shopping?.previousPrice ?? ai?.previousPrice ?? null,
       shippingPrice: parsed.shippingPrice ?? shippingFromText(shopping?.shipping || "") ?? ai?.shippingPrice ?? null,
       store: parsed.store || shopping?.store || new URL(productUrl).hostname.replace(/^www\./, ""),
+      // For a link import, availability means the preferred P variation, not
+      // merely a generic buy button for another size.
+      availability: pAvailability === true ? "in_stock" : pAvailability === false ? "out_of_stock" : "unknown",
       media,
       originalUrl: productUrl,
       normalizedUrl: productUrl,
