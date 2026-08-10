@@ -184,6 +184,16 @@ function dedupeMedia(items: FindingMediaInput[]) {
   });
 }
 
+function isSameProductDocument(mediaUrl: string, productUrl: string) {
+  try {
+    const media = new URL(mediaUrl);
+    const product = new URL(productUrl);
+    return media.hostname === product.hostname && media.pathname === product.pathname;
+  } catch {
+    return false;
+  }
+}
+
 async function validateMedia(item: FindingMediaInput): Promise<FindingMediaInput | null> {
   let url = item.url;
   for (let redirects = 0; redirects <= 5; redirects += 1) {
@@ -380,7 +390,10 @@ export const linkImportService = {
     // never a product-search fallback.
     const ai = (previewLooksIncomplete(parsed) || shouldAskSizeAi) ? await aiFallback(content, productUrl) : null;
     const pAvailability = directPAvailability ?? ai?.pAvailability ?? null;
-    const rawMedia = dedupeMedia([...(parsed.media || []), ...(ai?.media || [])]);
+    const rawMedia = dedupeMedia([...(parsed.media || []), ...(ai?.media || [])])
+      // A landing page URL is HTML, not an image. Never pass it to the UI as
+      // a gallery item when a store's fallback document contains a bare link.
+      .filter((item) => !isSameProductDocument(item.url, productUrl));
     // Never send an anti-bot page, HTML document, or broken asset as the
     // product photo. The first media item is later used for the Product card.
     const [validatedMedia, shippingQuote] = await Promise.all([
