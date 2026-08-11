@@ -116,4 +116,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O card de produto mantém o link original para abrir a loja.
 - A remoção de um achado atualiza a lista sem recarregar a página.
 - O compartilhamento usa a API nativa quando disponível.
+- A API bloqueia URLs locais e endereços privados.
 <!-- maintenance-notes -->
