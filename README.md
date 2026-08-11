@@ -119,4 +119,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A API bloqueia URLs locais e endereços privados.
 - Redirecionamentos HTTP são validados antes de serem seguidos.
 - Páginas intermediárias não são usadas como mídia de produto.
+- Metadados Open Graph são usados apenas como fonte da própria página.
 <!-- maintenance-notes -->
