@@ -112,4 +112,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade de roupas considera a variação P quando ela é identificável.
 - Estados de promoções e Meus achados permanecem independentes.
 - A seção Meus achados mantém carregamento, vazio e mensagens de erro.
+- A revisão de importação permite corrigir campos antes de salvar.
 <!-- maintenance-notes -->
