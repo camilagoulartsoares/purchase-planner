@@ -104,4 +104,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 
 - A URL original é preservada ao salvar produtos importados.
 - Parâmetros de rastreamento são normalizados antes da persistência.
+- Mídias inválidas usam placeholder na interface sem ocultar o produto.
 <!-- maintenance-notes -->
