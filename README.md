@@ -108,4 +108,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria prioriza imagens e vídeos associados ao produto salvo.
 - Produtos duplicados são identificados pela URL normalizada.
 - O preço só é exibido quando a fonte informa um valor verificável.
+- O frete permanece vazio quando a cotação não é confiável.
 <!-- maintenance-notes -->
