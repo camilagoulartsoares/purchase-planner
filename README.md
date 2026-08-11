@@ -99,3 +99,8 @@ Para testar, entre na Home, abra **Encontre para mim** e envie: `Quero um Crocs 
 O provider inicial é o Google Shopping via SerpApi. Os resultados podem incluir Mercado Livre, Shopee e outras lojas na mesma busca. Um teto rígido, como `até R$ 80`, é aplicado sobre os preços reais recebidos do provider: itens acima desse valor não são exibidos.
 
 Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProvider`, permitindo adicionar integrações diretas no futuro sem alterar o chat, os cards, Meus achados ou o Planner.
+
+## Notas de manutenção
+
+- A URL original é preservada ao salvar produtos importados.
+<!-- maintenance-notes -->
