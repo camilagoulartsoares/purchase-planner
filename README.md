@@ -118,4 +118,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O compartilhamento usa a API nativa quando disponível.
 - A API bloqueia URLs locais e endereços privados.
 - Redirecionamentos HTTP são validados antes de serem seguidos.
+- Páginas intermediárias não são usadas como mídia de produto.
 <!-- maintenance-notes -->
