@@ -115,4 +115,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A revisão de importação permite corrigir campos antes de salvar.
 - O card de produto mantém o link original para abrir a loja.
 - A remoção de um achado atualiza a lista sem recarregar a página.
+- O compartilhamento usa a API nativa quando disponível.
 <!-- maintenance-notes -->
