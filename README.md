@@ -107,4 +107,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mídias inválidas usam placeholder na interface sem ocultar o produto.
 - A galeria prioriza imagens e vídeos associados ao produto salvo.
 - Produtos duplicados são identificados pela URL normalizada.
+- O preço só é exibido quando a fonte informa um valor verificável.
 <!-- maintenance-notes -->
