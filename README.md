@@ -114,4 +114,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A seção Meus achados mantém carregamento, vazio e mensagens de erro.
 - A revisão de importação permite corrigir campos antes de salvar.
 - O card de produto mantém o link original para abrir a loja.
+- A remoção de um achado atualiza a lista sem recarregar a página.
 <!-- maintenance-notes -->
