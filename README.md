@@ -111,4 +111,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O frete permanece vazio quando a cotação não é confiável.
 - A disponibilidade de roupas considera a variação P quando ela é identificável.
 - Estados de promoções e Meus achados permanecem independentes.
+- A seção Meus achados mantém carregamento, vazio e mensagens de erro.
 <!-- maintenance-notes -->
