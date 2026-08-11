@@ -106,4 +106,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Parâmetros de rastreamento são normalizados antes da persistência.
 - Mídias inválidas usam placeholder na interface sem ocultar o produto.
 - A galeria prioriza imagens e vídeos associados ao produto salvo.
+- Produtos duplicados são identificados pela URL normalizada.
 <!-- maintenance-notes -->
