@@ -130,4 +130,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Campos numéricos aceitam valor vazio durante a edição.
 - Links externos são abertos em uma nova aba segura.
 - Mensagens de sucesso desaparecem automaticamente.
+- Listas longas possuem rolagem própria quando necessário.
 <!-- maintenance-notes -->
