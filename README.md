@@ -139,4 +139,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Erros de API permanecem visíveis para nova tentativa.
 - O orçamento é tratado como valor independente dos filtros.
 - Favoritos não alteram a prioridade de compra automaticamente.
+- Produtos comprados não entram em sugestões de novos combos.
 <!-- maintenance-notes -->
