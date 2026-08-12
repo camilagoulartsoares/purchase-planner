@@ -135,4 +135,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A prévia por link não fecha enquanto o salvamento está ativo.
 - Falhas de imagem não removem o item da lista.
 - Vídeos usam carregamento de metadados antes da reprodução.
+- Resultados vazios mostram uma mensagem orientativa.
 <!-- maintenance-notes -->
