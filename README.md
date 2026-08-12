@@ -137,4 +137,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Vídeos usam carregamento de metadados antes da reprodução.
 - Resultados vazios mostram uma mensagem orientativa.
 - Erros de API permanecem visíveis para nova tentativa.
+- O orçamento é tratado como valor independente dos filtros.
 <!-- maintenance-notes -->
