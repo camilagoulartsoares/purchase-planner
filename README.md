@@ -125,4 +125,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Filtros mantêm a seleção atual ao navegar entre páginas.
 - Ordenações usam critérios estáveis para evitar saltos visuais.
 - Cards preservam texto alternativo para imagens de produtos.
+- Botões de ação possuem rótulos acessíveis.
 <!-- maintenance-notes -->
