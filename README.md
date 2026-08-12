@@ -136,4 +136,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Falhas de imagem não removem o item da lista.
 - Vídeos usam carregamento de metadados antes da reprodução.
 - Resultados vazios mostram uma mensagem orientativa.
+- Erros de API permanecem visíveis para nova tentativa.
 <!-- maintenance-notes -->
