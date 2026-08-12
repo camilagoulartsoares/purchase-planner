@@ -127,4 +127,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Cards preservam texto alternativo para imagens de produtos.
 - Botões de ação possuem rótulos acessíveis.
 - Valores monetários seguem a formatação brasileira.
+- Campos numéricos aceitam valor vazio durante a edição.
 <!-- maintenance-notes -->
