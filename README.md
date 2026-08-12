@@ -141,4 +141,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Favoritos não alteram a prioridade de compra automaticamente.
 - Produtos comprados não entram em sugestões de novos combos.
 - Produtos desistidos permanecem separados dos desejados.
+- A categoria escolhida é preservada na edição do produto.
 <!-- maintenance-notes -->
