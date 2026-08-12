@@ -129,4 +129,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Valores monetários seguem a formatação brasileira.
 - Campos numéricos aceitam valor vazio durante a edição.
 - Links externos são abertos em uma nova aba segura.
+- Mensagens de sucesso desaparecem automaticamente.
 <!-- maintenance-notes -->
