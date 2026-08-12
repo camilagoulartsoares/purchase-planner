@@ -140,4 +140,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O orçamento é tratado como valor independente dos filtros.
 - Favoritos não alteram a prioridade de compra automaticamente.
 - Produtos comprados não entram em sugestões de novos combos.
+- Produtos desistidos permanecem separados dos desejados.
 <!-- maintenance-notes -->
