@@ -144,4 +144,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A categoria escolhida é preservada na edição do produto.
 - A origem do produto é mantida no link de compra.
 - Cotações de frete não substituem preços de produto.
+- Dados de promoção não atualizam Meus achados.
 <!-- maintenance-notes -->
