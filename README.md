@@ -143,4 +143,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Produtos desistidos permanecem separados dos desejados.
 - A categoria escolhida é preservada na edição do produto.
 - A origem do produto é mantida no link de compra.
+- Cotações de frete não substituem preços de produto.
 <!-- maintenance-notes -->
