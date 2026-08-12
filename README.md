@@ -131,4 +131,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Links externos são abertos em uma nova aba segura.
 - Mensagens de sucesso desaparecem automaticamente.
 - Listas longas possuem rolagem própria quando necessário.
+- Modais mantêm o botão de fechar sempre acessível.
 <!-- maintenance-notes -->
