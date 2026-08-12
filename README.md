@@ -124,4 +124,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Diagnósticos de importação são registrados no backend para investigação.
 - Filtros mantêm a seleção atual ao navegar entre páginas.
 - Ordenações usam critérios estáveis para evitar saltos visuais.
+- Cards preservam texto alternativo para imagens de produtos.
 <!-- maintenance-notes -->
