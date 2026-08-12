@@ -122,4 +122,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Metadados Open Graph são usados apenas como fonte da própria página.
 - Dados estruturados em JSON embutido são avaliados antes de campos vazios.
 - Diagnósticos de importação são registrados no backend para investigação.
+- Filtros mantêm a seleção atual ao navegar entre páginas.
 <!-- maintenance-notes -->
