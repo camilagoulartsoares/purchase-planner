@@ -132,4 +132,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mensagens de sucesso desaparecem automaticamente.
 - Listas longas possuem rolagem própria quando necessário.
 - Modais mantêm o botão de fechar sempre acessível.
+- A prévia por link não fecha enquanto o salvamento está ativo.
 <!-- maintenance-notes -->
