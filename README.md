@@ -145,4 +145,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A origem do produto é mantida no link de compra.
 - Cotações de frete não substituem preços de produto.
 - Dados de promoção não atualizam Meus achados.
+- A sincronização de marcas não altera produtos existentes.
 <!-- maintenance-notes -->
