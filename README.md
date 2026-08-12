@@ -133,4 +133,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Listas longas possuem rolagem própria quando necessário.
 - Modais mantêm o botão de fechar sempre acessível.
 - A prévia por link não fecha enquanto o salvamento está ativo.
+- Falhas de imagem não removem o item da lista.
 <!-- maintenance-notes -->
