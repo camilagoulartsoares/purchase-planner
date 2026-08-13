@@ -168,4 +168,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O nome da loja é derivado do domínio somente como último recurso.
 - Vídeos indisponíveis não bloqueiam o restante da galeria.
 - A URL normalizada não contém fragmentos de navegação.
+- Respostas de API preservam o formato de sucesso existente.
 <!-- maintenance-notes -->
