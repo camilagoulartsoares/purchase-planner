@@ -165,4 +165,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O importador mantém a moeda informada pela fonte.
 - A descrição importada pode ser revisada antes do salvamento.
 - A marca pode permanecer em branco quando não for identificada.
+- O nome da loja é derivado do domínio somente como último recurso.
 <!-- maintenance-notes -->
