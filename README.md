@@ -158,4 +158,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - As mensagens de erro não substituem dados já carregados.
 - O carregamento de achados não interfere no Radar de promoções.
 - O carregamento do Radar não interfere na lista de produtos.
+- O planejamento considera apenas itens com status ativo.
 <!-- maintenance-notes -->
