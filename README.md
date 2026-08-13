@@ -156,4 +156,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O modal preserva rolagem interna em telas menores.
 - A confirmação de exclusão exige uma ação explícita.
 - As mensagens de erro não substituem dados já carregados.
+- O carregamento de achados não interfere no Radar de promoções.
 <!-- maintenance-notes -->
