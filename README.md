@@ -148,4 +148,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A sincronização de marcas não altera produtos existentes.
 - Logs de diagnóstico evitam incluir segredos do ambiente.
 - A paginação informa a quantidade atual de resultados.
+- Campos de busca não descartam o texto ao aplicar filtros.
 <!-- maintenance-notes -->
