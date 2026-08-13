@@ -159,4 +159,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O carregamento de achados não interfere no Radar de promoções.
 - O carregamento do Radar não interfere na lista de produtos.
 - O planejamento considera apenas itens com status ativo.
+- O cálculo de desconto não é exibido sem preço anterior válido.
 <!-- maintenance-notes -->
