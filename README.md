@@ -167,4 +167,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A marca pode permanecer em branco quando não for identificada.
 - O nome da loja é derivado do domínio somente como último recurso.
 - Vídeos indisponíveis não bloqueiam o restante da galeria.
+- A URL normalizada não contém fragmentos de navegação.
 <!-- maintenance-notes -->
