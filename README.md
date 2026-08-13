@@ -149,4 +149,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Logs de diagnóstico evitam incluir segredos do ambiente.
 - A paginação informa a quantidade atual de resultados.
 - Campos de busca não descartam o texto ao aplicar filtros.
+- A ordenação por data usa o registro mais recente como referência.
 <!-- maintenance-notes -->
