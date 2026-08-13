@@ -164,4 +164,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O CEP padrão não é exibido como custo de frete.
 - O importador mantém a moeda informada pela fonte.
 - A descrição importada pode ser revisada antes do salvamento.
+- A marca pode permanecer em branco quando não for identificada.
 <!-- maintenance-notes -->
