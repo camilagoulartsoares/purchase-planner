@@ -154,4 +154,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria reinicia ao abrir outro produto.
 - A reprodução de vídeo não inicia automaticamente.
 - O modal preserva rolagem interna em telas menores.
+- A confirmação de exclusão exige uma ação explícita.
 <!-- maintenance-notes -->
