@@ -169,4 +169,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Vídeos indisponíveis não bloqueiam o restante da galeria.
 - A URL normalizada não contém fragmentos de navegação.
 - Respostas de API preservam o formato de sucesso existente.
+- Logs de saúde não modificam informações de produtos.
 <!-- maintenance-notes -->
