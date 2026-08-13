@@ -160,4 +160,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O carregamento do Radar não interfere na lista de produtos.
 - O planejamento considera apenas itens com status ativo.
 - O cálculo de desconto não é exibido sem preço anterior válido.
+- O campo de frete aceita ausência de informação.
 <!-- maintenance-notes -->
