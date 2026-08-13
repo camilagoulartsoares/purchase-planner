@@ -170,4 +170,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A URL normalizada não contém fragmentos de navegação.
 - Respostas de API preservam o formato de sucesso existente.
 - Logs de saúde não modificam informações de produtos.
+- A autenticação continua obrigatória nos endpoints de achados.
 <!-- maintenance-notes -->
