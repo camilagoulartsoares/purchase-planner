@@ -151,4 +151,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Campos de busca não descartam o texto ao aplicar filtros.
 - A ordenação por data usa o registro mais recente como referência.
 - As imagens principais são escolhidas antes das miniaturas.
+- A galeria reinicia ao abrir outro produto.
 <!-- maintenance-notes -->
