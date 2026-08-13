@@ -150,4 +150,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A paginação informa a quantidade atual de resultados.
 - Campos de busca não descartam o texto ao aplicar filtros.
 - A ordenação por data usa o registro mais recente como referência.
+- As imagens principais são escolhidas antes das miniaturas.
 <!-- maintenance-notes -->
