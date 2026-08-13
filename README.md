@@ -155,4 +155,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A reprodução de vídeo não inicia automaticamente.
 - O modal preserva rolagem interna em telas menores.
 - A confirmação de exclusão exige uma ação explícita.
+- As mensagens de erro não substituem dados já carregados.
 <!-- maintenance-notes -->
