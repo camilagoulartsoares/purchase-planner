@@ -161,4 +161,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O planejamento considera apenas itens com status ativo.
 - O cálculo de desconto não é exibido sem preço anterior válido.
 - O campo de frete aceita ausência de informação.
+- O CEP padrão não é exibido como custo de frete.
 <!-- maintenance-notes -->
