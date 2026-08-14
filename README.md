@@ -197,4 +197,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O status unknown é preservado sem evidência de estoque.
 - O status out_of_stock depende de evidência da página.
 - A disponibilidade não é estimada pelo desconto do produto.
+- A quantidade de imagens não altera o preço salvo.
 <!-- maintenance-notes -->
