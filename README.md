@@ -175,4 +175,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A interface mantém contraste suficiente em ações principais.
 - Títulos longos não impedem a abertura de detalhes.
 - Descrições longas permanecem dentro da rolagem do modal.
+- A marca não é inferida a partir de produtos relacionados.
 <!-- maintenance-notes -->
