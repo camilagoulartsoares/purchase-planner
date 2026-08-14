@@ -195,4 +195,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Consultas externas têm limite de tempo para evitar travamento.
 - Falhas externas não criam preços ou fretes fictícios.
 - O status unknown é preservado sem evidência de estoque.
+- O status out_of_stock depende de evidência da página.
 <!-- maintenance-notes -->
