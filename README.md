@@ -179,4 +179,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A loja não altera o título original do produto.
 - Preços promocionais permanecem separados do preço original.
 - O cálculo de total considera frete somente quando informado.
+- A lista de compras mantém itens em ordem previsível.
 <!-- maintenance-notes -->
