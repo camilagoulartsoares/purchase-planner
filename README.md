@@ -199,4 +199,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade não é estimada pelo desconto do produto.
 - A quantidade de imagens não altera o preço salvo.
 - A categoria não é derivada de mídia do produto.
+- A revisão permite trocar a categoria antes do cadastro.
 <!-- maintenance-notes -->
