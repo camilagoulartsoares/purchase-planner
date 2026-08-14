@@ -204,4 +204,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A remoção de mídia não remove o link original.
 - O radar mantém suas fontes separadas por marca.
 - O planner não usa produtos removidos como sugestão.
+- O histórico de conversa não expõe credenciais.
 <!-- maintenance-notes -->
