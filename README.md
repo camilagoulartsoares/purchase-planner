@@ -189,4 +189,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O carregamento inicial não oculta seções da Home.
 - Cards sem imagem usam uma ilustração neutra.
 - A galeria não usa banners como foto principal.
+- A mídia principal pode ser substituída por uma alternativa válida.
 <!-- maintenance-notes -->
