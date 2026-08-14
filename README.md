@@ -201,4 +201,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A categoria não é derivada de mídia do produto.
 - A revisão permite trocar a categoria antes do cadastro.
 - A edição conserva a galeria já persistida.
+- A remoção de mídia não remove o link original.
 <!-- maintenance-notes -->
