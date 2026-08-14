@@ -188,4 +188,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A atualização de página mantém os produtos persistidos.
 - O carregamento inicial não oculta seções da Home.
 - Cards sem imagem usam uma ilustração neutra.
+- A galeria não usa banners como foto principal.
 <!-- maintenance-notes -->
