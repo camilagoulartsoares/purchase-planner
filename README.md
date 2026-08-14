@@ -187,4 +187,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Filtros vazios representam todas as opções disponíveis.
 - A atualização de página mantém os produtos persistidos.
 - O carregamento inicial não oculta seções da Home.
+- Cards sem imagem usam uma ilustração neutra.
 <!-- maintenance-notes -->
