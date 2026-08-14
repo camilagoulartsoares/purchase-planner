@@ -193,4 +193,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O importador mantém a URL final após redirecionamentos.
 - Redirecionamentos para destinos internos são recusados.
 - Consultas externas têm limite de tempo para evitar travamento.
+- Falhas externas não criam preços ou fretes fictícios.
 <!-- maintenance-notes -->
