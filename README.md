@@ -172,4 +172,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Logs de saúde não modificam informações de produtos.
 - A autenticação continua obrigatória nos endpoints de achados.
 - Dados pessoais não são incluídos nas notas de diagnóstico.
+- A interface mantém contraste suficiente em ações principais.
 <!-- maintenance-notes -->
