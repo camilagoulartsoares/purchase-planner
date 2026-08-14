@@ -206,4 +206,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O planner não usa produtos removidos como sugestão.
 - O histórico de conversa não expõe credenciais.
 - A busca de compras respeita o orçamento informado.
+- Resultados externos sem URL não podem ser salvos.
 <!-- maintenance-notes -->
