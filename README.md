@@ -202,4 +202,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A revisão permite trocar a categoria antes do cadastro.
 - A edição conserva a galeria já persistida.
 - A remoção de mídia não remove o link original.
+- O radar mantém suas fontes separadas por marca.
 <!-- maintenance-notes -->
