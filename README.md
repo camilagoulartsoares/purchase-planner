@@ -190,4 +190,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Cards sem imagem usam uma ilustração neutra.
 - A galeria não usa banners como foto principal.
 - A mídia principal pode ser substituída por uma alternativa válida.
+- O importador mantém a URL final após redirecionamentos.
 <!-- maintenance-notes -->
