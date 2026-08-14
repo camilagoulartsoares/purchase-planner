@@ -173,4 +173,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A autenticação continua obrigatória nos endpoints de achados.
 - Dados pessoais não são incluídos nas notas de diagnóstico.
 - A interface mantém contraste suficiente em ações principais.
+- Títulos longos não impedem a abertura de detalhes.
 <!-- maintenance-notes -->
