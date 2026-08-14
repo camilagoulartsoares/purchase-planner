@@ -205,4 +205,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O radar mantém suas fontes separadas por marca.
 - O planner não usa produtos removidos como sugestão.
 - O histórico de conversa não expõe credenciais.
+- A busca de compras respeita o orçamento informado.
 <!-- maintenance-notes -->
