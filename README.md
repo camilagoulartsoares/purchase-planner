@@ -174,4 +174,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Dados pessoais não são incluídos nas notas de diagnóstico.
 - A interface mantém contraste suficiente em ações principais.
 - Títulos longos não impedem a abertura de detalhes.
+- Descrições longas permanecem dentro da rolagem do modal.
 <!-- maintenance-notes -->
