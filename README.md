@@ -183,4 +183,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O botão de compra usa sempre a URL registrada.
 - A atualização de um achado não duplica o card.
 - A exclusão não afeta registros de outras fontes.
+- A busca textual ignora diferenças simples de maiúsculas.
 <!-- maintenance-notes -->
