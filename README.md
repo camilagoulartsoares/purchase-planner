@@ -177,4 +177,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Descrições longas permanecem dentro da rolagem do modal.
 - A marca não é inferida a partir de produtos relacionados.
 - A loja não altera o título original do produto.
+- Preços promocionais permanecem separados do preço original.
 <!-- maintenance-notes -->
