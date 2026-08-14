@@ -208,4 +208,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A busca de compras respeita o orçamento informado.
 - Resultados externos sem URL não podem ser salvos.
 - A lista de marcas não depende do carregamento de achados.
+- O endpoint de saúde não consulta dados de produto.
 <!-- maintenance-notes -->
