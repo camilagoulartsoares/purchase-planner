@@ -184,4 +184,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A atualização de um achado não duplica o card.
 - A exclusão não afeta registros de outras fontes.
 - A busca textual ignora diferenças simples de maiúsculas.
+- Filtros vazios representam todas as opções disponíveis.
 <!-- maintenance-notes -->
