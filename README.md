@@ -207,4 +207,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O histórico de conversa não expõe credenciais.
 - A busca de compras respeita o orçamento informado.
 - Resultados externos sem URL não podem ser salvos.
+- A lista de marcas não depende do carregamento de achados.
 <!-- maintenance-notes -->
