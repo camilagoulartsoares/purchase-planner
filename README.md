@@ -176,4 +176,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Títulos longos não impedem a abertura de detalhes.
 - Descrições longas permanecem dentro da rolagem do modal.
 - A marca não é inferida a partir de produtos relacionados.
+- A loja não altera o título original do produto.
 <!-- maintenance-notes -->
