@@ -185,4 +185,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A exclusão não afeta registros de outras fontes.
 - A busca textual ignora diferenças simples de maiúsculas.
 - Filtros vazios representam todas as opções disponíveis.
+- A atualização de página mantém os produtos persistidos.
 <!-- maintenance-notes -->
