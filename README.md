@@ -209,4 +209,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Resultados externos sem URL não podem ser salvos.
 - A lista de marcas não depende do carregamento de achados.
 - O endpoint de saúde não consulta dados de produto.
+- A API mantém respostas JSON estruturadas em erros.
 <!-- maintenance-notes -->
