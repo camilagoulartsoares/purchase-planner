@@ -191,4 +191,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria não usa banners como foto principal.
 - A mídia principal pode ser substituída por uma alternativa válida.
 - O importador mantém a URL final após redirecionamentos.
+- Redirecionamentos para destinos internos são recusados.
 <!-- maintenance-notes -->
