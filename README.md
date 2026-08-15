@@ -227,4 +227,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O importador não cria produto sem confirmação de salvamento.
 - O link original continua editável na revisão.
 - A galeria registra falhas de mídia sem bloquear a edição.
+- O botão de adicionar evita múltiplos envios simultâneos.
 <!-- maintenance-notes -->
