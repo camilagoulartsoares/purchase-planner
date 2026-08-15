@@ -246,4 +246,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A análise de compra não altera a lista sem ação do usuário.
 - O assistente preserva o contexto da conversa atual.
 - Produtos fora do orçamento não são sugeridos como cabíveis.
+- O histórico de importação não contém tokens de acesso.
 <!-- maintenance-notes -->
