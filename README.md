@@ -241,4 +241,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade não é inferida sem evidência de variação.
 - O frete é registrado somente após uma cotação válida.
 - A descrição não é preenchida com texto de recomendação.
+- Dados de Open Graph são tratados como fonte complementar.
 <!-- maintenance-notes -->
