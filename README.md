@@ -242,4 +242,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O frete é registrado somente após uma cotação válida.
 - A descrição não é preenchida com texto de recomendação.
 - Dados de Open Graph são tratados como fonte complementar.
+- JSON-LD do produto é priorizado quando estiver disponível.
 <!-- maintenance-notes -->
