@@ -215,4 +215,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Os cartões respeitam a largura disponível em telas compactas.
 - A lista de produtos não depende da ordem de chegada das requisições.
 - A seleção de favoritos não altera o preço registrado.
+- As ações secundárias não recarregam a página inteira.
 <!-- maintenance-notes -->
