@@ -217,4 +217,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A seleção de favoritos não altera o preço registrado.
 - As ações secundárias não recarregam a página inteira.
 - A interface apresenta placeholders apenas para mídia ausente.
+- Os modais evitam transbordamento horizontal.
 <!-- maintenance-notes -->
