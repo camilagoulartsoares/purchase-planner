@@ -224,4 +224,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - As promoções continuam separadas do catálogo pessoal.
 - O preço final não é calculado com valores desconhecidos.
 - O produto salvo preserva a disponibilidade recebida.
+- O importador não cria produto sem confirmação de salvamento.
 <!-- maintenance-notes -->
