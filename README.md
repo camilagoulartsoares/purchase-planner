@@ -222,4 +222,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O limite de preço aceita valores decimais.
 - A ordenação padrão privilegia registros recentes.
 - As promoções continuam separadas do catálogo pessoal.
+- O preço final não é calculado com valores desconhecidos.
 <!-- maintenance-notes -->
