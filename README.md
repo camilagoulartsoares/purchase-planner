@@ -234,4 +234,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O estado vazio orienta como adicionar o primeiro achado.
 - A seção de achados possui rolagem quando a lista cresce.
 - A página mantém mensagens de carregamento durante consultas.
+- O backend limita redirects ao acessar URLs externas.
 <!-- maintenance-notes -->
