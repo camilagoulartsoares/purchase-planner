@@ -229,4 +229,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria registra falhas de mídia sem bloquear a edição.
 - O botão de adicionar evita múltiplos envios simultâneos.
 - A resposta de duplicidade não remove o formulário em edição.
+- O compartilhamento copia apenas o link do produto escolhido.
 <!-- maintenance-notes -->
