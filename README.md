@@ -226,4 +226,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O produto salvo preserva a disponibilidade recebida.
 - O importador não cria produto sem confirmação de salvamento.
 - O link original continua editável na revisão.
+- A galeria registra falhas de mídia sem bloquear a edição.
 <!-- maintenance-notes -->
