@@ -236,4 +236,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A página mantém mensagens de carregamento durante consultas.
 - O backend limita redirects ao acessar URLs externas.
 - A validação de URL rejeita protocolos não suportados.
+- O coletor não converte página HTML em foto de produto.
 <!-- maintenance-notes -->
