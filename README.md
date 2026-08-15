@@ -245,4 +245,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - JSON-LD do produto é priorizado quando estiver disponível.
 - A análise de compra não altera a lista sem ação do usuário.
 - O assistente preserva o contexto da conversa atual.
+- Produtos fora do orçamento não são sugeridos como cabíveis.
 <!-- maintenance-notes -->
