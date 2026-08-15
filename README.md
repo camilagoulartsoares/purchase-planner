@@ -249,4 +249,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O histórico de importação não contém tokens de acesso.
 - O servidor registra falhas externas sem expor segredos.
 - A documentação acompanha comportamentos pequenos do produto.
+- Cada manutenção mínima permanece reversível via Git.
 <!-- maintenance-notes -->
