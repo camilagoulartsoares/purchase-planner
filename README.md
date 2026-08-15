@@ -232,4 +232,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O compartilhamento copia apenas o link do produto escolhido.
 - A remoção exige confirmação antes de executar a API.
 - O estado vazio orienta como adicionar o primeiro achado.
+- A seção de achados possui rolagem quando a lista cresce.
 <!-- maintenance-notes -->
