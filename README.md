@@ -218,4 +218,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - As ações secundárias não recarregam a página inteira.
 - A interface apresenta placeholders apenas para mídia ausente.
 - Os modais evitam transbordamento horizontal.
+- A busca por marca mantém os demais filtros aplicados.
 <!-- maintenance-notes -->
