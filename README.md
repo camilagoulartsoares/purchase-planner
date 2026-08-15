@@ -225,4 +225,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O preço final não é calculado com valores desconhecidos.
 - O produto salvo preserva a disponibilidade recebida.
 - O importador não cria produto sem confirmação de salvamento.
+- O link original continua editável na revisão.
 <!-- maintenance-notes -->
