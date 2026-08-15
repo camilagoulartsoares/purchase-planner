@@ -231,4 +231,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A resposta de duplicidade não remove o formulário em edição.
 - O compartilhamento copia apenas o link do produto escolhido.
 - A remoção exige confirmação antes de executar a API.
+- O estado vazio orienta como adicionar o primeiro achado.
 <!-- maintenance-notes -->
