@@ -233,4 +233,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A remoção exige confirmação antes de executar a API.
 - O estado vazio orienta como adicionar o primeiro achado.
 - A seção de achados possui rolagem quando a lista cresce.
+- A página mantém mensagens de carregamento durante consultas.
 <!-- maintenance-notes -->
