@@ -221,4 +221,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A busca por marca mantém os demais filtros aplicados.
 - O limite de preço aceita valores decimais.
 - A ordenação padrão privilegia registros recentes.
+- As promoções continuam separadas do catálogo pessoal.
 <!-- maintenance-notes -->
