@@ -220,4 +220,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Os modais evitam transbordamento horizontal.
 - A busca por marca mantém os demais filtros aplicados.
 - O limite de preço aceita valores decimais.
+- A ordenação padrão privilegia registros recentes.
 <!-- maintenance-notes -->
