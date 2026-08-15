@@ -239,4 +239,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O coletor não converte página HTML em foto de produto.
 - A importação ignora imagens repetidas pela mesma URL.
 - A disponibilidade não é inferida sem evidência de variação.
+- O frete é registrado somente após uma cotação válida.
 <!-- maintenance-notes -->
