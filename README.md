@@ -219,4 +219,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A interface apresenta placeholders apenas para mídia ausente.
 - Os modais evitam transbordamento horizontal.
 - A busca por marca mantém os demais filtros aplicados.
+- O limite de preço aceita valores decimais.
 <!-- maintenance-notes -->
