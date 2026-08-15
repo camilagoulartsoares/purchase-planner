@@ -212,4 +212,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A API mantém respostas JSON estruturadas em erros.
 - A documentação registra comportamentos de manutenção relevantes.
 - A Home mantém o cabeçalho visível durante a navegação.
+- Os cartões respeitam a largura disponível em telas compactas.
 <!-- maintenance-notes -->
