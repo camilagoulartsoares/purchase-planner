@@ -277,4 +277,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O filtro de produtos não reativa itens removidos.
 - Combos não incluem produtos com status encerrado.
 - A recomendação de compra usa os dados persistidos.
+- A contagem de desejados acompanha o status atual.
 <!-- maintenance-notes -->
