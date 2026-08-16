@@ -292,4 +292,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Dados de recomendações não têm prioridade sobre o produto.
 - A telemetria de importação usa identificador de rastreio.
 - Logs de importação informam o tamanho do documento recebido.
+- Logs de importação resumem o resultado sem expor dados sensíveis.
 <!-- maintenance-notes -->
