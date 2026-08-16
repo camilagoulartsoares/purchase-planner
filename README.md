@@ -252,4 +252,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Cada manutenção mínima permanece reversível via Git.
 - A Home mantém seções independentes durante carregamentos paralelos.
 - O estado de busca não altera itens já salvos.
+- O catálogo respeita a categoria definida pelo usuário.
 <!-- maintenance-notes -->
