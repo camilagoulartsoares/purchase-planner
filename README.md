@@ -279,4 +279,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A recomendação de compra usa os dados persistidos.
 - A contagem de desejados acompanha o status atual.
 - A análise de orçamento não altera valores salvos.
+- O radar pode ser atualizado sem apagar Meus achados.
 <!-- maintenance-notes -->
