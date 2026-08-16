@@ -270,4 +270,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Redirecionamentos externos passam pela validação de segurança.
 - O coletor limita a quantidade de mídias na resposta.
 - Mídias de vídeo são distinguíveis de imagens na galeria.
+- A API preserva null quando não encontra preço.
 <!-- maintenance-notes -->
