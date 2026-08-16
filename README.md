@@ -268,4 +268,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Links de afiliado são normalizados antes da deduplicação.
 - Fragmentos de URL não criam novos registros.
 - Redirecionamentos externos passam pela validação de segurança.
+- O coletor limita a quantidade de mídias na resposta.
 <!-- maintenance-notes -->
