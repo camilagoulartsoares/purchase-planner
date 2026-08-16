@@ -272,4 +272,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mídias de vídeo são distinguíveis de imagens na galeria.
 - A API preserva null quando não encontra preço.
 - A API preserva null quando não encontra frete.
+- A API preserva unknown quando não encontra tamanho.
 <!-- maintenance-notes -->
