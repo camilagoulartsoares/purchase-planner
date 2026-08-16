@@ -253,4 +253,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A Home mantém seções independentes durante carregamentos paralelos.
 - O estado de busca não altera itens já salvos.
 - O catálogo respeita a categoria definida pelo usuário.
+- A visualização de produto não exige abrir a loja externa.
 <!-- maintenance-notes -->
