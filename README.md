@@ -291,4 +291,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O extrator prioriza sinais do documento do produto.
 - Dados de recomendações não têm prioridade sobre o produto.
 - A telemetria de importação usa identificador de rastreio.
+- Logs de importação informam o tamanho do documento recebido.
 <!-- maintenance-notes -->
