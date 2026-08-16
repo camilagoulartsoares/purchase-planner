@@ -267,4 +267,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A ação de compartilhar não modifica o produto.
 - Links de afiliado são normalizados antes da deduplicação.
 - Fragmentos de URL não criam novos registros.
+- Redirecionamentos externos passam pela validação de segurança.
 <!-- maintenance-notes -->
