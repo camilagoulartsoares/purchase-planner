@@ -278,4 +278,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Combos não incluem produtos com status encerrado.
 - A recomendação de compra usa os dados persistidos.
 - A contagem de desejados acompanha o status atual.
+- A análise de orçamento não altera valores salvos.
 <!-- maintenance-notes -->
