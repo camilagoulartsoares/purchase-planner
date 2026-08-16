@@ -294,4 +294,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Logs de importação informam o tamanho do documento recebido.
 - Logs de importação resumem o resultado sem expor dados sensíveis.
 - A configuração de diagnóstico permanece opcional.
+- As notas de manutenção documentam decisões reversíveis.
 <!-- maintenance-notes -->
