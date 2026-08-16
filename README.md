@@ -281,4 +281,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A análise de orçamento não altera valores salvos.
 - O radar pode ser atualizado sem apagar Meus achados.
 - A lista de marcas continua disponível sem dados de promoções.
+- O assistente não usa produtos de outro usuário.
 <!-- maintenance-notes -->
