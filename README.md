@@ -273,4 +273,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A API preserva null quando não encontra preço.
 - A API preserva null quando não encontra frete.
 - A API preserva unknown quando não encontra tamanho.
+- A interface não traduz unknown em disponível.
 <!-- maintenance-notes -->
