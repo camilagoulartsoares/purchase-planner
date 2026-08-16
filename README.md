@@ -284,4 +284,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O assistente não usa produtos de outro usuário.
 - Conversas do assistente permanecem vinculadas ao usuário.
 - Resultados de busca externa conservam a fonte informada.
+- Itens sem preço não são tratados como ofertas.
 <!-- maintenance-notes -->
