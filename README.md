@@ -288,4 +288,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O frete grátis condicional não é considerado frete zero.
 - Páginas de bloqueio não são exibidas como imagem.
 - Páginas intermediárias não são salvas como produto.
+- O extrator prioriza sinais do documento do produto.
 <!-- maintenance-notes -->
