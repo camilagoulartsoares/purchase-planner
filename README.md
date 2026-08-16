@@ -263,4 +263,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O botão de cancelar não persiste alterações parciais.
 - O salvamento bloqueia cliques repetidos durante a requisição.
 - A mensagem de sucesso não depende de recarregamento.
+- O botão de remover não participa do clique do card.
 <!-- maintenance-notes -->
