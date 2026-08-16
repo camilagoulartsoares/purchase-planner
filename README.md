@@ -264,4 +264,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O salvamento bloqueia cliques repetidos durante a requisição.
 - A mensagem de sucesso não depende de recarregamento.
 - O botão de remover não participa do clique do card.
+- A ação de compartilhar não modifica o produto.
 <!-- maintenance-notes -->
