@@ -260,4 +260,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O vídeo pode ser reproduzido dentro do modal.
 - O modal de revisão preserva campos preenchidos manualmente.
 - A edição não substitui mídia sem ação explícita.
+- O botão de cancelar não persiste alterações parciais.
 <!-- maintenance-notes -->
