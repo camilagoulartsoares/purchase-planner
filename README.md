@@ -276,4 +276,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A interface não traduz unknown em disponível.
 - O filtro de produtos não reativa itens removidos.
 - Combos não incluem produtos com status encerrado.
+- A recomendação de compra usa os dados persistidos.
 <!-- maintenance-notes -->
