@@ -254,4 +254,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O estado de busca não altera itens já salvos.
 - O catálogo respeita a categoria definida pelo usuário.
 - A visualização de produto não exige abrir a loja externa.
+- A foto principal tem fallback apenas quando realmente falhar.
 <!-- maintenance-notes -->
