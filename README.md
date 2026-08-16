@@ -289,4 +289,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Páginas de bloqueio não são exibidas como imagem.
 - Páginas intermediárias não são salvas como produto.
 - O extrator prioriza sinais do documento do produto.
+- Dados de recomendações não têm prioridade sobre o produto.
 <!-- maintenance-notes -->
