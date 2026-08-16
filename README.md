@@ -257,4 +257,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A foto principal tem fallback apenas quando realmente falhar.
 - As miniaturas mantêm a ordem fornecida pela fonte.
 - Setas de galeria não aparecem para uma única mídia.
+- O vídeo pode ser reproduzido dentro do modal.
 <!-- maintenance-notes -->
