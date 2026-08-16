@@ -280,4 +280,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A contagem de desejados acompanha o status atual.
 - A análise de orçamento não altera valores salvos.
 - O radar pode ser atualizado sem apagar Meus achados.
+- A lista de marcas continua disponível sem dados de promoções.
 <!-- maintenance-notes -->
