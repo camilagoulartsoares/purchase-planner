@@ -262,4 +262,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A edição não substitui mídia sem ação explícita.
 - O botão de cancelar não persiste alterações parciais.
 - O salvamento bloqueia cliques repetidos durante a requisição.
+- A mensagem de sucesso não depende de recarregamento.
 <!-- maintenance-notes -->
