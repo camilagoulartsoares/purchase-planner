@@ -261,4 +261,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O modal de revisão preserva campos preenchidos manualmente.
 - A edição não substitui mídia sem ação explícita.
 - O botão de cancelar não persiste alterações parciais.
+- O salvamento bloqueia cliques repetidos durante a requisição.
 <!-- maintenance-notes -->
