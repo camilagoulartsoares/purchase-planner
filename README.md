@@ -258,4 +258,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - As miniaturas mantêm a ordem fornecida pela fonte.
 - Setas de galeria não aparecem para uma única mídia.
 - O vídeo pode ser reproduzido dentro do modal.
+- O modal de revisão preserva campos preenchidos manualmente.
 <!-- maintenance-notes -->
