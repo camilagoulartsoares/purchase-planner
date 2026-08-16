@@ -266,4 +266,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O botão de remover não participa do clique do card.
 - A ação de compartilhar não modifica o produto.
 - Links de afiliado são normalizados antes da deduplicação.
+- Fragmentos de URL não criam novos registros.
 <!-- maintenance-notes -->
