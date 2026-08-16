@@ -250,4 +250,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O servidor registra falhas externas sem expor segredos.
 - A documentação acompanha comportamentos pequenos do produto.
 - Cada manutenção mínima permanece reversível via Git.
+- A Home mantém seções independentes durante carregamentos paralelos.
 <!-- maintenance-notes -->
