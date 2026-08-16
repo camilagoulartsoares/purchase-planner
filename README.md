@@ -256,4 +256,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A visualização de produto não exige abrir a loja externa.
 - A foto principal tem fallback apenas quando realmente falhar.
 - As miniaturas mantêm a ordem fornecida pela fonte.
+- Setas de galeria não aparecem para uma única mídia.
 <!-- maintenance-notes -->
