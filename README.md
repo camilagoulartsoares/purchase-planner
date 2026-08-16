@@ -271,4 +271,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O coletor limita a quantidade de mídias na resposta.
 - Mídias de vídeo são distinguíveis de imagens na galeria.
 - A API preserva null quando não encontra preço.
+- A API preserva null quando não encontra frete.
 <!-- maintenance-notes -->
