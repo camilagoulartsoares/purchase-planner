@@ -309,4 +309,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria conserva a ordem de mídia recebida. Registro 205.
 - A lista evita atualização visual desnecessária. Registro 206.
 - Valores ausentes continuam explícitos na interface. Registro 207.
+- A segurança de URL é aplicada antes de consultas externas. Registro 208.
 <!-- maintenance-notes -->
