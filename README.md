@@ -301,4 +301,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A lista evita atualização visual desnecessária. Registro 197.
 - Valores ausentes continuam explícitos na interface. Registro 198.
 - A segurança de URL é aplicada antes de consultas externas. Registro 199.
+- A navegação mantém ações do usuário isoladas. Registro 200.
 <!-- maintenance-notes -->
