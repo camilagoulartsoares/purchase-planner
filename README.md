@@ -323,4 +323,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A documentação registra pequenas garantias do produto. Registro 219.
 - Consultas externas não devem criar dados estimados. Registro 220.
 - A interface preserva estados independentes entre seções. Registro 221.
+- O backend mantém validações antes da persistência. Registro 222.
 <!-- maintenance-notes -->
