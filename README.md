@@ -306,4 +306,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Consultas externas não devem criar dados estimados. Registro 202.
 - A interface preserva estados independentes entre seções. Registro 203.
 - O backend mantém validações antes da persistência. Registro 204.
+- A galeria conserva a ordem de mídia recebida. Registro 205.
 <!-- maintenance-notes -->
