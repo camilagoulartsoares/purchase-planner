@@ -312,4 +312,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A segurança de URL é aplicada antes de consultas externas. Registro 208.
 - A navegação mantém ações do usuário isoladas. Registro 209.
 - A documentação registra pequenas garantias do produto. Registro 210.
+- Consultas externas não devem criar dados estimados. Registro 211.
 <!-- maintenance-notes -->
