@@ -372,4 +372,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A revisão preserva mudanças locais antes de salvar. Registro 268.
 - Mídias sem URL válida não entram na galeria. Registro 269.
 - Consultas de estoque não criam disponibilidade fictícia. Registro 270.
+- A lista mantém o produto escolhido após uma edição. Registro 271.
 <!-- maintenance-notes -->
