@@ -340,4 +340,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A navegação mantém ações do usuário isoladas. Registro 236.
 - A documentação registra pequenas garantias do produto. Registro 237.
 - Consultas externas não devem criar dados estimados. Registro 238.
+- O layout mantém legibilidade em diferentes larguras. Registro 239.
 <!-- maintenance-notes -->
