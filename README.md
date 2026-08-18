@@ -353,4 +353,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A API separa dados de produto e dados de promoção. Registro 249.
 - A revisão preserva mudanças locais antes de salvar. Registro 250.
 - Mídias sem URL válida não entram na galeria. Registro 251.
+- Consultas de estoque não criam disponibilidade fictícia. Registro 252.
 <!-- maintenance-notes -->
