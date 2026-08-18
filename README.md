@@ -365,4 +365,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Consultas de estoque não criam disponibilidade fictícia. Registro 261.
 - A lista mantém o produto escolhido após uma edição. Registro 262.
 - O filtro de preço não altera a moeda registrada. Registro 263.
+- A documentação acompanha ajustes reversíveis. Registro 264.
 <!-- maintenance-notes -->
