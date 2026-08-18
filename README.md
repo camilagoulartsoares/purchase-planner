@@ -358,4 +358,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O filtro de preço não altera a moeda registrada. Registro 254.
 - A documentação acompanha ajustes reversíveis. Registro 255.
 - O servidor preserva respostas consistentes em falhas. Registro 256.
+- O layout mantém legibilidade em diferentes larguras. Registro 257.
 <!-- maintenance-notes -->
