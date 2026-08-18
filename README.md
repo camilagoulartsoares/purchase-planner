@@ -364,4 +364,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mídias sem URL válida não entram na galeria. Registro 260.
 - Consultas de estoque não criam disponibilidade fictícia. Registro 261.
 - A lista mantém o produto escolhido após uma edição. Registro 262.
+- O filtro de preço não altera a moeda registrada. Registro 263.
 <!-- maintenance-notes -->
