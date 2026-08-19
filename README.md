@@ -384,4 +384,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mídias válidas permanecem disponíveis na revisão. Registro 280.
 - A disponibilidade preserva a evidência coletada. Registro 281.
 - O preço não é arredondado sem regra explícita. Registro 282.
+- O frete não é inferido por informações de catálogo. Registro 283.
 <!-- maintenance-notes -->
