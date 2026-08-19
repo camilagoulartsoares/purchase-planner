@@ -400,4 +400,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O produto mantém o identificador ao ser atualizado. Registro 296.
 - A navegação não duplica requisições já concluídas. Registro 297.
 - Mídias válidas permanecem disponíveis na revisão. Registro 298.
+- A disponibilidade preserva a evidência coletada. Registro 299.
 <!-- maintenance-notes -->
