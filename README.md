@@ -413,4 +413,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O preço não é arredondado sem regra explícita. Registro 309.
 - O frete não é inferido por informações de catálogo. Registro 310.
 - A URL externa é verificada antes de abrir uma nova aba. Registro 311.
+- A interface mantém separação entre dados pessoais e promoções. Registro 312.
 <!-- maintenance-notes -->
