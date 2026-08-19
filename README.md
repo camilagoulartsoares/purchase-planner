@@ -405,4 +405,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O frete não é inferido por informações de catálogo. Registro 301.
 - A URL externa é verificada antes de abrir uma nova aba. Registro 302.
 - A interface mantém separação entre dados pessoais e promoções. Registro 303.
+- Pequenos ajustes permanecem descritos na documentação. Registro 304.
 <!-- maintenance-notes -->
