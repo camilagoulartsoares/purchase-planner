@@ -381,4 +381,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A revisão preserva mudanças locais antes de salvar. Registro 277.
 - O produto mantém o identificador ao ser atualizado. Registro 278.
 - A navegação não duplica requisições já concluídas. Registro 279.
+- Mídias válidas permanecem disponíveis na revisão. Registro 280.
 <!-- maintenance-notes -->
