@@ -380,4 +380,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A API separa dados de produto e dados de promoção. Registro 276.
 - A revisão preserva mudanças locais antes de salvar. Registro 277.
 - O produto mantém o identificador ao ser atualizado. Registro 278.
+- A navegação não duplica requisições já concluídas. Registro 279.
 <!-- maintenance-notes -->
