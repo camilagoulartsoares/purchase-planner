@@ -403,4 +403,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade preserva a evidência coletada. Registro 299.
 - O preço não é arredondado sem regra explícita. Registro 300.
 - O frete não é inferido por informações de catálogo. Registro 301.
+- A URL externa é verificada antes de abrir uma nova aba. Registro 302.
 <!-- maintenance-notes -->
