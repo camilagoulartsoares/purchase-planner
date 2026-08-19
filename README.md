@@ -406,4 +406,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A URL externa é verificada antes de abrir uma nova aba. Registro 302.
 - A interface mantém separação entre dados pessoais e promoções. Registro 303.
 - Pequenos ajustes permanecem descritos na documentação. Registro 304.
+- O produto mantém o identificador ao ser atualizado. Registro 305.
 <!-- maintenance-notes -->
