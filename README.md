@@ -418,4 +418,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O produto mantém o identificador ao ser atualizado. Registro 314.
 - A navegação não duplica requisições já concluídas. Registro 315.
 - Mídias válidas permanecem disponíveis na revisão. Registro 316.
+- A aplicação mantém a seleção atual após atualizar listas. Registro 317.
 <!-- maintenance-notes -->
