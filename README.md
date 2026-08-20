@@ -442,4 +442,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O preço informado pelo usuário permanece editável. Registro 338.
 - A disponibilidade só muda com evidência nova. Registro 339.
 - O frete não é exibido quando a origem não confirma valor. Registro 340.
+- A interface separa ações de abrir, editar e remover. Registro 341.
 <!-- maintenance-notes -->
