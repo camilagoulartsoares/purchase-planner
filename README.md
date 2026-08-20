@@ -431,4 +431,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O formulário não perde a URL durante a análise. Registro 327.
 - A galeria mantém uma mídia principal definida. Registro 328.
 - O preço informado pelo usuário permanece editável. Registro 329.
+- A disponibilidade só muda com evidência nova. Registro 330.
 <!-- maintenance-notes -->
