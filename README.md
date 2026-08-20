@@ -446,4 +446,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Os dados de promoções não substituem dados importados. Registro 342.
 - A documentação registra garantias de manutenção. Registro 343.
 - A aplicação mantém a seleção atual após atualizar listas. Registro 344.
+- O formulário não perde a URL durante a análise. Registro 345.
 <!-- maintenance-notes -->
