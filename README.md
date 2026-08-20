@@ -425,4 +425,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade só muda com evidência nova. Registro 321.
 - O frete não é exibido quando a origem não confirma valor. Registro 322.
 - A interface separa ações de abrir, editar e remover. Registro 323.
+- Os dados de promoções não substituem dados importados. Registro 324.
 <!-- maintenance-notes -->
