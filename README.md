@@ -420,4 +420,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - Mídias válidas permanecem disponíveis na revisão. Registro 316.
 - A aplicação mantém a seleção atual após atualizar listas. Registro 317.
 - O formulário não perde a URL durante a análise. Registro 318.
+- A galeria mantém uma mídia principal definida. Registro 319.
 <!-- maintenance-notes -->
