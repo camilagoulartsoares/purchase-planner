@@ -459,4 +459,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria mantém uma mídia principal definida. Registro 355.
 - A lista preserva dados carregados durante novas consultas. Registro 356.
 - O modal mantém campos editáveis até a confirmação. Registro 357.
+- A galeria usa apenas mídias relacionadas ao produto. Registro 358.
 <!-- maintenance-notes -->
