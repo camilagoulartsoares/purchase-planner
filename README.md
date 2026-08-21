@@ -463,4 +463,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A disponibilidade não é convertida sem dados de tamanho. Registro 359.
 - O preço original permanece separado do promocional. Registro 360.
 - O frete desconhecido permanece sem valor exibido. Registro 361.
+- A URL normalizada ajuda a evitar duplicidade. Registro 362.
 <!-- maintenance-notes -->
