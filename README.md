@@ -458,4 +458,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O formulário não perde a URL durante a análise. Registro 354.
 - A galeria mantém uma mídia principal definida. Registro 355.
 - A lista preserva dados carregados durante novas consultas. Registro 356.
+- O modal mantém campos editáveis até a confirmação. Registro 357.
 <!-- maintenance-notes -->
