@@ -461,4 +461,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O modal mantém campos editáveis até a confirmação. Registro 357.
 - A galeria usa apenas mídias relacionadas ao produto. Registro 358.
 - A disponibilidade não é convertida sem dados de tamanho. Registro 359.
+- O preço original permanece separado do promocional. Registro 360.
 <!-- maintenance-notes -->
