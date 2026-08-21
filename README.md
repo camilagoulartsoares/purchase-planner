@@ -476,4 +476,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O backend mantém verificações de segurança por requisição. Registro 372.
 - A documentação registra decisões pequenas e reversíveis. Registro 373.
 - A lista preserva dados carregados durante novas consultas. Registro 374.
+- O modal mantém campos editáveis até a confirmação. Registro 375.
 <!-- maintenance-notes -->
