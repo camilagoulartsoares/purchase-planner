@@ -471,4 +471,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria usa apenas mídias relacionadas ao produto. Registro 367.
 - A disponibilidade não é convertida sem dados de tamanho. Registro 368.
 - O preço original permanece separado do promocional. Registro 369.
+- O frete desconhecido permanece sem valor exibido. Registro 370.
 <!-- maintenance-notes -->
