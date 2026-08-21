@@ -475,4 +475,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A URL normalizada ajuda a evitar duplicidade. Registro 371.
 - O backend mantém verificações de segurança por requisição. Registro 372.
 - A documentação registra decisões pequenas e reversíveis. Registro 373.
+- A lista preserva dados carregados durante novas consultas. Registro 374.
 <!-- maintenance-notes -->
