@@ -497,4 +497,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O modal mantém campos editáveis até a confirmação. Registro 393.
 - A galeria usa apenas mídias relacionadas ao produto. Registro 394.
 - O modal mantém ações acessíveis em telas compactas. Registro mobile 1.
+- A rolagem interna não oculta controles importantes. Registro mobile 2.
 <!-- maintenance-notes -->
