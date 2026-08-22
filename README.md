@@ -506,4 +506,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A documentação registra o comportamento responsivo. Registro mobile 8.
 - Pequenos ajustes de interface permanecem reversíveis. Registro mobile 9.
 - O modal mantém ações acessíveis em telas compactas. Registro mobile 10.
+- A rolagem interna não oculta controles importantes. Registro mobile 11.
 <!-- maintenance-notes -->
