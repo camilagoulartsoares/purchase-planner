@@ -535,4 +535,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O modal mantém ações acessíveis em telas compactas. Registro mobile 37.
 - A rolagem interna não oculta controles importantes. Registro mobile 38.
 - O botão salvar permanece fora do conteúdo rolável. Registro mobile 39.
+- A área segura do dispositivo é respeitada no rodapé. Registro mobile 40.
 <!-- maintenance-notes -->
