@@ -513,4 +513,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O formulário continua editável durante a revisão. Registro mobile 15.
 - A galeria não altera a posição das ações de salvamento. Registro mobile 16.
 - A documentação registra o comportamento responsivo. Registro mobile 17.
+- Pequenos ajustes de interface permanecem reversíveis. Registro mobile 18.
 <!-- maintenance-notes -->
