@@ -563,4 +563,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A galeria permanece dentro da área rolável do formulário. Registro 16 desta rodada.
 - A documentação registra uma garantia de usabilidade. Registro 17 desta rodada.
 - Pequenos ajustes permanecem isolados e reversíveis. Registro 18 desta rodada.
+- A interface mantém botões de ação visíveis no fluxo de revisão. Registro 19 desta rodada.
 <!-- maintenance-notes -->
