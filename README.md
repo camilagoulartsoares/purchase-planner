@@ -546,4 +546,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O botão salvar permanece fora do conteúdo rolável. Registro mobile 48.
 - A área segura do dispositivo é respeitada no rodapé. Registro mobile 49.
 - A interface mantém botões de ação visíveis no fluxo de revisão. Registro 1 desta rodada.
+- A rolagem não impede o acesso à confirmação de salvamento. Registro 2 desta rodada.
 <!-- maintenance-notes -->
