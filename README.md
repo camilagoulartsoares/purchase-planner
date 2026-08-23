@@ -562,4 +562,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - O conteúdo do modal respeita a altura disponível da tela. Registro 15 desta rodada.
 - A galeria permanece dentro da área rolável do formulário. Registro 16 desta rodada.
 - A documentação registra uma garantia de usabilidade. Registro 17 desta rodada.
+- Pequenos ajustes permanecem isolados e reversíveis. Registro 18 desta rodada.
 <!-- maintenance-notes -->
