@@ -558,4 +558,5 @@ Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProv
 - A documentação registra uma garantia de usabilidade. Registro 11 desta rodada.
 - Pequenos ajustes permanecem isolados e reversíveis. Registro 12 desta rodada.
 - A interface mantém botões de ação visíveis no fluxo de revisão. Registro 13 desta rodada.
+- A rolagem não impede o acesso à confirmação de salvamento. Registro 14 desta rodada.
 <!-- maintenance-notes -->
