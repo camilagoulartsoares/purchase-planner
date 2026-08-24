@@ -762,8 +762,6 @@ export function HomePage() {
         </section>
       ) : null}
 
-      <FindingsSection />
-
       <PersonalShopper />
 
       <ShoppingAssistant />
@@ -1230,6 +1228,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <FindingsSection productOnly onProductSaved={load} />
 
       {query.department === "achadinhos" ? (
         <section className="card-soft mb-6 p-4">
