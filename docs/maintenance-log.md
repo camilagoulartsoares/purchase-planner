@@ -18,6 +18,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
 - Git-connected deployments receive changes from the main branch.
+- Imported products preserve shipping when the source provides it.
 - Imported products retain the selected category.
 - Imported product images use the first available image media.
 - Imported product prices remain required before saving.
