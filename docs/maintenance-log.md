@@ -18,6 +18,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
 - Git-connected deployments receive changes from the main branch.
+- The compact import control hides the legacy findings heading.
 - Linked-product imports retain an explicit source note.
 - Linked-product imports keep the default purchase intent status.
 - Linked-product imports keep the default wishlist priority.
