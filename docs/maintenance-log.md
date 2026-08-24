@@ -18,6 +18,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
 - Git-connected deployments receive changes from the main branch.
+- The link review dialog remains available from the product area.
 - Shipping refresh failures do not prevent a linked product from being saved.
 - Imported products preserve shipping when the source provides it.
 - Imported products retain the selected category.
