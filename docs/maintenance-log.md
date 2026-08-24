@@ -18,6 +18,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
 - Git-connected deployments receive changes from the main branch.
+- Catalog-only link imports avoid redirecting away from the active list.
 - Link-import previews continue to support product media galleries.
 - Existing Meus achados records are not changed by product-only imports.
 - Mobile link import controls retain the shared button behavior.
