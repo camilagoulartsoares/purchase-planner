@@ -18,3 +18,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The link review dialog keeps its controls reachable on small screens.
 - Structured page data remains the first source before fallback providers.
 - Git-connected deployments receive changes from the main branch.
+- Linked-product imports create a catalog item before refreshing the visible list.
