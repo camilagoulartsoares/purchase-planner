@@ -1,4 +1,8 @@
 .finding-section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.product-link-import .finding-section-head { justify-content:flex-end; }
+.product-link-import .finding-section-head > div,
+.product-link-import .finding-list,
+.product-link-import .finding-empty { display:none; }
 .finding-list { display:grid; gap:.7rem; max-height:38rem; overflow:auto; margin-top:1rem; padding-right:.25rem; }
 .finding-card { display:grid; grid-template-columns:4.5rem minmax(0,1fr) auto; align-items:center; gap:.85rem; border:1px solid var(--line); border-radius:1rem; padding:.65rem; background:rgba(255,255,255,.55); cursor:pointer; }
 .finding-card > img { width:4.5rem; height:5.6rem; border-radius:.75rem; object-fit:cover; background:var(--cream-deep); }
