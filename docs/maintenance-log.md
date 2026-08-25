@@ -40,6 +40,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The product import control appears after the product filters.
 - Link imports do not create a duplicate entry in Meus achados.
 - Linked-product imports create a catalog item before refreshing the visible list.
+- Link import adds a source note to the catalog record.
 - Link import keeps the original URL as the purchase URL.
 - Link import uses the first image as the catalog thumbnail.
 - Link import assigns an Other category when the source category is unknown.
