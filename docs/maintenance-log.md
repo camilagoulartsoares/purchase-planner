@@ -40,6 +40,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The product import control appears after the product filters.
 - Link imports do not create a duplicate entry in Meus achados.
 - Linked-product imports create a catalog item before refreshing the visible list.
+- Link import accepts a current price only when it is greater than zero.
 - Link import uses a neutral store fallback when the source omits one.
 - Link import uses a neutral brand fallback when the source omits one.
 - Link import retains the source brand when it is available.
