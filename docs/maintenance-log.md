@@ -40,6 +40,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The product import control appears after the product filters.
 - Link imports do not create a duplicate entry in Meus achados.
 - Linked-product imports create a catalog item before refreshing the visible list.
+- Link import keeps the user on the active product view after a save.
 - Link import refreshes the active product query after a save.
 - Link import records no promotional price when there is no discount.
 - Link import does not infer a discount without a lower current price.
