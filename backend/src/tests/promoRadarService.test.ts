@@ -65,6 +65,7 @@ function makePage(html: string, overrides: Partial<{
   statusCode: number;
   blocked: boolean;
   unavailable: boolean;
+  verificationFailed: boolean;
   redirected: boolean;
 }> = {}) {
   const url = overrides.url || "https://www.chamatte.com.br/products/legging-detalhes-preto";
@@ -76,6 +77,7 @@ function makePage(html: string, overrides: Partial<{
     html,
     blocked: overrides.blocked ?? false,
     unavailable: overrides.unavailable ?? false,
+    verificationFailed: overrides.verificationFailed ?? false,
     redirected: overrides.redirected ?? false,
   };
 }
@@ -308,6 +310,36 @@ describe("promoRadarService", () => {
 
     expect(result.status).toBe("page_unavailable");
     expect(result.productMatched).toBe(false);
+  });
+
+  it("retorna page_unavailable somente para 410 ou 404", () => {
+    const result = analyzeProductWithPage(makeProduct(), makePage("", { statusCode: 410, unavailable: true }));
+    expect(result.status).toBe("page_unavailable");
+    expect(result.availability).toBe("unknown");
+  });
+
+  it.each([403, 429])("mantem %s como bloqueio, sem marcar esgotado", (statusCode) => {
+    const result = analyzeProductWithPage(makeProduct(), makePage("", { statusCode, blocked: true }));
+    expect(result.status).toBe("access_blocked");
+    expect(result.availability).toBe("unknown");
+  });
+
+  it.each([0, 500, 503])("mantem %s como falha de verificacao, sem marcar indisponivel", (statusCode) => {
+    const result = analyzeProductWithPage(makeProduct(), makePage("", { statusCode, verificationFailed: true }));
+    expect(result.status).toBe("analysis_failed");
+    expect(result.availability).toBe("unknown");
+    expect(result.reason).toContain("verificar");
+  });
+
+  it("nao assume indisponibilidade sem indicador de estoque", () => {
+    const result = analyzeProductWithPage(makeProduct(), makePage(`
+      <title>Legging Detalhes Preto</title>
+      <script type="application/ld+json">
+        {"@type":"Product","name":"Legging Detalhes Preto","brand":{"name":"Cha Matte"},"offers":{"price":"170.00"}}
+      </script>
+    `));
+    expect(result.status).toBe("ok");
+    expect(result.availability).toBe("unknown");
   });
 
   it("retorna access_blocked quando a loja bloqueia a leitura", () => {

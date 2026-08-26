@@ -34,7 +34,7 @@ export function buildPromoByProductId(products: PromoRadarProduct[]) {
       pixPrice: saleConfirmed ? item.pixPrice ?? null : null,
       checkedAt: saleConfirmed ? item.checkedAt ?? null : null,
       status: item.status,
-      statusLabel: saleConfirmed ? statusLabelFor(item) : null,
+      statusLabel: saleConfirmed || item.status !== "ok" ? statusLabelFor(item) : null,
       confidence: item.matchConfidence,
       productMatched: item.productMatched,
     });

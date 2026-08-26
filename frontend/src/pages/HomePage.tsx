@@ -1334,6 +1334,7 @@ export function HomePage() {
               promoReferencePrice={promoByProductId.get(item.id)?.originalPrice ?? null}
               promoDiscountPercentage={promoByProductId.get(item.id)?.discountPercentage ?? null}
               promoPixPrice={promoByProductId.get(item.id)?.pixPrice ?? null}
+              availabilityStatusLabel={promoByProductId.get(item.id)?.statusLabel ?? null}
               onEdit={(p) => {
                 setEditing(p);
                 setFormOpen(true);

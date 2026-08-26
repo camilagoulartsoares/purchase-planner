@@ -17,6 +17,7 @@ type Props = {
   promoReferencePrice?: number | null;
   promoDiscountPercentage?: number | null;
   promoPixPrice?: number | null;
+  availabilityStatusLabel?: string | null;
   onEdit?: (p: Product) => void;
   onMarkBought?: (p: Product) => void;
   onFavorite?: (p: Product) => void;
@@ -32,6 +33,7 @@ export function ProductCard({
   promoReferencePrice,
   promoDiscountPercentage,
   promoPixPrice,
+  availabilityStatusLabel,
   onEdit,
   onMarkBought,
   onFavorite,
@@ -137,6 +139,7 @@ export function ProductCard({
               </p>
             ) : null}
             <p className="mt-1 text-sm text-muted">{product.status}</p>
+            {availabilityStatusLabel ? <p className="mt-1 text-sm text-muted">{availabilityStatusLabel}</p> : null}
           </div>
 
           <div className="relative" ref={menuRef}>

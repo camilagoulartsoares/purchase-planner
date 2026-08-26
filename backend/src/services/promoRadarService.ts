@@ -103,6 +103,7 @@ type FetchPageResult = {
   html: string;
   blocked: boolean;
   unavailable: boolean;
+  verificationFailed: boolean;
   redirected: boolean;
   source?: "html" | "shopify_json";
 };
@@ -494,6 +495,7 @@ async function fetchShopifyProductFallback(url: string): Promise<FetchPageResult
       html,
       blocked: false,
       unavailable: false,
+      verificationFailed: false,
       redirected: false,
       source: "shopify_json",
     };
@@ -542,7 +544,7 @@ function extractEmbeddedString(html: string, pattern: RegExp) {
 }
 
 function detectAvailability(text: string, html: string, jsonLdProducts: Record<string, unknown>[]) {
-  const lowered = normalizeText(`${text} ${html}`);
+  const lowered = normalizeText(text);
   for (const item of jsonLdProducts) {
     const offers = item.offers as Record<string, unknown> | undefined;
     const availability = String(
@@ -555,12 +557,7 @@ function detectAvailability(text: string, html: string, jsonLdProducts: Record<s
     if (availability.includes("preorder")) return "preorder" as const;
   }
 
-  if (
-    lowered.includes("esgotado") ||
-    lowered.includes("indisponivel") ||
-    lowered.includes("sold out") ||
-    lowered.includes("fora de estoque")
-  ) {
+  if (/(?:\besgotad[oa]?\b|\bindisponivel\b|\bsold\s+out\b|\bfora\s+de\s+estoque\b|\bout\s+of\s+stock\b)/i.test(lowered)) {
     return "out_of_stock" as const;
   }
   if (lowered.includes("pre venda") || lowered.includes("preorder")) {
@@ -951,6 +948,7 @@ export function matchProductToPage(product: ProductWithRelations, pageData: Page
 function computeStatusFromPage(page: FetchPageResult, pageData: PageProductData) {
   if (page.blocked) return "access_blocked" as const;
   if (page.unavailable) return "page_unavailable" as const;
+  if (page.verificationFailed) return "analysis_failed" as const;
   if (pageData.availability === "out_of_stock") return "out_of_stock" as const;
   return "ok" as const;
 }
@@ -997,8 +995,8 @@ export function analyzeProductWithPage(
   logs.push(`URL normalizada: ${page.normalizedUrl}`);
   if (page.redirected) logs.push(`pagina redirecionou para ${page.finalUrl}`);
 
-  if (page.blocked || page.unavailable) {
-    const status = page.blocked ? "access_blocked" : "page_unavailable";
+  if (page.blocked || page.unavailable || page.verificationFailed) {
+    const status = page.blocked ? "access_blocked" : page.unavailable ? "page_unavailable" : "analysis_failed";
     return {
       productId: product.id,
       productName: product.name,
@@ -1023,7 +1021,9 @@ export function analyzeProductWithPage(
       reason:
         status === "access_blocked"
           ? "A pagina bloqueou a leitura automatica"
-          : "A pagina nao esta disponivel",
+          : status === "page_unavailable"
+            ? "A pagina nao foi encontrada"
+            : "Nao foi possivel verificar a pagina agora",
       checkedAt,
       logs,
       conditionalOffers: [],
@@ -1209,7 +1209,8 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
     const html = await response.text();
     const statusCode = response.status;
     const blocked = [401, 403, 429].includes(statusCode);
-    const unavailable = statusCode >= 500 || statusCode === 404;
+    const unavailable = statusCode === 404 || statusCode === 410;
+    const verificationFailed = statusCode >= 500;
 
     if ((blocked || unavailable) && looksLikeShopifyProductUrl(normalizedUrl)) {
       const fallback = await fetchShopifyProductFallback(normalizedUrl);
@@ -1224,6 +1225,7 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
       html,
       blocked,
       unavailable,
+      verificationFailed,
       redirected: normalizeUrl(response.url || normalizedUrl) !== normalizedUrl,
       source: "html",
     };
@@ -1238,7 +1240,8 @@ async function fetchPage(url: string): Promise<FetchPageResult> {
       statusCode: 0,
       html: "",
       blocked: false,
-      unavailable: true,
+      unavailable: false,
+      verificationFailed: true,
       redirected: false,
       source: "html",
     };
@@ -1487,6 +1490,7 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
             html: "",
             blocked: false,
             unavailable: false,
+            verificationFailed: true,
             redirected: false,
           });
         }
@@ -1549,7 +1553,7 @@ async function runPromoRadar(userId: string): Promise<PromoRadarResponse> {
     .filter((result) => result.requestedSizeAvailability === false)
     .map((result) => result.productId);
   const restoredProductIds = results
-    .filter((result) => result.requestedSizeAvailability === true)
+    .filter((result) => result.requestedSizeAvailability === true || result.availability === "in_stock")
     .map((result) => result.productId);
   const pendingProductIds = results
     .filter((result) => result.requestedSizeAvailability === null)
