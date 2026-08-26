@@ -40,6 +40,7 @@ Small, traceable maintenance notes for the Purchase Planner.
 - The product import control appears after the product filters.
 - Link imports do not create a duplicate entry in Meus achados.
 - Linked-product imports create a catalog item before refreshing the visible list.
+- Link import keeps a gallery arrow only when more than one media item exists.
 - Link import retains video media for review when provided.
 - Link import leaves unavailable media out of the primary image selection.
 - Link import keeps editable preview fields before the product is saved.
