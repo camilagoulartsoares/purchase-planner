@@ -91,3 +91,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the modal title visible while content scrolls.
 - Link import restores the save action after a recoverable request failure.
 - Link import surfaces a validation message for an invalid product URL.
+- Link import keeps the preview image alt text tied to the product title.
