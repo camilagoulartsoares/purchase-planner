@@ -88,3 +88,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import retains the product title returned by the preview.
 - Link import keeps the selected source URL available for later editing.
 - Link import preserves product notes entered during review.
+- Link import keeps the modal title visible while content scrolls.
