@@ -101,3 +101,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the product category selector available during review.
 - Link import reports a loading state while preview data is requested.
 - Link import keeps the preview failure message separate from field values.
+- Link import does not close the dialog when a preview request fails.
