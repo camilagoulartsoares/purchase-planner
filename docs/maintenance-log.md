@@ -93,3 +93,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import surfaces a validation message for an invalid product URL.
 - Link import keeps the preview image alt text tied to the product title.
 - Link import avoids submitting a whitespace-only URL.
+- Link import retains the original domain when a source label is unavailable.
