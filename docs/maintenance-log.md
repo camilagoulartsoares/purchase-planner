@@ -98,3 +98,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import preserves a manually adjusted product name before saving.
 - Link import preserves a manually adjusted product price before saving.
 - Link import leaves the save control disabled until a preview is ready.
+- Link import keeps the product category selector available during review.
