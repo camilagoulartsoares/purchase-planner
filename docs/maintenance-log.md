@@ -95,3 +95,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import avoids submitting a whitespace-only URL.
 - Link import retains the original domain when a source label is unavailable.
 - Link import keeps the review form focused after a validation error.
+- Link import preserves a manually adjusted product name before saving.
