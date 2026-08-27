@@ -105,3 +105,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import maintains the product-area context after cancelling review.
 - Link import uses the review values as the final catalog input.
 - Link import keeps the source URL distinct from optional media URLs.
+- Link import allows a new preview after correcting the submitted URL.
