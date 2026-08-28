@@ -116,3 +116,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the preview action available after a cancelled request.
 - Link import exposes a descriptive label for the source URL field.
 - Link import preserves the product form order on compact screens.
+- Link import leaves unset optional fields blank instead of guessing values.
