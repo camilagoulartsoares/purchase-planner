@@ -118,3 +118,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import preserves the product form order on compact screens.
 - Link import leaves unset optional fields blank instead of guessing values.
 - Link import keeps keyboard navigation within the review dialog.
+- Link import confirms completion only after the catalog refresh succeeds.
