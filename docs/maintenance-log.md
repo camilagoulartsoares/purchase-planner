@@ -107,3 +107,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the source URL distinct from optional media URLs.
 - Link import allows a new preview after correcting the submitted URL.
 - Link import records only confirmed catalog data after a successful save.
+- Link import keeps an optional description editable during review.
