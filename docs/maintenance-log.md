@@ -110,3 +110,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps an optional description editable during review.
 - Link import preserves the current form values while media finishes loading.
 - Link import uses a clear empty-state message when no preview media exists.
+- Link import retains the selected availability status until save.
