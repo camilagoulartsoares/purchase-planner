@@ -111,3 +111,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import preserves the current form values while media finishes loading.
 - Link import uses a clear empty-state message when no preview media exists.
 - Link import retains the selected availability status until save.
+- Link import keeps the product price field formatted for Brazilian currency.
