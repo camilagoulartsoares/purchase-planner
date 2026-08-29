@@ -124,3 +124,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import labels the media gallery controls for assistive technology.
 - Link import keeps product values editable after a source timeout.
 - Link import distinguishes an unavailable preview from a saved product.
+- Link import avoids changing the selected category when previewing again.
