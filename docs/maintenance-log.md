@@ -126,3 +126,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import distinguishes an unavailable preview from a saved product.
 - Link import avoids changing the selected category when previewing again.
 - Link import retains a manual brand correction through submission.
+- Link import keeps a neutral placeholder when an image cannot load.
