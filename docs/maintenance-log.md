@@ -128,3 +128,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import retains a manual brand correction through submission.
 - Link import keeps a neutral placeholder when an image cannot load.
 - Link import lets the user retry a failed preview without reopening the dialog.
+- Link import preserves the product-area scroll position after saving.
