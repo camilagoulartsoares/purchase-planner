@@ -121,3 +121,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import confirms completion only after the catalog refresh succeeds.
 - Link import preserves a selected product image when the preview is refreshed.
 - Link import keeps the cancel control visible during loading.
+- Link import labels the media gallery controls for assistive technology.
