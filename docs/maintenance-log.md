@@ -130,3 +130,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import lets the user retry a failed preview without reopening the dialog.
 - Link import preserves the product-area scroll position after saving.
 - Link import keeps confirmation feedback concise and actionable.
+- Link import does not mark an item as purchased during creation.
