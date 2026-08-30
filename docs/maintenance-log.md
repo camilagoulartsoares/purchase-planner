@@ -149,3 +149,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import avoids replacing user edits with a late preview response.
 - Link import displays source errors without revealing internal details.
 - Link import retains an explicit fallback category for uncategorized products.
+- Link import maintains form spacing when optional media is absent.
