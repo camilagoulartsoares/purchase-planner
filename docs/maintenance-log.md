@@ -153,3 +153,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the review dialog usable at narrow viewport widths.
 - Link import leaves the product card unchanged until saving completes.
 - Link import retains the original source link for future verification.
+- Link import uses the product name in confirmation feedback.
