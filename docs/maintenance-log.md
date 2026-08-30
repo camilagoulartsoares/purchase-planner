@@ -155,3 +155,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import retains the original source link for future verification.
 - Link import uses the product name in confirmation feedback.
 - Link import keeps manual price corrections when the form is resubmitted.
+- Link import restores interactive controls after a save error.
