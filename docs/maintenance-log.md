@@ -133,3 +133,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import does not mark an item as purchased during creation.
 - Link import keeps the product title required before catalog creation.
 - Link import retains a manually selected priority during review.
+- Link import shows the source domain without exposing tracking parameters.
