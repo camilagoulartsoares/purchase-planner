@@ -145,3 +145,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import keeps the close control available before any preview starts.
 - Link import preserves the selected purchase intent during editing.
 - Link import retains the current product status after source review.
+- Link import keeps optional shipping information editable.
