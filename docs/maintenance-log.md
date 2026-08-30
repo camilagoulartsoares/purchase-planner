@@ -143,3 +143,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import provides a visible status message while importing.
 - Link import lets the user clear a failed URL before retrying.
 - Link import keeps the close control available before any preview starts.
+- Link import preserves the selected purchase intent during editing.
