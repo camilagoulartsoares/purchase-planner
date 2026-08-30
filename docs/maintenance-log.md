@@ -140,3 +140,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import leaves discount data empty when a source cannot confirm it.
 - Link import keeps the review action disabled while saving.
 - Link import returns focus to the product area after a successful save.
+- Link import provides a visible status message while importing.
