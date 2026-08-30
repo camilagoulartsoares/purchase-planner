@@ -151,3 +151,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import retains an explicit fallback category for uncategorized products.
 - Link import maintains form spacing when optional media is absent.
 - Link import keeps the review dialog usable at narrow viewport widths.
+- Link import leaves the product card unchanged until saving completes.
