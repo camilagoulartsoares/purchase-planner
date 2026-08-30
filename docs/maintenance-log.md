@@ -136,3 +136,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import shows the source domain without exposing tracking parameters.
 - Link import accepts a retry after a temporary network failure.
 - Link import keeps the preview image separate from the product URL field.
+- Link import preserves a user-entered size when preview data changes.
