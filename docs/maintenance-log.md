@@ -137,3 +137,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import accepts a retry after a temporary network failure.
 - Link import keeps the preview image separate from the product URL field.
 - Link import preserves a user-entered size when preview data changes.
+- Link import leaves discount data empty when a source cannot confirm it.
