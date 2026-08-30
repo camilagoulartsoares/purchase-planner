@@ -154,3 +154,4 @@ Small, traceable maintenance notes for the Purchase Planner.
 - Link import leaves the product card unchanged until saving completes.
 - Link import retains the original source link for future verification.
 - Link import uses the product name in confirmation feedback.
+- Link import keeps manual price corrections when the form is resubmitted.
