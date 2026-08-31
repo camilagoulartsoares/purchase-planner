@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, LoaderCircle, Send, Trash2 } from "lucide-react";
+import { Bot, LoaderCircle, MessageCircle, Send, Trash2, X } from "lucide-react";
 import * as api from "../api/closet";
 import { formatBRL } from "../types";
 
@@ -11,6 +11,7 @@ type ChatMessage = { role: "user" | "assistant"; text: string; reply?: Assistant
 const suggestions = ["Tenho R$ 500. O que devo comprar primeiro?", "Monte um combo para academia até R$ 300.", "Quais favoritos cabem em R$ 400?", "Qual compra devo adiar?"];
 
 export function ShoppingAssistant() {
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,13 +23,12 @@ export function ShoppingAssistant() {
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível consultar o assistente."); }
     finally { setLoading(false); }
   };
-  return <section className="assistant-shell card-soft mb-6 p-4 sm:p-5">
-    <div className="finding-section-head"><div><p className="planner-kicker"><Bot size={15} /> Assistente de compras</p><h2 className="font-display mt-2 text-3xl font-semibold text-brown-deep">O que eu compro?</h2><p className="mt-1 text-sm text-muted">Recomendações feitas somente com os produtos da sua lista.</p></div><button type="button" className="btn-ghost" onClick={() => { setMessages([]); setError(""); }} disabled={!messages.length}><Trash2 size={15} /> Limpar conversa</button></div>
+  return <><button type="button" className="assistant-chat-trigger" onClick={() => setOpen(true)} aria-label="Abrir assistente de compras"><MessageCircle size={21} /><span>Assistente de compras</span></button>{open ? <div className="assistant-drawer-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><aside className="assistant-drawer" role="dialog" aria-modal="true" aria-labelledby="assistant-title" onMouseDown={(event) => event.stopPropagation()}><header className="assistant-drawer-header"><div><p className="planner-kicker"><Bot size={15} /> Assistente de compras</p><h2 id="assistant-title" className="font-display">O que eu compro?</h2><p>Recomendações feitas somente com os produtos da sua lista.</p></div><div className="assistant-drawer-actions"><button type="button" className="btn-ghost" onClick={() => { setMessages([]); setError(""); }} disabled={!messages.length} aria-label="Limpar conversa"><Trash2 size={16} /></button><button type="button" className="btn-ghost" onClick={() => setOpen(false)} aria-label="Fechar"><X size={19} /></button></div></header><div className="assistant-drawer-content">
     {!messages.length ? <div className="assistant-suggestions"><p>Experimente perguntar:</p>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>)}</div> : null}
     {messages.length ? <div className="assistant-history">{messages.map((item, index) => <div key={`${item.role}-${index}`} className={`assistant-message ${item.role}`}><p>{item.text}</p>{item.reply ? <AssistantResult reply={item.reply} /> : null}</div>)}{loading ? <div className="assistant-message assistant"><LoaderCircle size={18} className="animate-spin" /> Analisando a sua lista…</div> : null}</div> : null}
-    {error ? <p className="finding-error mt-3">{error}</p> : null}
-    <form className="assistant-form" onSubmit={(event) => { event.preventDefault(); void send(); }}><input value={message} maxLength={700} onChange={(event) => setMessage(event.target.value)} placeholder="Ex.: Monte um combo até R$ 300" aria-label="Pergunta para o assistente" /><button className="btn-primary" disabled={!message.trim() || loading}><Send size={15} /> Enviar</button></form>
-  </section>;
+    {error ? <p className="finding-error mt-3">{error}</p> : null}</div>
+    <form className="assistant-form assistant-drawer-form" onSubmit={(event) => { event.preventDefault(); void send(); }}><input autoFocus value={message} maxLength={700} onChange={(event) => setMessage(event.target.value)} placeholder="Ex.: Monte um combo até R$ 300" aria-label="Pergunta para o assistente" /><button className="btn-primary" disabled={!message.trim() || loading}><Send size={15} /> Enviar</button></form>
+  </aside></div> : null}</>;
 }
 
 function AssistantResult({ reply }: { reply: AssistantReply }) {
