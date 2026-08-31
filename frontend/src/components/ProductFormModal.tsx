@@ -164,14 +164,14 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
         timesPostponed: String(initial.timesPostponed || 0),
         notes: initial.notes || "",
       });
-      const existing =
-        initial.images?.map((i) => ({
-          kind: "existing" as const,
-          id: i.id,
-          url: mediaUrl(i.imageUrl),
-          isMain: i.isMain,
-        })) ||
-        (initial.imageUrl
+      const existing = initial.images?.length
+        ? initial.images.map((i) => ({
+            kind: "existing" as const,
+            id: i.id,
+            url: mediaUrl(i.imageUrl),
+            isMain: i.isMain,
+          }))
+        : initial.imageUrl
           ? [
               {
                 kind: "existing" as const,
@@ -180,7 +180,7 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
                 isMain: true,
               },
             ]
-          : []);
+          : [];
       if (existing.length && !existing.some((i) => i.isMain)) {
         existing[0].isMain = true;
       }
