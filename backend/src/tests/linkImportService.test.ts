@@ -57,4 +57,20 @@ describe("linkImportService", () => {
       { type: "image", url: "https://loja.example/bolsa-2.jpg" },
     ]);
   });
+
+  it("prioriza o produto e a galeria correspondentes a pagina", () => {
+    const result = extractProductFromHtml(`
+      <meta property="og:title" content="BODY MARY MARROM">
+      <script type="application/ld+json">{"@type":"Product","name":"CROPPED LOLLA NUDE","url":"/produtos/cropped-lolla/","image":"/cropped.jpg","offers":{"price":"99"}}</script>
+      <script type="application/ld+json">{"@type":"WebPage","mainEntity":{"@type":"Product","@id":"https://loja.example/produtos/body-mary/","name":"BODY MARY MARROM","image":"/mary-cover.jpg","offers":{"url":"/produtos/body-mary/","price":"179"}}}</script>
+      <a href="/mary-1.webp" data-fancybox="product-gallery"><img src="/mary-thumb-1.webp"></a>
+      <a href="/mary-2.webp" data-fancybox="product-gallery"><img src="/mary-thumb-2.webp"></a>
+      <section class="related"><img src="/outro-produto.webp"></section>
+    `, "https://loja.example/produtos/body-mary/?variant=1");
+    expect(result).toMatchObject({ title: "BODY MARY MARROM", price: 179 });
+    expect(result.media).toEqual([
+      { type: "image", url: "https://loja.example/mary-1.webp" },
+      { type: "image", url: "https://loja.example/mary-2.webp" },
+    ]);
+  });
 });

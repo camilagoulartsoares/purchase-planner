@@ -157,7 +157,30 @@ function flattenJsonLd(value: unknown): Record<string, unknown>[] {
   if (Array.isArray(value)) return value.flatMap(flattenJsonLd);
   if (!value || typeof value !== "object") return [];
   const record = value as Record<string, unknown>;
-  return [record, ...flattenJsonLd(record["@graph"])];
+  return [record, ...flattenJsonLd(record["@graph"]), ...flattenJsonLd(record.mainEntity)];
+}
+
+function comparableProductPath(value: unknown, base: URL) {
+  const url = strings(value)[0];
+  if (!url) return "";
+  try {
+    return new URL(url, base).pathname.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function jsonLdProductScore(item: Record<string, unknown>, base: URL, pageTitle: string) {
+  const offer = item.offers && typeof item.offers === "object" && !Array.isArray(item.offers)
+    ? item.offers as Record<string, unknown>
+    : {};
+  const currentPath = base.pathname.replace(/\/+$/, "").toLowerCase();
+  const itemPaths = [item["@id"], item.url, offer.url].map((value) => comparableProductPath(value, base));
+  const itemTitle = String(item.name || item.title || "").trim().toLocaleLowerCase("pt-BR");
+  const expectedTitle = pageTitle.trim().toLocaleLowerCase("pt-BR");
+  return productScore(item)
+    + (itemPaths.some((path) => path && path === currentPath) ? 30 : 0)
+    + (itemTitle && expectedTitle && (itemTitle === expectedTitle || expectedTitle.includes(itemTitle)) ? 15 : 0);
 }
 
 function embeddedProductRecords(html: string) {
@@ -326,10 +349,12 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const productPageHtml = html.match(/<section\b[^>]*\bid=["']produto["'][^>]*>[\s\S]*?(?=<section\b[^>]*\bid=["']prod-relacionados["']|$)/i)?.[0] || html;
   const json = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
     .flatMap((match) => { try { return flattenJsonLd(JSON.parse(match[1])); } catch { return []; } });
-  const jsonLdProduct = json.find((item) => {
+  const jsonLdProducts = json.filter((item) => {
     const type = item["@type"];
     return type === "Product" || (Array.isArray(type) && type.includes("Product"));
   });
+  const pageOgTitle = meta(html, "og:title");
+  const jsonLdProduct = jsonLdProducts.sort((a, b) => jsonLdProductScore(b, base, pageOgTitle) - jsonLdProductScore(a, base, pageOgTitle))[0];
   const embeddedProduct = embeddedProductRecords(html).sort((a, b) => productScore(b) - productScore(a))[0];
   const product = jsonLdProduct || embeddedProduct || {};
   const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
@@ -337,6 +362,9 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
   const productImageUrls = strings(product.image).concat(strings(product.images), strings(product.gallery), strings(product.media), strings(product.associatedMedia));
   const readerTitle = html.match(/^Title:\s*(.+)$/mi)?.[1] || "";
   const htmlImageUrls = [...productPageHtml.matchAll(/<img\b[^>]+(?:src|data-src|data-original|data-zoom-image)=["']([^"']+)["']/gi)].map((m) => m[1]);
+  const explicitGalleryImageUrls = (productPageHtml.match(/<a\b[^>]*data-fancybox=["']product-gallery["'][^>]*>/gi) || [])
+    .map((tag) => tag.match(/href=["']([^"']+)["']/i)?.[1])
+    .filter((url): url is string => Boolean(url));
   const readerGallery = readerTitle
     ? html.split(/PRODUTOS RELACIONADOS/i)[0]
     : "";
@@ -350,12 +378,18 @@ export function extractProductFromHtml(html: string, finalUrl: string): Omit<Lin
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
   const pageImages = (readerTitle ? readerImageUrls : htmlImageUrls)
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
-  const images = structuredImages.length
+  const galleryImages = explicitGalleryImageUrls
+    .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
+  const images = galleryImages.length
+    ? selectProductImages(galleryImages, true)
+    : structuredImages.length
     ? selectProductImages(structuredImages, true)
     : selectProductImages(pageImages);
   const fallbackImages = ogImages
     .map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url));
-  const selectedImages = images.length ? images : selectProductImages(fallbackImages, true).slice(0, 1);
+  const isWbuyGallery = images.some((url) => /(?:assets\.)?sistemawbuy\.com\.br/i.test(url));
+  const primaryImages = isWbuyGallery ? images.slice(0, 8) : images;
+  const selectedImages = primaryImages.length ? primaryImages : selectProductImages(fallbackImages, true).slice(0, 1);
   const videos = videoUrls.map((url) => absoluteUrl(url, base)).filter((url): url is string => Boolean(url)).slice(0, 12);
   const brand = typeof product.brand === "object" && product.brand ? String((product.brand as Record<string, unknown>).name || "") : String(product.brand || product.manufacturer || "");
   const availabilityRaw = String(offer.availability || meta(html, "product:availability") || "").toLowerCase();
