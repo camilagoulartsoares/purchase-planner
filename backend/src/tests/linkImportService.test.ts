@@ -6,6 +6,10 @@ describe("linkImportService", () => {
     expect(normalizeFindingUrl("https://LOJA.EXEMPLO.com:443/produto?utm_source=x&sku=42#foto")).toBe("https://loja.exemplo.com/produto?sku=42");
   });
 
+  it("aceita URL copiada em formato de link Markdown", () => {
+    expect(normalizeFindingUrl("[produto](https://loja.example/item?sku=42)")).toBe("https://loja.example/item?sku=42");
+  });
+
   it("extrai galeria de imagens e videos do JSON-LD, OG e HTML", () => {
     const result = extractProductFromHtml(`
       <meta property="og:title" content="Produto OG"><meta property="og:image" content="/cover.jpg">

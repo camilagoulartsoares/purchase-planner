@@ -64,7 +64,9 @@ function decode(value: string) {
 export function normalizeFindingUrl(raw: string) {
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    const trimmed = raw.trim();
+    const markdownUrl = trimmed.match(/^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/i)?.[1];
+    url = new URL(markdownUrl || trimmed);
   } catch {
     throw new AppError("Informe uma URL valida.", 400);
   }
@@ -132,6 +134,41 @@ async function fetchReaderFallback(url: string) {
   });
   if (!response.ok) throw new AppError("Nao foi possivel ler a pagina bloqueada.", 422);
   return response.text();
+}
+
+async function fetchMetadataFallback(url: string): Promise<Omit<LinkPreview, "originalUrl" | "normalizedUrl"> | null> {
+  try {
+    await assertPublicUrl(url);
+    const endpoint = new URL("https://api.microlink.io/");
+    endpoint.searchParams.set("url", url);
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(20_000),
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const body = await response.json() as {
+      status?: string;
+      data?: { title?: string; description?: string; publisher?: string; image?: { url?: string } };
+    };
+    if (body.status !== "success" || !body.data) return null;
+    const titleSource = String(body.data.title || "").trim();
+    const imageUrl = absoluteUrl(String(body.data.image?.url || ""), new URL(url));
+    return {
+      title: titleSource.replace(/^comprar\s+/i, "").replace(/\s*[-|–]\s*R\$\s*[\d.,]+.*$/i, "").trim(),
+      brand: String(body.data.publisher || "").trim(),
+      store: new URL(url).hostname.replace(/^www\./, ""),
+      description: String(body.data.description || "").trim(),
+      price: numberOrNull(titleSource.match(/R\$\s*([\d.,]+)/i)?.[1]),
+      previousPrice: null,
+      shippingPrice: null,
+      currency: "BRL",
+      category: "",
+      availability: "unknown",
+      media: imageUrl ? [{ type: "image", url: imageUrl }] : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 function previewScore(preview: Omit<LinkPreview, "originalUrl" | "normalizedUrl">) {
@@ -508,6 +545,16 @@ export const linkImportService = {
         }
       } catch (error) { errors.push(`reader:${error instanceof Error ? error.message : "failed"}`); }
     }
+    let metadataFallbackUsed = false;
+    if (previewLooksIncomplete(parsed)) {
+      const metadataPreview = await fetchMetadataFallback(productUrl);
+      if (metadataPreview && previewScore(metadataPreview) > previewScore(parsed)) {
+        parsed = metadataPreview;
+        metadataFallbackUsed = true;
+      } else {
+        errors.push("metadata:no_better_result");
+      }
+    }
     const directPAvailability = requestedSizeAvailability(content, "P");
     const shouldAskSizeAi = directPAvailability === null && /tamanho|sizes?|variac|option/i.test(content);
     // AI receives only this page's HTML. It is a parser of the submitted URL,
@@ -539,7 +586,7 @@ export const linkImportService = {
       jsonLdFound: /application\/ld\+json/i.test(content),
       openGraphFound: /(?:property|name)=["']og:/i.test(content),
       embeddedProductFound: /\b(?:product(?:json|data)?|pdp|item)\s*[:=]/i.test(content),
-      strategies: ["http", "redirects", "json-ld", "open-graph", "embedded-json", "html", ...(isBotCheck || isBotContent ? ["reader"] : []), ...(aiNeeded ? ["ai"] : []), "shipping"],
+      strategies: ["http", "redirects", "json-ld", "open-graph", "embedded-json", "html", ...(isBotCheck || isBotContent ? ["reader"] : []), ...(metadataFallbackUsed ? ["metadata-proxy"] : []), ...(aiNeeded ? ["ai"] : []), "shipping"],
       extractorUsed: parsed.title || parsed.price != null || parsed.media.length ? "page-content" : ai ? "ai-page-content" : "none",
       aiFallbackUsed: Boolean(ai),
       errors,
