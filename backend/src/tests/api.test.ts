@@ -26,6 +26,11 @@ describe("API Closet", () => {
       .field("status", data.status);
 
   beforeAll(async () => {
+    if (!process.env.TEST_DATABASE_URL) {
+      throw new Error(
+        "Teste de API bloqueado: configure um TEST_DATABASE_URL isolado.",
+      );
+    }
     await prisma.$connect();
     await prisma.productImage.deleteMany();
     await prisma.product.deleteMany();
