@@ -85,7 +85,10 @@ export const productBodySchema = z
     priority: z.enum(PRIORITIES).default("Quero"),
     status: z.enum(STATUSES).default("Quero comprar"),
     purchaseIntent: z.enum(["NEED", "WANT"]).default("WANT"),
-    estimatedUses: z.coerce.number().int().positive().optional().nullable(),
+    estimatedUses: z.preprocess(
+      (value) => (value === "" || value == null ? null : value),
+      z.coerce.number().int().positive().optional().nullable(),
+    ),
     timesPostponed: z.coerce.number().int().nonnegative().default(0),
     decisionStatus: z.string().max(80).optional().nullable(),
     notes: z.string().optional().nullable(),

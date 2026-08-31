@@ -323,6 +323,17 @@ export const productService = {
 
       const finalImages = await productRepository.reindexImages(id);
       const main = finalImages.find((i) => i.isMain) || finalImages[0] || null;
+      // Produtos importados por link mais antigos guardam a imagem apenas em
+      // Product.imageUrl, sem registros na galeria. Preserve essa imagem ao
+      // editar os demais campos; uma galeria real continua podendo ser limpa.
+      const legacyImageUrl =
+        existing.images.length === 0
+          ? data.imageUrl
+            ? String(data.imageUrl)
+            : existing.imageUrl
+          : null;
+      const legacyImagePublicId =
+        existing.images.length === 0 ? existing.imagePublicId : null;
 
       const product = await productRepository.update(id, {
         brand: { connect: { id: brand.id } },
@@ -348,8 +359,8 @@ export const productService = {
         timesPostponed: Number(data.timesPostponed || 0),
         decisionStatus: data.decisionStatus ? String(data.decisionStatus) : null,
         notes: data.notes ? String(data.notes) : null,
-        imageUrl: main?.imageUrl ?? null,
-        imagePublicId: main?.imagePublicId ?? null,
+        imageUrl: main?.imageUrl ?? legacyImageUrl,
+        imagePublicId: main?.imagePublicId ?? legacyImagePublicId,
       });
 
       safeBackup("product-update");

@@ -282,6 +282,12 @@ export function ProductFormModal({ open, initial, onClose, onSave }: Props) {
       });
 
       if (initial?.id) {
+        const keepsLegacyImage = gallery.some(
+          (item) => item.kind === "existing" && item.id === "legacy-main",
+        );
+        if (keepsLegacyImage && initial.imageUrl) {
+          fd.set("imageUrl", initial.imageUrl);
+        }
         const keepIds = gallery
           .filter((i) => i.kind === "existing" && i.id !== "legacy-main")
           .map((i) => (i as Extract<GalleryItem, { kind: "existing" }>).id);
