@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LayoutGrid, LogOut, Sparkles, Tags } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import type { ReactNode } from "react";
 
@@ -13,37 +13,38 @@ export function AppShell({
   const { user, logout } = useAuth();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `rounded-full px-3 py-1.5 text-sm transition ${
-      isActive ? "bg-rose text-white" : "text-brown-deep hover:bg-cream-deep"
-    }`;
+    `app-nav-link ${isActive ? "is-active" : ""}`;
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line bg-surface/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold tracking-[0.16em] text-rose uppercase">
-                Painel interno
-              </p>
-              <Link to="/" className="font-display text-3xl font-semibold text-brown-deep">
-                Product Planner
+      <header className="app-header">
+        <div className="app-header-inner mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="app-brand-row">
+            <div className="app-brand-wrap">
+              <Link to="/" className="app-brand-mark" aria-label="Ir para o início">
+                <Sparkles size={19} />
               </Link>
-              <p className="mt-1 text-sm text-muted">Olá, {user?.name}</p>
+              <div>
+                <p className="app-eyebrow">Seu closet inteligente</p>
+                <Link to="/" className="app-brand-name font-display">
+                  Purchase Planner
+                </Link>
+                <p className="app-welcome">Olá, {user?.name}</p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="app-header-actions">
               {actions}
               <button type="button" className="btn-ghost" onClick={logout}>
                 <LogOut size={14} /> Sair
               </button>
             </div>
           </div>
-          <nav className="flex flex-wrap gap-2">
+          <nav className="app-nav" aria-label="Navegação principal">
             <NavLink to="/" end className={linkClass}>
-              Registros
+              <LayoutGrid size={15} /> Registros
             </NavLink>
             <NavLink to="/marcas" className={linkClass}>
-              Marcas
+              <Tags size={15} /> Marcas
             </NavLink>
           </nav>
         </div>
