@@ -67,8 +67,8 @@ export function ProductCard({
   const livePromoReferencePrice = hasPromoPrice ? promoReferencePrice : null;
 
   return (
-    <article className="card-soft relative overflow-visible">
-      <div className="relative overflow-hidden rounded-t-[1.1rem]">
+    <article className="card-soft product-card relative overflow-visible">
+      <div className="product-card-media relative overflow-hidden rounded-t-[1.1rem]">
         <ProductGallery images={images} alt={product.name} compact />
         {promoLabel ? (
           <div className="sale-badge absolute top-2 left-2 z-20">
@@ -94,15 +94,15 @@ export function ProductCard({
         ) : null}
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="product-card-body space-y-3 p-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.12em] text-rose uppercase">
+            <p className="product-card-meta text-[11px] font-semibold tracking-[0.12em] text-rose uppercase">
               {product.brand} - {product.category}
             </p>
             <Link
               to={`/produtos/${product.id}`}
-              className="font-display mt-1 block text-xl font-semibold text-brown-deep hover:text-rose"
+              className="product-card-title font-display mt-1 block text-xl font-semibold text-brown-deep hover:text-rose"
               aria-label={`Abrir detalhes de ${product.name}`}
               title={`Abrir detalhes de ${product.name}`}
             >
@@ -217,7 +217,7 @@ export function ProductCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="product-card-actions flex flex-wrap gap-2">
           {product.purchaseUrl ? (
             <a
               className="btn-ghost"
