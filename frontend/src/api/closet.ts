@@ -205,7 +205,8 @@ export async function fetchShopperConversation(id: string) {
 }
 
 export async function sendShopperMessage(message: string, conversationId?: string) {
-  const res = await api.post("/personal-shopper/messages", { message, conversationId }, { timeout: 35000 });
+  // The request may combine intent analysis with a live Google Shopping lookup.
+  const res = await api.post("/personal-shopper/messages", { message, conversationId }, { timeout: 90000 });
   return res.data.data as ShopperReply;
 }
 
