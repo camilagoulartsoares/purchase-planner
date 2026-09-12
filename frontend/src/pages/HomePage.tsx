@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, Repeat2, SlidersHorizontal, Sparkles, Target, X } from "lucide-react";
+import { Bell, Check, ChevronDown, ExternalLink, Gem, Heart, PiggyBank, Repeat2, SlidersHorizontal, Sparkles, Target, X } from "lucide-react";
 import * as api from "../api/closet";
 import {
   DEPARTMENTS,
@@ -181,6 +181,7 @@ export function HomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [brands, setBrands] = useState<BrandSummary[]>([]);
   const [promoRadar, setPromoRadar] = useState<PromoRadarResponse | null>(null);
+  const [shampooAlertsEnabled, setShampooAlertsEnabled] = useState(() => window.localStorage.getItem("purchase-planner-shampoo-alerts") === "true");
   const [items, setItems] = useState<Product[]>([]);
   const [plannerItems, setPlannerItems] = useState<Product[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, perPage: 12, totalPages: 1 });
@@ -249,6 +250,27 @@ export function HomePage() {
     }, new Map<string, typeof externalPromotions>()).entries()),
     [externalPromotions],
   );
+  const shampooPromotions = useMemo(
+    () => externalPromotions.filter((item) => /shampoo|nutri\s*enrich|wella/i.test(`${item.name} ${item.category} ${item.brand}`)),
+    [externalPromotions],
+  );
+
+  useEffect(() => {
+    if (!shampooAlertsEnabled || !shampooPromotions.length || !("Notification" in window) || Notification.permission !== "granted") return;
+    const sent = new Set<string>(JSON.parse(window.localStorage.getItem("purchase-planner-shampoo-alerted") || "[]"));
+    const fresh = shampooPromotions.filter((item) => !sent.has(item.id));
+    fresh.forEach((item) => new Notification("Promoção de shampoo encontrada", { body: `${item.name}: ${item.discountPercentage}% OFF por ${formatBRL(item.salePrice)}`, icon: item.imageUrl || undefined }));
+    if (fresh.length) window.localStorage.setItem("purchase-planner-shampoo-alerted", JSON.stringify([...sent, ...fresh.map((item) => item.id)].slice(-100)));
+  }, [shampooAlertsEnabled, shampooPromotions]);
+
+  const enableShampooAlerts = async () => {
+    if (!("Notification" in window)) { setToast("Este navegador não oferece notificações."); return; }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") { setToast("Permita as notificações do navegador para receber os alertas."); return; }
+    window.localStorage.setItem("purchase-planner-shampoo-alerts", "true");
+    setShampooAlertsEnabled(true);
+    setToast("Alertas de shampoo ativados neste navegador.");
+  };
 
   const pUnavailableProductIds = useMemo(() => new Set([
     ...(promoRadar?.removedProductIds || []),
@@ -977,6 +999,20 @@ export function HomePage() {
             </small>
           </article>
         </div>
+      </section>
+
+      <section className="card-soft mb-6 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="planner-kicker"><Bell size={15} /> Alerta de beleza</p>
+            <h3 className="font-display mt-2 text-2xl font-semibold text-brown-deep">Shampoo em promoção</h3>
+            <p className="mt-1 text-sm text-muted">Monitoramento para Beleza na Web, Mercado Livre, Amazon e Época Cosméticos. O alerta aparece aqui e neste navegador quando o Radar encontrar uma oferta confirmada.</p>
+          </div>
+          <button type="button" className="btn-primary" onClick={() => void enableShampooAlerts()} disabled={shampooAlertsEnabled}>
+            <Bell size={16} /> {shampooAlertsEnabled ? "Alertas ativados" : "Ativar notificações"}
+          </button>
+        </div>
+        {shampooPromotions.length ? <div className="mt-3 text-sm text-ink">{shampooPromotions.length} promoção{shampooPromotions.length > 1 ? "ões" : ""} de shampoo encontrada{shampooPromotions.length > 1 ? "s" : ""} agora.</div> : <p className="mt-3 text-sm text-muted">Nenhuma promoção confirmada de shampoo no último Radar.</p>}
       </section>
 
       {promoRadar?.brands.length || externalPromotions.length ? (
