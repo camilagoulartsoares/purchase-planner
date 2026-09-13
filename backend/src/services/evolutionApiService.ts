@@ -63,6 +63,35 @@ function extractConnectionState(payload: EvolutionResponse) {
   ).toLowerCase();
 }
 
+function extractFetchedInstanceState(payload: EvolutionResponse) {
+  const direct = Array.isArray(payload) ? payload : null;
+  const data = Array.isArray(payload.data) ? payload.data : null;
+  const instances = Array.isArray(payload.instances) ? payload.instances : null;
+  const entries = direct || data || instances || [];
+  const instance = entries.find((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const item = entry as EvolutionResponse;
+    const nested = item.instance && typeof item.instance === "object"
+      ? (item.instance as EvolutionResponse)
+      : undefined;
+    return item.name === env.evolution.instanceName ||
+      item.instanceName === env.evolution.instanceName ||
+      nested?.instanceName === env.evolution.instanceName;
+  }) as EvolutionResponse | undefined;
+  if (!instance) return "unknown";
+  const nested = instance.instance && typeof instance.instance === "object"
+    ? (instance.instance as EvolutionResponse)
+    : undefined;
+  return String(
+    instance.connectionStatus ||
+      instance.status ||
+      nested?.connectionStatus ||
+      nested?.status ||
+      nested?.state ||
+      "unknown",
+  ).toLowerCase();
+}
+
 export type PromotionMessage = {
   productName: string;
   currentPrice: number;
@@ -116,7 +145,31 @@ export const evolutionApiService = {
 
     try {
       const data = await request(`/instance/connectionState/${encodeURIComponent(env.evolution.instanceName)}`);
-      const state = extractConnectionState(data);
+      let state = extractConnectionState(data);
+
+      // Evolution API 2.3.7 pode manter connectionState em "connecting" depois
+      // que o Manager já mostra a instância conectada. Nessa situação específica,
+      // consultamos a listagem da mesma API para reconciliar o estado. Não chamamos
+      // connect, restart, logout ou qualquer endpoint que altere a sessão.
+      if (state === "connecting") {
+        try {
+          const instances = await request(`/instance/fetchInstances?instanceName=${encodeURIComponent(env.evolution.instanceName)}`);
+          const fetchedState = extractFetchedInstanceState(instances);
+          if (fetchedState === "open") {
+            state = "open";
+            console.info("[whatsapp.evolution] estado reconciliado por fetchInstances", {
+              instance: env.evolution.instanceName,
+            });
+          }
+        } catch (error) {
+          // O estado principal continua válido se a instalação não permitir
+          // fetchInstances com a chave configurada.
+          console.warn("[whatsapp.evolution] não foi possível reconciliar estado", {
+            instance: env.evolution.instanceName,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       return { configured: true, connected: state === "open", state };
     } catch (error) {
       console.warn("[whatsapp.evolution] não foi possível consultar a conexão", {
