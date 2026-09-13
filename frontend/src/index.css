@@ -1043,3 +1043,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 11: menus de seleção com profundidade mais uniforme. */
 .select-pretty-menu, .modal-select-menu { box-shadow: 0 15px 34px rgba(92,70,56,.14); }
+
+/* Ajuste 12: filtro de preço visualmente mais integrado. */
+.price-filter { border-color: rgba(231,217,207,.86); }
