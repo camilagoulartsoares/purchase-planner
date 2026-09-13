@@ -1025,3 +1025,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 5: estado ativo com sombra mais contida. */
 .app-nav-link.is-active { box-shadow: 0 5px 14px rgba(79,57,47,.14); }
+
+/* Ajuste 6: moldura mais definida para imagens dos produtos. */
+.product-card-media { box-shadow: inset 0 0 0 1px rgba(255,255,255,.52); }
