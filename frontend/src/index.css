@@ -1037,3 +1037,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 9: campo de orçamento com contraste refinado. */
 .planner-budget-control input { background: rgba(255,255,255,.82); }
+
+/* Ajuste 10: opções do plano com relevo quase imperceptível. */
+.planner-toggle { box-shadow: 0 3px 9px rgba(79,57,47,.025); }
