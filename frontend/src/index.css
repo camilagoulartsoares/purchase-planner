@@ -1034,3 +1034,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 8: destaque de planejamento com borda mais serena. */
 .planner-panel-main, .planner-panel-side article { border-color: rgba(71,124,115,.17); }
+
+/* Ajuste 9: campo de orçamento com contraste refinado. */
+.planner-budget-control input { background: rgba(255,255,255,.82); }
