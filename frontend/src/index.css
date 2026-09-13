@@ -1013,3 +1013,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 1: superfícies mais leves. */
 .card-soft { box-shadow: 0 16px 42px rgba(79,57,47,.075); }
+
+/* Ajuste 2: profundidade discreta nos controles principais. */
+.btn-primary { box-shadow: 0 7px 18px rgba(152,72,90,.18); }
