@@ -1022,3 +1022,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 4: leitura mais suave na navegação. */
 .app-nav-link:hover { background: rgba(239,232,225,.58); }
+
+/* Ajuste 5: estado ativo com sombra mais contida. */
+.app-nav-link.is-active { box-shadow: 0 5px 14px rgba(79,57,47,.14); }
