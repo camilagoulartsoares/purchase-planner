@@ -1046,3 +1046,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 12: filtro de preço visualmente mais integrado. */
 .price-filter { border-color: rgba(231,217,207,.86); }
+
+/* Ajuste 13: acesso ao shopper com sombra menos pesada. */
+.shopper-popup-trigger { box-shadow: 0 10px 24px rgba(64,93,88,.16); }
