@@ -100,6 +100,54 @@ O provider inicial é o Google Shopping via SerpApi. Os resultados podem incluir
 
 Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProvider`, permitindo adicionar integrações diretas no futuro sem alterar o chat, os cards, Meus achados ou o Planner.
 
+## Alertas pessoais no WhatsApp (Evolution API)
+
+Os alertas de promoção usam uma instância externa da **Evolution API** conectada ao WhatsApp Web por QR Code. Esta opção substitui a antiga tentativa de usar a WhatsApp Cloud API da Meta; nenhuma chave ou token da Meta é necessário para o envio.
+
+> Atenção: Evolution API automatiza o WhatsApp Web e não é uma integração oficial da Meta. Use somente para sua conta e alertas pessoais, sem mensagens em massa. A Meta pode desconectar a sessão ou aplicar limitações à conta.
+
+### 1. Hospede a Evolution API fora deste projeto
+
+O Render que hospeda o Purchase Planner é apenas o backend da aplicação. Ele não está configurado para manter a sessão/arquivos do WhatsApp Web da Evolution API. Suba uma Evolution API em uma instância externa com volume persistente e URL HTTPS (por exemplo, um VPS ou provedor que suporte Docker e disco persistente). Proteja o painel/URL da Evolution com senha e não exponha sua API key no frontend.
+
+Na Evolution API, crie uma API key de administração e guarde a URL pública, como `https://evolution.seu-dominio.com`.
+
+### 2. Configure o backend do Purchase Planner
+
+No Render, abra o serviço da API > **Environment** e adicione:
+
+```env
+EVOLUTION_API_URL=https://evolution.seu-dominio.com
+EVOLUTION_API_KEY=sua_chave_da_evolution
+EVOLUTION_INSTANCE_NAME=purchase-planner
+EVOLUTION_RECIPIENT=5535999999999
+```
+
+`EVOLUTION_RECIPIENT` é o número que recebe os alertas, com DDI + DDD + número e sem `+`, espaços ou traços. Depois, faça **Manual Deploy > Deploy latest commit** no Render.
+
+### 3. Criar e conectar por QR Code
+
+Com login no Purchase Planner, use estes endpoints autenticados (troque `API_URL` pela URL do backend):
+
+1. `POST /api/integrations/whatsapp/instance` cria a instância, caso ela ainda não exista, e devolve o QR.
+2. `GET /api/integrations/whatsapp/qr` devolve um QR novo quando precisar reconectar.
+3. Abra o QR retornado no campo `base64` no navegador. No WhatsApp do celular: **Configurações > Dispositivos conectados > Conectar um dispositivo**, e escaneie o código.
+4. `GET /api/integrations/whatsapp/status` deve mostrar `connected: true` e `state: "open"`.
+
+O QR aparece na resposta do endpoint — ele não é salvo no banco e expira rapidamente. Caso a Evolution instalada use uma versão com painel próprio, o mesmo QR também aparece em **Instances > purchase-planner > Connect** no painel dela.
+
+### 4. Testar um alerta manual
+
+Depois de conectado, faça um `POST /api/integrations/whatsapp/test` autenticado. Corpo opcional:
+
+```json
+{ "message": "Teste do Purchase Planner" }
+```
+
+Quando uma sincronização do Mercado Livre encontrar uma promoção/preço-alvo novo, o mesmo evento interno que já é registrado pelo Planner envia uma única mensagem para `EVOLUTION_RECIPIENT`. A deduplicação atual é preservada: não é envio em massa nem reenvio da mesma promoção.
+
+Em caso de sessão desconectada ou falha da Evolution, o sincronismo de produtos continua normalmente e o Render mostra entradas com o prefixo `[whatsapp.evolution]`. Reconecte com o QR e acompanhe pelo endpoint de status.
+
 ## Notas de manutenção
 
 - A URL original é preservada ao salvar produtos importados.

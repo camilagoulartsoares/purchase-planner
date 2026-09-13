@@ -65,6 +65,12 @@ export const env = {
     redirectUri: process.env.MELI_REDIRECT_URI || "",
     tokenEncryptionKey: process.env.MELI_TOKEN_ENCRYPTION_KEY || "",
   },
+  evolution: {
+    apiUrl: (process.env.EVOLUTION_API_URL || "").replace(/\/$/, ""),
+    apiKey: process.env.EVOLUTION_API_KEY || "",
+    instanceName: process.env.EVOLUTION_INSTANCE_NAME || "",
+    recipient: process.env.EVOLUTION_RECIPIENT || "",
+  },
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 5),
   linkImportDebugToken: process.env.LINK_IMPORT_DEBUG_TOKEN || "",
 };
@@ -83,5 +89,14 @@ export function mercadoLivreConfigured() {
       env.mercadoLivre.clientSecret &&
       env.mercadoLivre.redirectUri &&
       env.mercadoLivre.tokenEncryptionKey,
+  );
+}
+
+export function evolutionConfigured() {
+  return Boolean(
+    env.evolution.apiUrl &&
+      env.evolution.apiKey &&
+      env.evolution.instanceName &&
+      env.evolution.recipient,
   );
 }

@@ -5,6 +5,7 @@ import { AppError } from "../middlewares/errorHandler.js";
 import { brandRepository } from "../repositories/brandRepository.js";
 import { mercadoLivreRepository } from "../repositories/mercadoLivreRepository.js";
 import { decryptSecret, encryptSecret, randomState } from "../utils/encryption.js";
+import { evolutionApiService } from "./evolutionApiService.js";
 
 const MARKETPLACE = "mercado_livre";
 const BRAND_NAME = "Mercado Livre";
@@ -559,6 +560,22 @@ async function maybeNotify(params: {
       body: candidate.body,
       payload: basePayload,
     });
+
+    // O registro interno continua sendo a fonte de verdade. Falhas de WhatsApp não
+    // interrompem a sincronização nem alteram os preços encontrados.
+    if (evolutionApiService.isConfigured()) {
+      try {
+        await evolutionApiService.sendPromotion({
+          productName: params.title,
+          currentPrice: params.currentPrice,
+          targetPrice: params.targetPrice,
+          purchaseUrl: params.purchaseUrl,
+        });
+      } catch {
+        // O serviço já grava o motivo sem vazar credenciais; o próximo alerta novo
+        // poderá ser entregue quando a sessão for reconectada.
+      }
+    }
   }
 }
 

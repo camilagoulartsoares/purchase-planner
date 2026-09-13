@@ -307,6 +307,18 @@ export type MercadoLivreSyncResponse = {
   results: MercadoLivreSyncItem[];
 };
 
+export type WhatsAppIntegrationStatus = {
+  configured: boolean;
+  connected: boolean;
+  state: string;
+};
+
+export type WhatsAppQrCode = {
+  base64: string | null;
+  code: string | null;
+  pairingCode: string | null;
+};
+
 export type ProductQuery = {
   search?: string;
   department?: "moda" | "achadinhos" | "";

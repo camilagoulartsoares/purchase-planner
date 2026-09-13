@@ -5,6 +5,8 @@ import type {
   MercadoLivreIntegrationStatus,
   MercadoLivrePublicConfig,
   MercadoLivreSyncResponse,
+  WhatsAppIntegrationStatus,
+  WhatsAppQrCode,
   Product,
   ProductQuery,
   PromoRadarResponse,
@@ -159,6 +161,26 @@ export async function syncMercadoLivreFavorites() {
 export async function disconnectMercadoLivre() {
   const res = await api.delete("/integrations/mercadolivre/disconnect");
   return res.data.data as { disconnected: true };
+}
+
+export async function fetchWhatsAppStatus() {
+  const res = await api.get("/integrations/whatsapp/status");
+  return res.data.data as WhatsAppIntegrationStatus;
+}
+
+export async function createWhatsAppInstance() {
+  const res = await api.post("/integrations/whatsapp/instance");
+  return res.data.data as WhatsAppQrCode;
+}
+
+export async function fetchWhatsAppQrCode() {
+  const res = await api.get("/integrations/whatsapp/qr");
+  return res.data.data as WhatsAppQrCode;
+}
+
+export async function sendWhatsAppTest() {
+  const res = await api.post("/integrations/whatsapp/test");
+  return res.data.data as Record<string, unknown>;
 }
 
 export async function previewFinding(url: string) {

@@ -7,6 +7,8 @@ import {
   type MercadoLivreIntegrationStatus,
   type MercadoLivrePublicConfig,
   type MercadoLivreSyncResponse,
+  type WhatsAppIntegrationStatus,
+  type WhatsAppQrCode,
   NON_FASHION_CATEGORIES,
   STATUSES,
   formatBRL,
@@ -211,6 +213,9 @@ export function HomePage() {
   const [meliStatus, setMeliStatus] = useState<MercadoLivreIntegrationStatus | null>(null);
   const [meliSyncResult, setMeliSyncResult] = useState<MercadoLivreSyncResponse | null>(null);
   const [meliLoading, setMeliLoading] = useState(false);
+  const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppIntegrationStatus | null>(null);
+  const [whatsAppQr, setWhatsAppQr] = useState<WhatsAppQrCode | null>(null);
+  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
     const stored = window.localStorage.getItem("purchase-planner-budget");
     return stored ? Number(stored) || DEFAULT_BUDGET : DEFAULT_BUDGET;
@@ -304,6 +309,51 @@ export function HomePage() {
         setMeliConfig(null);
       }
       setMeliStatus(null);
+    }
+  }, []);
+
+  const refreshWhatsAppStatus = useCallback(async () => {
+    try {
+      setWhatsAppStatus(await api.fetchWhatsAppStatus());
+    } catch {
+      setWhatsAppStatus(null);
+    }
+  }, []);
+
+  const connectWhatsApp = useCallback(async () => {
+    setWhatsAppLoading(true);
+    try {
+      setWhatsAppQr(await api.createWhatsAppInstance());
+      await refreshWhatsAppStatus();
+      setToast("QR Code gerado. Escaneie-o no WhatsApp em Dispositivos conectados.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Não foi possível gerar o QR Code do WhatsApp");
+    } finally {
+      setWhatsAppLoading(false);
+    }
+  }, [refreshWhatsAppStatus]);
+
+  const refreshWhatsAppQr = useCallback(async () => {
+    setWhatsAppLoading(true);
+    try {
+      setWhatsAppQr(await api.fetchWhatsAppQrCode());
+      setToast("QR Code atualizado. Ele expira em pouco tempo.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Não foi possível atualizar o QR Code");
+    } finally {
+      setWhatsAppLoading(false);
+    }
+  }, []);
+
+  const testWhatsApp = useCallback(async () => {
+    setWhatsAppLoading(true);
+    try {
+      await api.sendWhatsAppTest();
+      setToast("Mensagem de teste enviada para o WhatsApp configurado.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Não foi possível enviar o teste do WhatsApp");
+    } finally {
+      setWhatsAppLoading(false);
     }
   }, []);
 
@@ -432,6 +482,10 @@ export function HomePage() {
   useEffect(() => {
     void refreshMercadoLivreStatus();
   }, [refreshMercadoLivreStatus]);
+
+  useEffect(() => {
+    void refreshWhatsAppStatus();
+  }, [refreshWhatsAppStatus]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1268,6 +1322,7 @@ export function HomePage() {
       <FindingsSection productOnly onProductSaved={load} />
 
       {query.department === "achadinhos" ? (
+        <>
         <section className="card-soft mb-6 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1349,6 +1404,30 @@ export function HomePage() {
             </div>
           ) : null}
         </section>
+        <section className="card-soft mb-6 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="planner-kicker"><Bell size={15} /> WhatsApp pessoal</p>
+              <h3 className="font-display mt-2 text-3xl font-semibold text-brown-deep">Alertas de promoção</h3>
+              <p className="mt-2 max-w-3xl text-sm text-muted">Conecte uma sessão do WhatsApp Web por QR Code. As mensagens vão apenas para o número definido no backend.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!whatsAppStatus?.configured ? (
+                <button type="button" className="btn-ghost" disabled>Configure a Evolution API no Render</button>
+              ) : whatsAppStatus.connected ? (
+                <button type="button" className="btn-primary" disabled={whatsAppLoading} onClick={() => void testWhatsApp()}>Enviar teste</button>
+              ) : (
+                <button type="button" className="btn-primary" disabled={whatsAppLoading} onClick={() => void connectWhatsApp()}>Gerar QR Code</button>
+              )}
+              {whatsAppStatus?.configured && !whatsAppStatus.connected ? <button type="button" className="btn-ghost" disabled={whatsAppLoading} onClick={() => void refreshWhatsAppQr()}>Atualizar QR</button> : null}
+              <button type="button" className="btn-ghost" disabled={whatsAppLoading} onClick={() => void refreshWhatsAppStatus()}>Verificar conexão</button>
+            </div>
+          </div>
+          {!whatsAppStatus?.configured ? <p className="mt-4 text-sm text-muted">No Render, preencha EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME e EVOLUTION_RECIPIENT.</p> : null}
+          {whatsAppStatus?.configured ? <p className={`mt-4 text-sm ${whatsAppStatus.connected ? "text-sage" : "text-rose-deep"}`}>Status: {whatsAppStatus.connected ? "conectado" : `desconectado (${whatsAppStatus.state})`}</p> : null}
+          {whatsAppQr?.base64 ? <div className="mt-4 grid max-w-xs gap-3 rounded-2xl border border-line bg-surface p-4"><img className="aspect-square w-full rounded-lg bg-white p-2" src={whatsAppQr.base64.startsWith("data:") ? whatsAppQr.base64 : `data:image/png;base64,${whatsAppQr.base64}`} alt="QR Code para conectar o WhatsApp" /><p className="text-sm text-muted">No WhatsApp: Configurações &gt; Dispositivos conectados &gt; Conectar um dispositivo.</p></div> : whatsAppQr?.pairingCode ? <p className="mt-4 text-sm text-muted">Código de pareamento: <strong>{whatsAppQr.pairingCode}</strong></p> : null}
+        </section>
+        </>
       ) : null}
 
 
