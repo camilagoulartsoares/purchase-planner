@@ -179,7 +179,7 @@ export async function fetchWhatsAppQrCode() {
 }
 
 export async function sendWhatsAppTest() {
-  const res = await api.post("/integrations/whatsapp/test");
+  const res = await api.post("/notifications/whatsapp/test");
   return res.data.data as Record<string, unknown>;
 }
 
