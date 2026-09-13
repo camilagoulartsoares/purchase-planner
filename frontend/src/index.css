@@ -1031,3 +1031,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 7: elevação mais sutil ao explorar um produto. */
 .product-card:hover { transform: translateY(-3px); }
+
+/* Ajuste 8: destaque de planejamento com borda mais serena. */
+.planner-panel-main, .planner-panel-side article { border-color: rgba(71,124,115,.17); }
