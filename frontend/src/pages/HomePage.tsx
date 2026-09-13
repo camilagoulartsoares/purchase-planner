@@ -1322,7 +1322,6 @@ export function HomePage() {
       <FindingsSection productOnly onProductSaved={load} />
 
       {query.department === "achadinhos" ? (
-        <>
         <section className="card-soft mb-6 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1404,7 +1403,9 @@ export function HomePage() {
             </div>
           ) : null}
         </section>
-        <section className="card-soft mb-6 p-4">
+      ) : null}
+
+      <section className="card-soft mb-6 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="planner-kicker"><Bell size={15} /> WhatsApp pessoal</p>
@@ -1427,8 +1428,6 @@ export function HomePage() {
           {whatsAppStatus?.configured ? <p className={`mt-4 text-sm ${whatsAppStatus.connected ? "text-sage" : "text-rose-deep"}`}>Status: {whatsAppStatus.connected ? "conectado" : `desconectado (${whatsAppStatus.state})`}</p> : null}
           {whatsAppQr?.base64 ? <div className="mt-4 grid max-w-xs gap-3 rounded-2xl border border-line bg-surface p-4"><img className="aspect-square w-full rounded-lg bg-white p-2" src={whatsAppQr.base64.startsWith("data:") ? whatsAppQr.base64 : `data:image/png;base64,${whatsAppQr.base64}`} alt="QR Code para conectar o WhatsApp" /><p className="text-sm text-muted">No WhatsApp: Configurações &gt; Dispositivos conectados &gt; Conectar um dispositivo.</p></div> : whatsAppQr?.pairingCode ? <p className="mt-4 text-sm text-muted">Código de pareamento: <strong>{whatsAppQr.pairingCode}</strong></p> : null}
         </section>
-        </>
-      ) : null}
 
 
       {loading ? (
