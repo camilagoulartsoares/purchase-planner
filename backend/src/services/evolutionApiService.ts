@@ -3,6 +3,10 @@ import { AppError } from "../middlewares/errorHandler.js";
 
 type EvolutionResponse = Record<string, unknown>;
 
+const EVOLUTION_TIMEOUT_MS = 60_000;
+const EVOLUTION_MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1_000;
+
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -16,7 +20,7 @@ function configuredOrThrow() {
   }
 }
 
-async function request<T extends EvolutionResponse>(
+async function requestOnce<T extends EvolutionResponse>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
@@ -28,7 +32,7 @@ async function request<T extends EvolutionResponse>(
       ...(init.body ? { "content-type": "application/json" } : {}),
       ...init.headers,
     },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(EVOLUTION_TIMEOUT_MS),
   });
 
   const raw = await response.text();
@@ -47,6 +51,60 @@ async function request<T extends EvolutionResponse>(
     );
   }
   return payload;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryable(error: unknown) {
+  if (error instanceof AppError) return error.statusCode >= 500;
+  if (error instanceof Error) {
+    return error.name === "TimeoutError" || error.name === "AbortError" || error.name === "TypeError";
+  }
+  return false;
+}
+
+async function request<T extends EvolutionResponse>(
+  path: string,
+  init: RequestInit = {},
+  options: { operation?: string; maxAttempts?: number } = {},
+): Promise<T> {
+  configuredOrThrow();
+  const operation = options.operation || path.split("?")[0];
+  const maxAttempts = options.maxAttempts || EVOLUTION_MAX_ATTEMPTS;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const startedAt = Date.now();
+    try {
+      const payload = await requestOnce<T>(path, init);
+      console.info("[whatsapp.evolution] chamada concluída", {
+        operation,
+        attempt,
+        durationMs: Date.now() - startedAt,
+      });
+      return payload;
+    } catch (error) {
+      lastError = error;
+      const details = {
+        operation,
+        attempt,
+        maxAttempts,
+        durationMs: Date.now() - startedAt,
+        willRetry: retryable(error) && attempt < maxAttempts,
+        message: error instanceof Error ? error.message : String(error),
+      };
+      if (!details.willRetry) {
+        console.error("[whatsapp.evolution] chamada falhou após tentativas", details);
+        throw error;
+      }
+      console.warn("[whatsapp.evolution] chamada falhou; nova tentativa", details);
+      await wait(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new AppError("Falha ao chamar a Evolution API", 502);
 }
 
 function extractConnectionState(payload: EvolutionResponse) {
@@ -127,10 +185,22 @@ async function sendText(text: string) {
 
   // Endpoint compatível com Evolution API v2. A instância é sempre enviada pela URL,
   // mantendo a chave e o destinatário exclusivamente no servidor.
+  try {
+    await request(`/instance/connectionState/${encodeURIComponent(env.evolution.instanceName)}`, {}, {
+      operation: "wake_connection_state",
+      maxAttempts: 1,
+    });
+  } catch (error) {
+    console.warn("[whatsapp.evolution] aquecimento não respondeu; tentando envio", {
+      instance: env.evolution.instanceName,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   return request(`/message/sendText/${encodeURIComponent(env.evolution.instanceName)}`, {
     method: "POST",
     body: JSON.stringify({ number, text, linkPreview: true }),
-  });
+  }, { operation: "send_text" });
 }
 
 export const evolutionApiService = {
