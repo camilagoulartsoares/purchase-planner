@@ -16,6 +16,7 @@ import { integrationRoutes } from "./routes/integrationRoutes.js";
 import { findingRoutes } from "./routes/findingRoutes.js";
 import { shoppingAssistantRoutes } from "./routes/shoppingAssistantRoutes.js";
 import { personalShopperRoutes } from "./routes/personalShopperRoutes.js";
+import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { uploadsDir } from "./services/imageService.js";
 import { backupService } from "./services/backupService.js";
 import { cloudinaryConfigured } from "./config/env.js";
@@ -163,6 +164,7 @@ export function createApp() {
   app.use("/api/personal-shopper", personalShopperRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/integrations", integrationRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   void __dirname;
 

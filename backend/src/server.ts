@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 import { backupService } from "./services/backupService.js";
 import { mercadoLivreService } from "./services/mercadoLivreService.js";
+import { promotionNotificationService } from "./services/promotionNotificationService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("[startup] unhandledRejection", reason);
@@ -23,8 +24,14 @@ async function bootstrap() {
 
   const app = createApp();
 
+  // Faz uma verificação logo após cada inicialização/redeploy, sem depender de
+  // alguém abrir a Home. Os ciclos seguintes continuam a cada 30 minutos.
+  void mercadoLivreService.runAutoSyncCycle();
+  void promotionNotificationService.runAutoScanCycle();
+
   setInterval(() => {
     void mercadoLivreService.runAutoSyncCycle();
+    void promotionNotificationService.runAutoScanCycle();
   }, mercadoLivreService.autoSyncIntervalMs).unref();
 
   app.listen(env.port, () => {

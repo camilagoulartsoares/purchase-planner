@@ -179,6 +179,18 @@ export const evolutionApiService = {
 
   async sendTest(text?: string) {
     const content = text?.trim() || "✅ Purchase Planner conectado. Este é um teste pessoal de notificações.";
-    return sendText(content);
+    try {
+      const result = await sendText(content);
+      console.info("[whatsapp.evolution] mensagem de teste enviada", {
+        instance: env.evolution.instanceName,
+      });
+      return result;
+    } catch (error) {
+      console.error("[whatsapp.evolution] mensagem de teste não enviada", {
+        instance: env.evolution.instanceName,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   },
 };

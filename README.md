@@ -138,13 +138,15 @@ O QR aparece na resposta do endpoint — ele não é salvo no banco e expira rap
 
 ### 4. Testar um alerta manual
 
-Depois de conectado, faça um `POST /api/integrations/whatsapp/test` autenticado. Corpo opcional:
+Depois de conectado, use o botão **Enviar teste** em **Achadinhos > WhatsApp pessoal**. Ele chama `POST /api/notifications/whatsapp/test` autenticado. A rota anterior `/api/integrations/whatsapp/test` continua disponível por compatibilidade. Corpo opcional:
 
 ```json
 { "message": "Teste do Purchase Planner" }
 ```
 
-Quando uma sincronização do Mercado Livre encontrar uma promoção/preço-alvo novo, o mesmo evento interno que já é registrado pelo Planner envia uma única mensagem para `EVOLUTION_RECIPIENT`. A deduplicação atual é preservada: não é envio em massa nem reenvio da mesma promoção.
+Quando uma sincronização do Mercado Livre encontrar uma promoção/preço-alvo novo, o mesmo evento interno que já é registrado pelo Planner envia uma única mensagem para `EVOLUTION_RECIPIENT`. A deduplicação atual é preservada: não é envio em massa nem reenvio da mesma promoção. Se a Evolution estiver indisponível, a notificação fica como falha e é tentada novamente na próxima sincronização; os alertas entregues não são reenviados.
+
+As peças acompanhadas diretamente no Planner também são verificadas pelo Radar em segundo plano a cada 30 minutos. O alerta só é criado se o Radar confirmar que a página corresponde ao produto, há estoque e há preço promocional verificável. Produtos já comprados, desistidos e itens vindos da sincronização do Mercado Livre são excluídos dessa segunda varredura para evitar mensagens duplicadas.
 
 Em caso de sessão desconectada ou falha da Evolution, o sincronismo de produtos continua normalmente e o Render mostra entradas com o prefixo `[whatsapp.evolution]`. Reconecte com o QR e acompanhe pelo endpoint de status.
 

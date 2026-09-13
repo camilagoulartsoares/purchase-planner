@@ -135,6 +135,7 @@ export const mercadoLivreRepository = {
     title: string;
     body: string;
     payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+    whatsappStatus?: string;
   }) {
     return prisma.userNotification.create({
       data: {
@@ -147,6 +148,21 @@ export const mercadoLivreRepository = {
   findNotificationByDedupeKey(dedupeKey: string) {
     return prisma.userNotification.findUnique({
       where: { dedupeKey },
+    });
+  },
+
+  updateWhatsAppDelivery(
+    id: string,
+    data: { status: string; error?: string | null; sentAt?: Date | null },
+  ) {
+    return prisma.userNotification.update({
+      where: { id },
+      data: {
+        whatsappStatus: data.status,
+        whatsappAttempts: { increment: 1 },
+        whatsappLastError: data.error || null,
+        whatsappSentAt: data.sentAt || null,
+      },
     });
   },
 };

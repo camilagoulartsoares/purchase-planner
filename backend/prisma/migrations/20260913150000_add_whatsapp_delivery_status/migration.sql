@@ -1,0 +1,5 @@
+ALTER TABLE "UserNotification"
+  ADD COLUMN IF NOT EXISTS "whatsappStatus" TEXT NOT NULL DEFAULT 'not_configured',
+  ADD COLUMN IF NOT EXISTS "whatsappAttempts" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "whatsappLastError" TEXT,
+  ADD COLUMN IF NOT EXISTS "whatsappSentAt" TIMESTAMP(3);

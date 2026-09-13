@@ -548,10 +548,41 @@ async function maybeNotify(params: {
     });
   }
 
+  async function deliverWhatsApp(notification: { id: string }, shouldSend: boolean) {
+    if (!shouldSend || !evolutionApiService.isConfigured()) return;
+    try {
+      await evolutionApiService.sendPromotion({
+        productName: params.title,
+        currentPrice: params.currentPrice,
+        targetPrice: params.targetPrice,
+        purchaseUrl: params.purchaseUrl,
+      });
+      await mercadoLivreRepository.updateWhatsAppDelivery(notification.id, {
+        status: "sent",
+        sentAt: new Date(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.slice(0, 500) : "Falha desconhecida ao enviar WhatsApp";
+      await mercadoLivreRepository.updateWhatsAppDelivery(notification.id, {
+        status: "failed",
+        error: message,
+      });
+      console.warn("[whatsapp.evolution] entrega pendente para nova tentativa", {
+        notificationId: notification.id,
+        message,
+      });
+    }
+  }
+
   for (const candidate of candidates) {
     const existing = await mercadoLivreRepository.findNotificationByDedupeKey(candidate.dedupeKey);
-    if (existing) continue;
-    await mercadoLivreRepository.createNotification({
+    if (existing) {
+      // Uma falha temporária (sessão desconectada, timeout etc.) é tentada novamente
+      // na próxima sincronização, sem duplicar mensagens que já foram entregues.
+      await deliverWhatsApp(existing, existing.whatsappStatus === "failed");
+      continue;
+    }
+    const notification = await mercadoLivreRepository.createNotification({
       userId: params.userId,
       productId: params.productId,
       type: candidate.type,
@@ -559,23 +590,9 @@ async function maybeNotify(params: {
       title: candidate.title,
       body: candidate.body,
       payload: basePayload,
+      whatsappStatus: evolutionApiService.isConfigured() ? "pending" : "not_configured",
     });
-
-    // O registro interno continua sendo a fonte de verdade. Falhas de WhatsApp não
-    // interrompem a sincronização nem alteram os preços encontrados.
-    if (evolutionApiService.isConfigured()) {
-      try {
-        await evolutionApiService.sendPromotion({
-          productName: params.title,
-          currentPrice: params.currentPrice,
-          targetPrice: params.targetPrice,
-          purchaseUrl: params.purchaseUrl,
-        });
-      } catch {
-        // O serviço já grava o motivo sem vazar credenciais; o próximo alerta novo
-        // poderá ser entregue quando a sessão for reconectada.
-      }
-    }
+    await deliverWhatsApp(notification, true);
   }
 }
 

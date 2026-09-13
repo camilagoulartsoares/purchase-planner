@@ -243,6 +243,10 @@ model UserNotification {
   title         String
   body          String
   payload       Json?
+  whatsappStatus String   @default("not_configured")
+  whatsappAttempts Int    @default(0)
+  whatsappLastError String?
+  whatsappSentAt DateTime?
   readAt        DateTime?
   createdAt     DateTime @default(now())
 
