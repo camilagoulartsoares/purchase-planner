@@ -71,6 +71,10 @@ export const env = {
     instanceName: process.env.EVOLUTION_INSTANCE_NAME || "",
     recipient: process.env.EVOLUTION_RECIPIENT || "",
   },
+  promotion: {
+    checkIntervalMinutes: Math.max(5, Number(process.env.PROMOTION_CHECK_INTERVAL_MINUTES || 60)),
+    alertCooldownHours: Math.max(1, Number(process.env.PROMOTION_ALERT_COOLDOWN_HOURS || 24)),
+  },
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 5),
   linkImportDebugToken: process.env.LINK_IMPORT_DEBUG_TOKEN || "",
 };

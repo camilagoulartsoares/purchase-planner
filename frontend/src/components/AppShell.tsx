@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { LayoutGrid, LogOut, Sparkles, Tags } from "lucide-react";
+import { LayoutGrid, LogOut, Sparkles, Tags, Radar } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import type { ReactNode } from "react";
 
@@ -45,6 +45,9 @@ export function AppShell({
             </NavLink>
             <NavLink to="/marcas" className={linkClass}>
               <Tags size={15} /> Marcas
+            </NavLink>
+            <NavLink to="/monitor" className={linkClass}>
+              <Radar size={15} /> Monitor
             </NavLink>
           </nav>
         </div>

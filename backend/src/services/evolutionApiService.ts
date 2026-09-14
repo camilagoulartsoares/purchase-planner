@@ -178,9 +178,10 @@ export function formatPromotionMessage(promotion: PromotionMessage) {
 }
 
 async function sendText(text: string) {
-  const number = digits(env.evolution.recipient);
-  if (number.length < 10 || number.length > 15) {
-    throw new AppError("EVOLUTION_RECIPIENT deve conter DDI e DDD, apenas números (ex.: 5535999999999).", 400);
+  const configuredRecipient = env.evolution.recipient.trim();
+  const number = /@g\.us$/i.test(configuredRecipient) ? configuredRecipient : digits(configuredRecipient);
+  if (!/@g\.us$/i.test(number) && (number.length < 10 || number.length > 15)) {
+    throw new AppError("EVOLUTION_RECIPIENT deve ser um número com DDI/DDD ou o ID de um grupo terminado em @g.us.", 400);
   }
 
   // Endpoint compatível com Evolution API v2. A instância é sempre enviada pela URL,
@@ -298,6 +299,10 @@ export const evolutionApiService = {
       });
       throw error;
     }
+  },
+
+  async sendTextToRecipient(text: string) {
+    return sendText(text);
   },
 
   async sendTest(text?: string) {

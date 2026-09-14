@@ -21,6 +21,67 @@ model User {
   notifications              UserNotification[]
   findings                   Finding[]
   shopperConversations       ShopperConversation[]
+  promotionSettings          PromotionSettings?
+  promotionWatchItems        PromotionWatchItem[]
+}
+
+model PromotionSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shippingPostalCode String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model PromotionWatchItem {
+  id                String                  @id @default(cuid())
+  userId            String
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  searchTerm        String
+  maximumTotalPrice Decimal
+  active            Boolean                 @default(true)
+  lastCheckedAt     DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  offers            PromotionOfferHistory[]
+  alerts            PromotionAlertHistory[]
+
+  @@index([userId, active])
+}
+
+model PromotionOfferHistory {
+  id          String             @id @default(cuid())
+  watchItemId String
+  watchItem   PromotionWatchItem @relation(fields: [watchItemId], references: [id], onDelete: Cascade)
+  store       String
+  title       String
+  productPrice Decimal
+  shippingPrice Decimal?
+  totalPrice  Decimal?
+  originalPrice Decimal?
+  discountPercentage Int?
+  url         String
+  imageUrl    String?
+  seller      String?
+  availability String?
+  checkedAt   DateTime           @default(now())
+
+  @@index([watchItemId, checkedAt])
+  @@index([watchItemId, url])
+}
+
+model PromotionAlertHistory {
+  id          String             @id @default(cuid())
+  watchItemId String
+  watchItem   PromotionWatchItem @relation(fields: [watchItemId], references: [id], onDelete: Cascade)
+  store       String
+  url         String
+  totalPrice  Decimal
+  sentAt      DateTime           @default(now())
+
+  @@index([watchItemId, url, sentAt])
 }
 
 model ShopperConversation {

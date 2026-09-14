@@ -4,6 +4,7 @@ import { prisma } from "./config/prisma.js";
 import { backupService } from "./services/backupService.js";
 import { mercadoLivreService } from "./services/mercadoLivreService.js";
 import { promotionNotificationService } from "./services/promotionNotificationService.js";
+import { promotionMonitorService } from "./services/promotionMonitorService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("[startup] unhandledRejection", reason);
@@ -28,11 +29,16 @@ async function bootstrap() {
   // alguém abrir a Home. Os ciclos seguintes continuam a cada 30 minutos.
   void mercadoLivreService.runAutoSyncCycle();
   void promotionNotificationService.runAutoScanCycle();
+  void promotionMonitorService.runCycle();
 
   setInterval(() => {
     void mercadoLivreService.runAutoSyncCycle();
     void promotionNotificationService.runAutoScanCycle();
   }, mercadoLivreService.autoSyncIntervalMs).unref();
+
+  setInterval(() => {
+    void promotionMonitorService.runCycle();
+  }, env.promotion.checkIntervalMinutes * 60_000).unref();
 
   app.listen(env.port, () => {
     console.log(`API rodando em http://localhost:${env.port}`);
