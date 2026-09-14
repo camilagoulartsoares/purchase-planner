@@ -28,6 +28,7 @@ export async function createPromotionWatchItem(data: Pick<PromotionWatchItem, "n
 export async function updatePromotionWatchItem(id: string, data: Partial<Pick<PromotionWatchItem, "name" | "searchTerm" | "maximumTotalPrice" | "active">>) { const res = await api.patch(`/promotion-monitor/watch-items/${id}`, data); return res.data.data as PromotionWatchItem; }
 export async function deletePromotionWatchItem(id: string) { await api.delete(`/promotion-monitor/watch-items/${id}`); }
 export async function fetchPromotionOffers(id: string) { const res = await api.get(`/promotion-monitor/watch-items/${id}/offers`); return res.data.data as PromotionWatchItem; }
+export async function checkPromotionWatchItemNow(id: string) { const res = await api.post(`/promotion-monitor/watch-items/${id}/check`, undefined, { timeout: 60000 }); return res.data.data as PromotionWatchItem; }
 export async function fetchPromotionProviders() { const res = await api.get("/promotion-monitor/providers"); return res.data.data as PromotionProvider[]; }
 
 export async function register(data: { name: string; email: string; password: string }) {

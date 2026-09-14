@@ -5,6 +5,7 @@ import { shoppingProviders, type ShoppingOffer, type ShoppingProvider } from "./
 
 const blockedProductWords = ["condicionador", "mascara", "máscara", "oleo", "óleo", "miniatura"];
 let running = false;
+const checkingWatchItems = new Set<string>();
 
 export function isRelevantOffer(term: string, title: string) {
   const queryWords = term.toLocaleLowerCase("pt-BR").split(/\s+/).filter((word) => word.length >= 4);
@@ -45,7 +46,7 @@ function formatAlert(watchName: string, maximum: number, offer: ShoppingOffer) {
     `✅ Dentro da sua meta de ${brl(maximum)} para ${watchName}`, "", "🔗 Ver promoção:", offer.url].filter(Boolean).join("\n");
 }
 
-async function checkWatchItem(item: { id: string; userId: string; name: string; searchTerm: string; maximumTotalPrice: unknown }, postalCode: string) {
+async function performCheck(item: { id: string; userId: string; name: string; searchTerm: string; maximumTotalPrice: unknown }, postalCode: string) {
   const maximum = Number(item.maximumTotalPrice);
   console.info("[promotion.monitor] produto=" + item.name);
   const offers = await collectProviderOffers(shoppingProviders, item.searchTerm, postalCode);
@@ -65,6 +66,24 @@ async function checkWatchItem(item: { id: string; userId: string; name: string; 
 }
 
 export const promotionMonitorService = {
+  async checkNow(userId: string, watchItemId: string) {
+    if (checkingWatchItems.has(watchItemId)) {
+      throw new Error("Esta busca já está em andamento.");
+    }
+    checkingWatchItems.add(watchItemId);
+    try {
+      const item = await prisma.promotionWatchItem.findFirst({
+        where: { id: watchItemId, userId, active: true },
+        include: { user: { include: { promotionSettings: true } } },
+      });
+      if (!item) throw new Error("Monitoramento não encontrado ou pausado.");
+      const postalCode = item.user.promotionSettings?.shippingPostalCode;
+      if (!postalCode) throw new Error("Informe seu CEP antes de buscar ofertas.");
+      await performCheck(item, postalCode);
+    } finally {
+      checkingWatchItems.delete(watchItemId);
+    }
+  },
   async runCycle() {
     if (running) { console.info("[promotion.monitor] ciclo ignorado: já em execução"); return; }
     running = true;
@@ -74,7 +93,7 @@ export const promotionMonitorService = {
       for (const item of items) {
         const postalCode = item.user.promotionSettings?.shippingPostalCode;
         if (!postalCode) { console.warn("[promotion.monitor] CEP ausente", { watchItemId: item.id }); continue; }
-        try { await checkWatchItem(item, postalCode); } catch (error) { console.error("[promotion.monitor] falha", { watchItemId: item.id, message: error instanceof Error ? error.message : String(error) }); }
+        try { await this.checkNow(item.userId, item.id); } catch (error) { console.error("[promotion.monitor] falha", { watchItemId: item.id, message: error instanceof Error ? error.message : String(error) }); }
       }
     } finally { running = false; }
   },
