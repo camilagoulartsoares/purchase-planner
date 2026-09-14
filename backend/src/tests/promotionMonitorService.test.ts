@@ -18,4 +18,7 @@ describe("promotion monitor rules", () => {
     ];
     await expect(collectProviderOffers(providers, "Shampoo Wella", "01001000")).resolves.toHaveLength(1);
   });
+  it("keeps offers with unknown freight visible while preventing alerts", () => {
+    expect(isEligibleOffer(offer(350, null), 390)).toBe(false);
+  });
 });
