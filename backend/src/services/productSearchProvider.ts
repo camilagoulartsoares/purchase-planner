@@ -2,11 +2,18 @@ export type ShopperQuery = {
   query: string;
   category: string | null;
   maxPrice: number | null;
+  minPrice?: number | null;
   maxPriceIsHard: boolean;
   currency: "BRL";
   colors: string[];
   size: string | null;
   brands: string[];
+  requiredBrands?: string[];
+  requiredLine?: string | null;
+  requiredComponents?: string[][];
+  requiredVolumes?: string[];
+  requiredModelTerms?: string[];
+  requiredKit?: boolean;
   usage: string | null;
   style: string[];
   exclude: string[];

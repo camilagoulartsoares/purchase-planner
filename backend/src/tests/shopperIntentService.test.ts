@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+import { interpretShopperIntent, matchesRequiredIntent } from "../services/shopperIntentService.js";
+import { expandQueries } from "../services/shopperDiscoveryService.js";
+import type { SearchedProduct } from "../services/productSearchProvider.js";
+
+const item = (title: string, price = 200) => ({ title, price } as SearchedProduct);
+
+describe("Personal Shopper intent and mandatory constraints", () => {
+  it("refina a mesma conversa e reinicia quando o produto muda", () => {
+    const first = interpretShopperIntent("kit shampoo Wella", null);
+    const budget = interpretShopperIntent("kit shampoo Wella até R$398", first);
+    const line = interpretShopperIntent("só da linha Fusion", budget);
+    const alternative = interpretShopperIntent("pode ser shampoo + máscara também", line);
+    const reset = interpretShopperIntent("agora quero protetor solar até R$100", alternative);
+    expect(first.requiredBrands).toEqual(["Wella"]);
+    expect(first.query).toBe("kit shampoo Wella");
+    expect(budget.query).toBe("kit shampoo Wella");
+    expect(budget.maxPrice).toBe(398);
+    expect(budget.maxPriceIsHard).toBe(true);
+    expect(line.requiredLine).toBe("Fusion");
+    expect(line.query).toBe("kit shampoo Wella Fusion");
+    expect(interpretShopperIntent("prefiro Fusion", budget).requiredBrands).toEqual(["Wella"]);
+    expect(interpretShopperIntent("kit shampoo Wella até R$398", budget)).toEqual(budget);
+    expect(alternative.requiredComponents).toContainEqual(["shampoo", "mascara"]);
+    expect(expandQueries(alternative).some((value) => /mascara|máscara/i.test(value))).toBe(true);
+    expect(reset.query).toBe("protetor solar");
+    expect(reset.requiredBrands).toEqual([]);
+    expect(reset.requiredLine).toBeNull();
+    expect(reset.maxPrice).toBe(100);
+  });
+  it("exclui marcas, linhas, composições, volumes e modelos incompatíveis", () => {
+    const wella = interpretShopperIntent("kit shampoo e condicionador Wella 1L até 398 reais", null);
+    expect(matchesRequiredIntent(item("Kit Wella Fusion Shampoo 1000ml + Condicionador 1L", 350), wella)).toBe(true);
+    expect(matchesRequiredIntent(item("Kit Dove Shampoo 1L + Condicionador 1L", 100), wella)).toBe(false);
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 1L + Máscara 500ml", 100), wella)).toBe(false);
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 250ml + Condicionador 200ml", 100), wella)).toBe(false);
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 1L + Condicionador 1L", 450), wella)).toBe(false);
+    const nike = interpretShopperIntent("Tênis Nike feminino até R$500", null);
+    expect(matchesRequiredIntent(item("Tênis Adidas feminino", 300), nike)).toBe(false);
+    const iphone = interpretShopperIntent("iPhone 16 256GB", null);
+    expect(matchesRequiredIntent(item("Apple iPhone 16 128GB"), iphone)).toBe(false);
+    expect(matchesRequiredIntent(item("Apple iPhone 16 256GB"), iphone)).toBe(true);
+    const fusion = interpretShopperIntent("Shampoo Wella Fusion 1L", null);
+    expect(matchesRequiredIntent(item("Wella Invigo Shampoo 1L"), fusion)).toBe(false);
+  });
+});

@@ -1,5 +1,6 @@
 import { SerpApiProductSearchProvider, type ProductDetailCandidate } from "./serpApiProductSearchProvider.js";
 import type { SearchedProduct, ShopperQuery, ShopperVariation } from "./productSearchProvider.js";
+import { matchesMandatoryAttributes, matchesRequiredIntent } from "./shopperIntentService.js";
 
 const MAX_QUERIES = 5;
 const MAX_DETAILS = 5;
@@ -11,11 +12,13 @@ function normalize(value: string) { return value.normalize("NFD").replace(/[\u03
 export function expandQueries(query: ShopperQuery) {
   const base = query.query.trim();
   const parts = base.split(/\s+/);
-  const brand = query.brands[0] || parts.find((part, index) => index > 0 && /^[A-ZÁÉÍÓÚ][a-záéíóú]+$/.test(part)) || "";
+  const brand = query.requiredBrands?.[0] || query.brands[0] || parts.find((part, index) => index > 0 && /^[A-ZÁÉÍÓÚ][a-záéíóú]+$/.test(part)) || "";
   const core = brand ? base.replace(new RegExp(`\\b${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"), "").replace(/\s+/g, " ").trim() : base;
   const candidates = [base];
+  const qualifier = [brand, query.requiredLine || "", ...(query.requiredVolumes || [])].filter(Boolean).join(" ");
+  for (const group of query.requiredComponents || []) if (group.length > 1) candidates.push(`kit ${group.join(" ")} ${qualifier}`);
   if (brand && normalize(core).startsWith("kit ")) {
-    candidates.push(`kit ${brand}`);
+    candidates.push(`kit ${qualifier}`);
     candidates.push(`kit ${brand} ${core.replace(/^kit\s+/i, "")}`);
   }
   const pair = [
@@ -23,8 +26,8 @@ export function expandQueries(query: ShopperQuery) {
     ["câmera", "lente"], ["celular", "carregador"],
   ].find(([word]) => normalize(base).includes(normalize(word)));
   if (pair && brand && normalize(base).includes("kit")) {
-    candidates.push(`${pair[0]} e ${pair[1]} ${brand}`);
-    candidates.push(`kit ${pair[0]} ${pair[1]} ${brand}`);
+    candidates.push(`${pair[0]} e ${pair[1]} ${qualifier}`);
+    candidates.push(`kit ${pair[0]} ${pair[1]} ${qualifier}`);
   } else if (brand) {
     candidates.push(`${core} ${brand}`);
     candidates.push(`${brand} ${core}`);
@@ -91,7 +94,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   const successful = searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : []);
   if (!successful.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
   const raw = successful.flatMap((entry) => entry.results);
-  const candidates = [...new Map(successful.flatMap((entry) => entry.detailCandidates).sort((a, b) => b.relevance - a.relevance).map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()].slice(0, MAX_DETAILS);
+  const candidates = [...new Map(successful.flatMap((entry) => entry.detailCandidates).filter((item) => matchesMandatoryAttributes(item.title, query)).sort((a, b) => b.relevance - a.relevance).map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()].slice(0, MAX_DETAILS);
   const detailed = await limited(candidates, detailConcurrency, (item) => provider.offersFor(item, query));
   const offers = detailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []);
   const byUrl = new Map<string, SearchedProduct>();
@@ -99,7 +102,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
     const key = item.productId ? `${item.productId}:${normalize(item.store || "")}:${normalize(item.title)}:${item.price ?? ""}` : `${normalizedUrl(item.productUrl)}:${item.store || ""}:${item.price ?? ""}`;
     if (!byUrl.has(key)) byUrl.set(key, item);
   }
-  const results = [...byUrl.values()].filter((item) => query.maxPrice == null || !query.maxPriceIsHard || (item.price != null && item.price <= query.maxPrice));
+  const results = [...byUrl.values()].filter((item) => matchesRequiredIntent(item, query));
   const variations = groupVariations(results);
-  return { results, variations, metrics: { queries: phrases, searchCalls, detailCalls: candidates.length, rawResults: successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, variationCount: variations.length, offerCount: variations.reduce((sum, item) => sum + item.offers.length, 0), failedSearches: searched.flatMap((entry, index) => entry.status === "rejected" ? [phrases[index]] : []), failedDetails: detailed.filter((entry) => entry.status === "rejected").length } };
+  return { results, variations, metrics: { queries: phrases, searchCalls, detailCalls: candidates.length, rawResults: successful.reduce((sum, item) => sum + item.rawCount, 0), brandMatchesRaw: query.requiredBrands?.length ? raw.filter((item) => matchesMandatoryAttributes(item.title, { ...query, requiredLine: null, requiredComponents: [], requiredVolumes: [], requiredModelTerms: [] })).length : null, uniqueResults: byUrl.size, retainedResults: results.length, variationCount: variations.length, offerCount: variations.reduce((sum, item) => sum + item.offers.length, 0), failedSearches: searched.flatMap((entry, index) => entry.status === "rejected" ? [phrases[index]] : []), failedDetails: detailed.filter((entry) => entry.status === "rejected").length } };
 }
