@@ -236,7 +236,7 @@ export async function fetchShopperConversations() {
 
 export async function fetchShopperConversation(id: string) {
   const res = await api.get(`/personal-shopper/conversations/${id}`);
-  return res.data.data as { id: string; messages: Array<{ role: "user" | "assistant"; content: string; createdAt: string }>; searches: Array<{ results: ShopperReply["results"] }> };
+  return res.data.data as { id: string; messages: Array<{ role: "user" | "assistant"; content: string; createdAt: string }>; searches: Array<{ results: ShopperReply["results"] }>; variations: ShopperReply["variations"] };
 }
 
 export async function sendShopperMessage(message: string, conversationId?: string) {

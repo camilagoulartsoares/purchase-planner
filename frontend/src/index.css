@@ -1049,3 +1049,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Ajuste 13: acesso ao shopper com sombra menos pesada. */
 .shopper-popup-trigger { box-shadow: 0 10px 24px rgba(64,93,88,.16); }
+.shopper-offers{display:grid;gap:.55rem;padding:.65rem;border-top:1px solid var(--line)}.shopper-offer{display:grid;gap:.35rem;border:1px solid var(--line);border-radius:.7rem;background:var(--cream-deep);padding:.55rem}.shopper-offer>div:first-child{display:grid;gap:.2rem;min-width:0}.shopper-offer small{font-size:.7rem;color:var(--muted);line-height:1.3}.shopper-offer strong{color:var(--brown-deep)}.shopper-offer del,.shopper-offer em{font-size:.72rem;color:var(--muted)}.shopper-offer .shopper-actions{padding:.3rem 0 0}.shopper-card>.btn-ghost{margin:.5rem}.shopper-card-copy h4{min-height:0}

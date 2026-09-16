@@ -7,6 +7,7 @@ import { findingService } from "./findingService.js";
 import { productService } from "./productService.js";
 import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js";
 import type { SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
+import { discoverProducts, groupVariations } from "./shopperDiscoveryService.js";
 import { prisma } from "../config/prisma.js";
 
 const colors = ["bege", "preto", "branco", "marrom", "caramelo", "rosa", "azul", "verde", "vermelho", "cinza", "off white"];
@@ -54,7 +55,7 @@ function json(value: unknown) { return value as Prisma.InputJsonValue; }
 
 export const personalShopperService = {
   async listConversations(userId: string) { return prisma.shopperConversation.findMany({ where: { userId }, select: { id: true, title: true, updatedAt: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: "desc" }, take: 30 }); },
-  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } }, searches: { orderBy: { createdAt: "desc" }, take: 1 } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); return conversation; },
+  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } }, searches: { orderBy: { createdAt: "desc" }, take: 1 } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); return { ...conversation, variations: groupVariations((conversation.searches[0]?.results as unknown as SearchedProduct[] | undefined) || []) }; },
   async message(userId: string, conversationId: string | undefined, message: string) {
     const conversation = conversationId ? await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } }) : await prisma.shopperConversation.create({ data: { userId, title: message.slice(0, 80) } });
     if (!conversation) throw new AppError("Conversa não encontrada.", 404);
@@ -62,15 +63,17 @@ export const personalShopperService = {
     await prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "user", content: message } });
     const interpreted = await aiQuery(message, previous) || localQuery(message, previous);
     const query = enforceExplicitConstraints(interpreted, message, previous);
-    const last = await prisma.shopperSearch.findFirst({ where: { conversationId: conversation.id, provider: "serpapi-google-shopping", createdAt: { gte: new Date(Date.now() - 15 * 60_000) }, query: { equals: json(query) } }, orderBy: { createdAt: "desc" } });
     const provider = new SerpApiProductSearchProvider();
     if (!provider.available()) throw new AppError("Busca externa ainda não está configurada. Configure SERPAPI_API_KEY no backend.", 503);
-    const raw = last ? last.results as unknown as SearchedProduct[] : await provider.search(query);
-    const results = visibleResults(raw, query).slice(0, 12);
+    const last = await prisma.shopperSearch.findFirst({ where: { conversationId: conversation.id, provider: provider.id, createdAt: { gte: new Date(Date.now() - 15 * 60_000) }, query: { equals: json(query) } }, orderBy: { createdAt: "desc" } });
+    const discovery = last ? null : await discoverProducts(query, provider);
+    const raw = last ? last.results as unknown as SearchedProduct[] : discovery!.results;
+    const results = visibleResults(raw, query);
+    const variations = groupVariations(results);
     if (!last) await prisma.shopperSearch.create({ data: { conversationId: conversation.id, provider: provider.id, query: json(query), results: json(raw), expiresAt: new Date(Date.now() + 15 * 60_000) } });
-    const answer = answerFor(query, results);
+    const answer = results.length ? `Encontrei ${variations.length} variação${variations.length === 1 ? "" : "ões"} e ${results.length} oferta${results.length === 1 ? "" : "s"} nas fontes consultadas.` : answerFor(query, results);
     await prisma.$transaction([prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }), prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: answer, structuredData: json({ query, resultIds: results.map((item) => item.id) }) } })]);
-    return { conversationId: conversation.id, query, answer, results, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+    return { conversationId: conversation.id, query, answer, results, variations, metrics: discovery?.metrics || null, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async action(userId: string, conversationId: string, resultId: string, action: "save" | "add-to-planner", options: { category?: string; priority?: string; purchaseIntent?: string }) {
     const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId }, include: { searches: { orderBy: { createdAt: "desc" }, take: 1 } } });

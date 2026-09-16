@@ -32,7 +32,12 @@ export type SearchedProduct = {
   discountPercent: number | null;
   match: { query: number; budget: number; style: number; completeness: number; total: number };
   reason: string;
+  productId?: string | null;
+  checkedAt?: string;
+  sourceQuery?: string;
 };
+
+export type ShopperVariation = { id: string; title: string; imageUrl: string | null; offers: SearchedProduct[] };
 
 export interface ProductSearchProvider {
   readonly id: string;

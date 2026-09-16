@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { createHash } from "node:crypto";
 import { AppError } from "../middlewares/errorHandler.js";
 import type { ProductSearchProvider, SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 
@@ -6,7 +7,10 @@ type SerpResult = {
   position?: number; product_id?: string; title?: string; link?: string; product_link?: string; source?: string;
   extracted_price?: number; extracted_old_price?: number; thumbnail?: string; rating?: number; reviews?: number;
   delivery?: string; availability?: string; extensions?: string[];
+  multiple_sources?: boolean; immersive_product_page_token?: string;
 };
+
+export type ProductDetailCandidate = { productId: string; token: string; title: string; relevance: number };
 
 function validUrl(value: unknown) {
   if (typeof value !== "string") return null;
@@ -28,12 +32,14 @@ function score(result: Omit<SearchedProduct, "match" | "reason">, query: Shopper
 }
 
 export class SerpApiProductSearchProvider implements ProductSearchProvider {
-  readonly id = "serpapi-google-shopping";
+  readonly id = "serpapi-google-shopping-v2";
   available() { return Boolean(env.serpApi.apiKey); }
 
-  async search(query: ShopperQuery) {
-    if (!this.available()) return [];
-    const params = new URLSearchParams({ engine: "google_shopping", q: query.query, gl: "br", hl: "pt-br", num: "20", api_key: env.serpApi.apiKey });
+  async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
+
+  async searchDetailed(query: ShopperQuery, phrase: string): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
+    if (!this.available()) return { results: [], detailCandidates: [], rawCount: 0 };
+    const params = new URLSearchParams({ engine: "google_shopping", q: phrase, gl: "br", hl: "pt-br", num: "20", api_key: env.serpApi.apiKey });
     // Google Shopping via SerpApi pode retornar uma lista vazia no Brasil quando
     // recebe max_price, mesmo havendo itens abaixo do teto. Buscamos o catálogo
     // normal e aplicamos o limite rígido localmente em visibleResults().
@@ -44,18 +50,42 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
     }
     if (!response.ok) throw new Error("Não foi possível consultar o Google Shopping agora.");
-    const body = await response.json() as { shopping_results?: SerpResult[] };
+    const body = await response.json() as { shopping_results?: SerpResult[]; error?: string };
+    if (body.error) throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503);
+    const raw = body.shopping_results || [];
+    const detailCandidates: ProductDetailCandidate[] = [];
     const seen = new Set<string>();
-    return (body.shopping_results || []).flatMap((item, index) => {
+    const checkedAt = new Date().toISOString();
+    const results = raw.flatMap((item, index) => {
       const productUrl = validUrl(item.link) || validUrl(item.product_link);
       if (!productUrl || !item.title || seen.has(productUrl)) return [];
       seen.add(productUrl);
       const price = typeof item.extracted_price === "number" && item.extracted_price >= 0 ? item.extracted_price : null;
       const previousPrice = typeof item.extracted_old_price === "number" && item.extracted_old_price >= 0 ? item.extracted_old_price : null;
-      const base = { id: item.product_id || `serp-${item.position || index}-${Buffer.from(productUrl).toString("base64url").slice(0, 20)}`, provider: this.id, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, brand: null, imageUrl: validUrl(item.thumbnail), productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: item.availability || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null };
+      const base = { id: `search-${createHash("sha256").update(`${productUrl}|${item.source || ""}|${price ?? ""}`).digest("hex").slice(0, 24)}`, provider: this.id, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, brand: null, imageUrl: validUrl(item.thumbnail), productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: item.availability || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase };
       const match = score(base, query);
+      if (item.multiple_sources && item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total });
       const reason = query.maxPrice != null && price != null && price <= query.maxPrice ? "Dentro do orçamento informado." : match.query >= 70 ? "Uma das opções mais próximas do que você pediu." : "Resultado encontrado nas fontes consultadas.";
       return [{ ...base, match, reason }];
     }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
+    return { results, detailCandidates, rawCount: raw.length };
+  }
+
+  async offersFor(candidate: ProductDetailCandidate, query: ShopperQuery): Promise<SearchedProduct[]> {
+    const params = new URLSearchParams({ engine: "google_immersive_product", page_token: candidate.token, more_stores: "true", api_key: env.serpApi.apiKey });
+    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(25_000) });
+    if (!response.ok) return [];
+    const body = await response.json() as { product_results?: { stores?: Array<{ name?: string; title?: string; link?: string; extracted_price?: number; extracted_original_price?: number; shipping?: string; details_and_offers?: string[] }> }; error?: string };
+    if (body.error) return [];
+    const checkedAt = new Date().toISOString();
+    return (body.product_results?.stores || []).flatMap((store, index) => {
+      const productUrl = validUrl(store.link);
+      if (!productUrl || !store.title) return [];
+      const price = typeof store.extracted_price === "number" && store.extracted_price >= 0 ? store.extracted_price : null;
+      const previousPrice = typeof store.extracted_original_price === "number" && store.extracted_original_price > (price ?? Infinity) ? store.extracted_original_price : null;
+      const base = { id: `offer-${createHash("sha256").update(`${candidate.productId}|${productUrl}|${store.name || ""}|${price ?? ""}|${index}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google-immersive-product", title: store.title, price, previousPrice, currency: "BRL" as const, store: store.name || null, brand: null, imageUrl: null, productUrl, rating: null, reviewCount: null, shipping: store.shipping || store.details_and_offers?.find((item) => /frete|entrega|shipping|delivery/i.test(item)) || null, availability: null, discountPercent: price != null && previousPrice != null ? Math.round((1 - price / previousPrice) * 100) : null, productId: candidate.productId, checkedAt, sourceQuery: query.query };
+      const match = score(base, query);
+      return [{ ...base, match, reason: "Oferta encontrada em lojas relacionadas ao produto." }];
+    });
   }
 }
