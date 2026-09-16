@@ -9,6 +9,7 @@ import { SerpApiProductSearchProvider } from "./serpApiProductSearchProvider.js"
 import type { SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 import { discoverProducts, groupVariations } from "./shopperDiscoveryService.js";
 import { interpretShopperIntent, matchesRequiredIntent } from "./shopperIntentService.js";
+import { shopperSearchCache } from "./shopperSearchCache.js";
 import { prisma } from "../config/prisma.js";
 
 const querySchema = z.object({ query: z.string().min(2).max(250), category: z.string().nullable().default(null), maxPrice: z.number().positive().max(100_000).nullable().default(null), minPrice: z.number().nonnegative().nullable().default(null), maxPriceIsHard: z.boolean().default(false), currency: z.literal("BRL").default("BRL"), colors: z.array(z.string()).max(5).default([]), size: z.string().max(30).nullable().default(null), brands: z.array(z.string()).max(5).default([]), requiredBrands: z.array(z.string()).default([]), requiredLine: z.string().nullable().default(null), requiredComponents: z.array(z.array(z.string())).default([]), requiredVolumes: z.array(z.string()).default([]), requiredModelTerms: z.array(z.string()).default([]), requiredKit: z.boolean().default(false), usage: z.string().max(80).nullable().default(null), style: z.array(z.string()).max(5).default([]), exclude: z.array(z.string()).max(5).default([]), originalOnly: z.boolean().default(false), sortPreference: z.enum(["best_match", "lowest_price", "best_rated"]).default("best_match") });
@@ -29,7 +30,7 @@ function json(value: unknown) { return value as Prisma.InputJsonValue; }
 
 export const personalShopperService = {
   async listConversations(userId: string) { return prisma.shopperConversation.findMany({ where: { userId }, select: { id: true, title: true, updatedAt: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: "desc" }, take: 30 }); },
-  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } }, searches: { orderBy: { createdAt: "desc" }, take: 1 } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); return { ...conversation, variations: groupVariations((conversation.searches[0]?.results as unknown as SearchedProduct[] | undefined) || []) }; },
+  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); return { ...conversation, searches: [], variations: [] }; },
   async message(userId: string, conversationId: string | undefined, message: string) {
     const conversation = conversationId ? await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } }) : await prisma.shopperConversation.create({ data: { userId, title: message.slice(0, 80) } });
     if (!conversation) throw new AppError("Conversa não encontrada.", 404);
@@ -39,20 +40,20 @@ export const personalShopperService = {
     const query = querySchema.parse(interpretShopperIntent(message, previous, interpreted));
     const provider = new SerpApiProductSearchProvider();
     if (!provider.available()) throw new AppError("Busca externa ainda não está configurada. Configure SERPAPI_API_KEY no backend.", 503);
-    const last = await prisma.shopperSearch.findFirst({ where: { conversationId: conversation.id, provider: provider.id, createdAt: { gte: new Date(Date.now() - 15 * 60_000) }, expiresAt: { gt: new Date() }, query: { equals: json(query) } }, orderBy: { createdAt: "desc" } });
-    const discovery = last ? null : await discoverProducts(query, provider);
-    const raw = last ? last.results as unknown as SearchedProduct[] : discovery!.results;
+    const cached = shopperSearchCache.get(conversation.id, query);
+    const discovery = cached ? null : await discoverProducts(query, provider);
+    const raw = cached || discovery!.results;
     const results = raw.filter((item) => matchesRequiredIntent(item, query));
     const variations = groupVariations(results);
-    if (!last) await prisma.shopperSearch.create({ data: { conversationId: conversation.id, provider: provider.id, query: json(query), results: json(raw), expiresAt: new Date(Date.now() + 15 * 60_000) } });
+    if (!cached) shopperSearchCache.set(conversation.id, query, raw);
     const answer = results.length ? `Encontrei ${variations.length} variação${variations.length === 1 ? "" : "ões"} e ${results.length} oferta${results.length === 1 ? "" : "s"} nas fontes consultadas.` : answerFor(query, results);
     await prisma.$transaction([prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }), prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: answer, structuredData: json({ query, resultIds: results.map((item) => item.id) }) } })]);
-    return { conversationId: conversation.id, query, answer, results, variations, cacheHit: Boolean(last), metrics: discovery?.metrics || null, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+    return { conversationId: conversation.id, query, answer, results, variations, cacheHit: Boolean(cached), metrics: discovery?.metrics || null, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async action(userId: string, conversationId: string, resultId: string, action: "save" | "add-to-planner", options: { category?: string; priority?: string; purchaseIntent?: string }) {
-    const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId }, include: { searches: { orderBy: { createdAt: "desc" }, take: 1 } } });
-    const result = (conversation?.searches[0]?.results as unknown as SearchedProduct[] | undefined)?.find((item) => item.id === resultId);
-    if (!conversation || !result) throw new AppError("Resultado não encontrado nesta conversa.", 404);
+    const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });
+    const result = conversation ? shopperSearchCache.result(conversationId, resultId) : null;
+    if (!conversation || !result) throw new AppError("Esse resultado expirou. Faça a pesquisa novamente para salvar o produto.", 410, { code: "RESULT_EXPIRED" });
     if (action === "save") return { action, finding: await findingService.create(userId, { title: result.title, brand: result.brand, store: result.store, price: result.price, previousPrice: result.previousPrice, currency: "BRL", originalUrl: result.productUrl, category: options.category || null, availability: result.availability, provider: result.provider, foundAt: new Date(), media: result.imageUrl ? [{ type: "image", url: result.imageUrl }] : [] }) };
     if (result.price == null) throw new AppError("Esse resultado não possui preço disponível para adicionar ao Planner.", 400);
     const category = CATEGORIES.includes((options.category || "Outros") as never) ? options.category || "Outros" : "Outros";

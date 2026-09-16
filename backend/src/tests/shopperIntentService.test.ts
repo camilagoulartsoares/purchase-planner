@@ -43,4 +43,11 @@ describe("Personal Shopper intent and mandatory constraints", () => {
     const fusion = interpretShopperIntent("Shampoo Wella Fusion 1L", null);
     expect(matchesRequiredIntent(item("Wella Invigo Shampoo 1L"), fusion)).toBe(false);
   });
+  it("exige o volume em cada componente de um kit, inclusive quando detalhes são a evidência", () => {
+    const wella = interpretShopperIntent("kit shampoo e condicionador Wella 1L até R$340", null);
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 1L + Condicionador 200ml", 249), wella)).toBe(false);
+    expect(matchesRequiredIntent(item("Oferta de salão", 329) as SearchedProduct & { productTitle: string; attributesText: string }, wella)).toBe(false);
+    const confirmed = { ...item("Oferta de salão", 329), productTitle: "Wella Invigo Nutri-Enrich Duo", attributesText: "kit shampoo 1000ml condicionador 1000ml" };
+    expect(matchesRequiredIntent(confirmed, wella)).toBe(true);
+  });
 });

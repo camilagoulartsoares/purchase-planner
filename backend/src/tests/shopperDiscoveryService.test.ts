@@ -24,4 +24,14 @@ describe("shopper discovery", () => {
     expect(variations).toHaveLength(4);
     expect(variations.some((item) => item.offers.length === 2)).toBe(true);
   });
+  it("mantém a melhor oferta e reaproveita imagem válida somente da mesma composição", () => {
+    const cheapest = { ...offer("Wella Fusion Shampoo 1L + Condicionador 1L", "https://a.test/cheap"), price: 299, imageUrl: null };
+    const pictured = { ...offer("Kit Wella Fusion Shampoo 1000ml + Condicionador 1000ml", "https://b.test/photo"), price: 320, imageUrl: "https://images.test/wella.jpg", imageSource: "product-detail" as const };
+    const differentVolume = { ...offer("Wella Fusion Shampoo 1L + Condicionador 200ml", "https://c.test/small"), imageUrl: "https://images.test/small.jpg" };
+    const variations = groupVariations([cheapest, pictured, differentVolume]);
+    const fullSize = variations.find((variation) => variation.offers.some((item) => item.id === cheapest.id))!;
+    expect(fullSize.offers[0].id).toBe(cheapest.id);
+    expect(fullSize.imageUrl).toBe("https://images.test/wella.jpg");
+    expect(variations).toHaveLength(2);
+  });
 });

@@ -57,6 +57,12 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
   if (newProduct) requiredComponents = directComponents.length ? [directComponents] : [];
   else if (directComponents.length > 1) requiredComponents = /pode ser|tamb[eé]m/i.test(message) ? [...requiredComponents, directComponents] : [directComponents];
   const requiredVolumes = volumes(message).length ? volumes(message) : baseline?.requiredVolumes || [];
+  // "shampoo e condicionador ... 1L" means 1L for each component.  Keep this
+  // separately from the legacy global volume list so a 1L + 200ml kit cannot pass.
+  const volumeComponents = newProduct ? directComponents : (requiredComponents.flat().length ? [...new Set(requiredComponents.flat())] : directComponents);
+  const requiredComponentVolumes = requiredVolumes.length && volumeComponents.length
+    ? Object.fromEntries(volumeComponents.map((component) => [component, requiredVolumes]))
+    : baseline?.requiredComponentVolumes || {};
   const requiredModelTerms = modelTerms(message).length ? modelTerms(message) : baseline?.requiredModelTerms || [];
   const maxPrice = price(message, "max") ?? baseline?.maxPrice ?? null;
   const minPrice = price(message, "min") ?? baseline?.minPrice ?? null;
@@ -68,7 +74,7 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
     maxPrice, minPrice, maxPriceIsHard: maxPrice != null, currency: "BRL",
     colors: newProduct ? proposed?.colors || [] : baseline?.colors || proposed?.colors || [],
     size: newProduct ? proposed?.size || null : baseline?.size || proposed?.size || null,
-    brands: requiredBrands, requiredBrands, requiredLine: line, requiredComponents, requiredVolumes, requiredModelTerms,
+    brands: requiredBrands, requiredBrands, requiredLine: line, requiredComponents, requiredVolumes, requiredComponentVolumes, requiredModelTerms,
     requiredKit: newProduct ? /\bkit\b/.test(normalized) : baseline?.requiredKit || /\bkit\b/.test(normalize(baseline?.query || "")),
     usage: newProduct ? proposed?.usage || null : baseline?.usage || proposed?.usage || null,
     style: newProduct ? proposed?.style || [] : baseline?.style || proposed?.style || [],
@@ -78,25 +84,49 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
   };
 }
 
+export type IntentEvaluation = { eligible: boolean; reason: string | null; normalized: string; confirmed: string[]; confidence: number };
+
+function volumeMatches(text: string, volume: string) {
+  const amount = Number.parseInt(volume);
+  return new RegExp(`\\b${amount}\\s*ml\\b`, "i").test(text) || (volume.endsWith("ml") && amount % 1000 === 0 && new RegExp(`\\b${amount / 1000}\\s*(?:l|litro)\\b`, "i").test(text));
+}
+
+function componentVolumes(text: string, component: string) {
+  const normalized = normalize(text).replace(/(\d+)\s*(?:litros?|l)\b/g, (_, n: string) => `${Number(n) * 1000}ml`);
+  const occurrences = [...normalized.matchAll(new RegExp(`\\b${component}\\b`, "g"))];
+  return occurrences.map((match, index) => normalized.slice(match.index!, occurrences[index + 1]?.index ?? normalized.length));
+}
+
+/** Product eligibility. It deliberately has no price check: that belongs to offer eligibility. */
+export function evaluateProductMatch(rawText: string, query: ShopperQuery): IntentEvaluation {
+  const title = normalize(rawText);
+  const confirmed: string[] = [];
+  const fail = (reason: string) => ({ eligible: false, reason, normalized: title, confirmed, confidence: confirmed.length * 15 });
+  if (query.requiredBrands?.length) { if (!query.requiredBrands.some((brand) => title.includes(normalize(brand)))) return fail("brand_missing"); confirmed.push("brand"); }
+  if (query.requiredLine) { if (!title.includes(normalize(query.requiredLine))) return fail("line_missing"); confirmed.push("line"); }
+  if (query.requiredKit) { if (!/\b(kit|combo|duo|trio|conjunto|[2-9]\s*(?:unidades|produtos))\b/.test(title) && components(title).length < 2) return fail("kit_missing"); confirmed.push("kit"); }
+  if (query.requiredComponents?.length) { if (!query.requiredComponents.some((group) => group.every((component) => title.includes(component)))) return fail("components_missing"); confirmed.push("components"); }
+  for (const [component, required] of Object.entries(query.requiredComponentVolumes || {})) {
+    const portions = componentVolumes(title, component);
+    if (!portions.length || !required.every((volume) => portions.some((portion) => volumeMatches(portion, volume)))) return fail(`component_volume_missing:${component}`);
+    confirmed.push(`${component}_volume`);
+  }
+  if (!(query.requiredComponentVolumes && Object.keys(query.requiredComponentVolumes).length) && query.requiredVolumes?.length) {
+    if (!query.requiredVolumes.every((volume) => volumeMatches(title, volume))) return fail("volume_missing");
+    confirmed.push("volume");
+  }
+  if (query.requiredModelTerms?.length) { if (!query.requiredModelTerms.every((term) => { const capacity = term.match(/^(\d+)(gb|tb)$/); return new RegExp(capacity ? `\\b${capacity[1]}\\s*${capacity[2]}\\b` : `\\b${term}\\b`, "i").test(title); })) return fail("model_missing"); confirmed.push("model"); }
+  return { eligible: true, reason: null, normalized: title, confirmed, confidence: Math.min(100, 45 + confirmed.length * 10) };
+}
+
 export function matchesMandatoryAttributes(rawTitle: string, query: ShopperQuery) {
-  const title = normalize(rawTitle);
-  if (query.requiredBrands?.length && !query.requiredBrands.some((brand) => title.includes(normalize(brand)))) return false;
-  if (query.requiredLine && !title.includes(normalize(query.requiredLine))) return false;
-  if (query.requiredKit && !/\b(kit|combo|duo|trio|conjunto|[2-9]\s*(?:unidades|produtos))\b/.test(title) && components(title).length < 2) return false;
-  if (query.requiredComponents?.length && !query.requiredComponents.some((group) => group.every((component) => title.includes(component)))) return false;
-  if (query.requiredVolumes?.length && !query.requiredVolumes.every((volume) => {
-    const amount = Number.parseInt(volume);
-    return new RegExp(`\\b${amount}\\s*ml\\b`, "i").test(title) || (volume.endsWith("ml") && amount % 1000 === 0 && new RegExp(`\\b${amount / 1000}\\s*(?:l|litro)\\b`, "i").test(title));
-  })) return false;
-  if (query.requiredModelTerms?.length && !query.requiredModelTerms.every((term) => {
-    const capacity = term.match(/^(\d+)(gb|tb)$/);
-    return new RegExp(capacity ? `\\b${capacity[1]}\\s*${capacity[2]}\\b` : `\\b${term}\\b`, "i").test(title);
-  })) return false;
-  return true;
+  return evaluateProductMatch(rawTitle, query).eligible;
 }
 
 export function matchesRequiredIntent(item: SearchedProduct, query: ShopperQuery) {
-  if (!matchesMandatoryAttributes(item.title, query)) return false;
+  // Details and structured attributes are authoritative evidence for the product;
+  // title alone is only a fallback.
+  if (!evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).eligible) return false;
   if (query.maxPrice != null && query.maxPriceIsHard && (item.price == null || item.price > query.maxPrice)) return false;
   if (query.minPrice != null && (item.price == null || item.price < query.minPrice)) return false;
   return true;
