@@ -1,6 +1,6 @@
 import type { SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 
-const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\bcond\.?\b/g, "condicionador").replace(/\b(?:sh|shp)\.?\b/g, "shampoo").replace(/\s+/g, " ").trim();
 const cleanMoney = (value: string) => value.replace(/\b(?:a partir de|acima de|mais de|ate|até|no maximo|no máximo|menos de|abaixo de)\s*(?:r\$\s*)?\d{1,5}(?:[.,]\d{1,2})?\s*(?:reais?)?\b|r\$\s*\d{1,5}(?:[.,]\d{1,2})?/gi, " ").replace(/\s+/g, " ").trim();
 const productWords = new Set(["kit", "tenis", "tênis", "shampoo", "condicionador", "mascara", "máscara", "protetor", "solar", "celular", "smartphone", "bolsa", "feminino", "masculino", "profissional", "professionals", "agora", "quero"]);
 const componentWords = ["shampoo", "condicionador", "máscara", "mascara", "óleo", "oleo", "hidratante", "protetor"];
@@ -19,6 +19,15 @@ function explicitBrand(message: string, previous: ShopperQuery | null) {
   const candidates = words.filter((word) => !productWords.has(normalize(word)) && normalize(word) !== normalize(afterLine || ""));
   const prior = previous?.requiredBrands?.find((brand) => normalize(message).includes(normalize(brand)));
   return prior || candidates[0] || null;
+}
+
+function productQualifiers(message: string) {
+  const normalized = normalize(queryBase(message));
+  const matches = [...normalized.matchAll(/\b(?:shampoo|condicionador|mascara|protetor|hidratante)\b/g)];
+  if (matches.length < 2 || !/\bkit\b/.test(normalized)) return [];
+  const tail = normalized.slice(matches.at(-1)!.index! + matches.at(-1)![0].length);
+  return tail.replace(/\b\d+\s*(?:l|litros?|ml|g)\b/g, " ").split(/[^\p{L}\d]+/u)
+    .filter((word) => word.length > 2 && !["para", "com", "sem", "kit", "duo", "trio", "cabelos", "profissional", "professionals"].includes(word));
 }
 
 function components(message: string) {
@@ -46,12 +55,13 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
   const extendsPrevious = previous && normalize(clean).startsWith(normalize(previousBase) + " ");
   const newProduct = reset || (!refinement && !repeatsPrevious && !extendsPrevious && clean.length > 2 && !/^(?:s[oó] da linha|prefiro|pode ser)/.test(normalized));
   const baseline = newProduct ? null : previous;
-  const brand = explicitBrand(message, baseline) || proposed?.brands?.find((value) => normalized.includes(normalize(value))) || null;
+  const qualifiers = newProduct ? productQualifiers(message) : [];
+  const brand = explicitBrand(message, baseline) || proposed?.brands?.find((value) => normalized.includes(normalize(value))) || qualifiers[0] || null;
   const baselineBrand = baseline?.requiredBrands?.[0] || (baseline ? explicitBrand(baseline.query, null) : null);
   const requiredBrands = brand ? [brand] : baselineBrand ? [baselineBrand] : [];
   const capitalized = message.match(/\b[A-ZÁÉÍÓÚ][a-záéíóúA-ZÁÉÍÓÚ]{2,}\b/g) || [];
   const inferredLine = brand ? capitalized.find((word) => normalize(word) !== normalize(brand) && !productWords.has(normalize(word))) : null;
-  const line = /\blinha\s+([\p{L}\d-]+)/iu.exec(message)?.[1] || (/^prefiro\s+([\p{L}\d-]+)/iu.exec(message)?.[1]) || inferredLine || baseline?.requiredLine || null;
+  const line = /\blinha\s+([\p{L}\d-]+)/iu.exec(message)?.[1] || (/^prefiro\s+([\p{L}\d-]+)/iu.exec(message)?.[1]) || inferredLine || qualifiers.find((word) => normalize(word) !== normalize(brand || "")) || baseline?.requiredLine || null;
   const directComponents = components(message);
   let requiredComponents = baseline?.requiredComponents?.length ? baseline.requiredComponents : baseline?.query ? [components(baseline.query)] : [];
   if (newProduct) requiredComponents = directComponents.length ? [directComponents] : [];

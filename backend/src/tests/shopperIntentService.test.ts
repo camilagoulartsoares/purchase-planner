@@ -50,4 +50,11 @@ describe("Personal Shopper intent and mandatory constraints", () => {
     const confirmed = { ...item("Oferta de salão", 329), productTitle: "Wella Invigo Nutri-Enrich Duo", attributesText: "kit shampoo 1000ml condicionador 1000ml" };
     expect(matchesRequiredIntent(confirmed, wella)).toBe(true);
   });
+  it("encontra o kit Invigo pedido em minúsculas e reconhece Cond como condicionador", () => {
+    const query = interpretShopperIntent("kit shampoo e condicionador wella 1l invigo", null);
+    expect(query.requiredBrands).toEqual(["wella"]);
+    expect(query.requiredLine).toBe("invigo");
+    expect(matchesRequiredIntent(item("Kit Wella Invigo Nutri Enrich Shampoo 1000ml + Cond 1000ml", 339.9), query)).toBe(true);
+    expect(matchesRequiredIntent(item("Kit Wella Fusion Shampoo 1000ml + Cond 1000ml", 300), query)).toBe(false);
+  });
 });
