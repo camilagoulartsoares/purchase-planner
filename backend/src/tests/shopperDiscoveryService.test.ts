@@ -8,8 +8,8 @@ const offer = (title: string, url: string): SearchedProduct => ({ id: url, provi
 describe("shopper discovery", () => {
   it("deduplicates the same product and merchant across source query URLs", () => {
     const grouped = groupVariations([
-      offer("Product 36 black", "https://google.com/search?q=product+black+36"),
-      offer("Product 36 black", "https://google.com/search?q=product+36"),
+      offer("Product 36 black", "https://www.google.com/search?ibp=oshop&q=product+black+36&prds=productid:7,headlineOfferDocid:9"),
+      offer("Product 36 black", "https://www.google.com/search?ibp=oshop&q=product+36&prds=productid:7,headlineOfferDocid:9"),
     ]);
     expect(grouped).toHaveLength(1);
     expect(grouped[0].offers).toHaveLength(1);
@@ -40,5 +40,21 @@ describe("shopper discovery", () => {
     expect(fullSize.offers[0].id).toBe(cheapest.id);
     expect(fullSize.imageUrl).toBe("https://images.test/wella.jpg");
     expect(variations).toHaveLength(2);
+  });
+  it("keeps different store prices as separate offers of one product", () => {
+    const grouped = groupVariations([
+      { ...offer("Panela 24cm", "https://a.test/1"), store: "Loja A", price: 100, productId: "p1" },
+      { ...offer("Panela 24cm", "https://b.test/2"), store: "Loja B", price: 120, productId: "p1" },
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].offers).toHaveLength(2);
+  });
+  it("keeps different merchant URLs even when product, store and price match", () => {
+    const grouped = groupVariations([
+      { ...offer("Panela 24cm", "https://shop.example/listing-a"), store: "Loja A", productId: "p1" },
+      { ...offer("Panela 24cm", "https://shop.example/listing-b"), store: "Loja A", productId: "p1" },
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].offers).toHaveLength(2);
   });
 });

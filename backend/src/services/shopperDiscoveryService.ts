@@ -1,10 +1,13 @@
 import { SerpApiProductSearchProvider, type ProductDetailCandidate } from "./serpApiProductSearchProvider.js";
 import type { SearchedProduct, ShopperQuery, ShopperVariation } from "./productSearchProvider.js";
-import { evaluateProductMatch, matchesRequiredIntent, normalizeShopperText, shopperTokens, tokenMatches } from "./shopperIntentService.js";
+import { evaluateOfferMatch, evaluateProductMatch, matchesQueryAttributes, matchesRequiredIntent, normalizeShopperText, shopperTokens, tokenMatches } from "./shopperIntentService.js";
 
-const MAX_DETAILS = 4;
+const MAX_DETAILS = 6;
 const searchConcurrency = 2;
-const detailConcurrency = 2;
+const detailConcurrency = 3;
+const maxAdditionalStorePages = 2;
+const shoppingWaitAfterGoogleMs = 8_000;
+const shoppingWaitWithoutGoogleMs = 25_000;
 
 function normalize(value: string) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); }
 
@@ -19,11 +22,17 @@ export function expandQueries(query: ShopperQuery) {
 }
 
 function normalizedUrl(value: string) {
-  try { const url = new URL(value); url.hash = ""; for (const key of [...url.searchParams.keys()]) if (/^(utm_|gclid|fbclid)/i.test(key)) url.searchParams.delete(key); return url.toString(); } catch { return value; }
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) if (/^(utm_|gclid|fbclid)/i.test(key)) url.searchParams.delete(key);
+    if (url.hostname === "www.google.com" && url.searchParams.get("ibp") === "oshop" && url.searchParams.has("prds")) url.searchParams.delete("q");
+    return url.toString();
+  } catch { return value; }
 }
 
 function offerKey(item: SearchedProduct) {
-  return item.productId && item.store ? `product:${item.productId}:${normalize(item.store)}:${item.price ?? ""}` : `url:${normalizedUrl(item.productUrl)}:${item.price ?? ""}`;
+  return `url:${normalizedUrl(item.productUrl)}:${normalize(item.store || "")}:${item.price ?? ""}`;
 }
 
 export function groupVariations(results: SearchedProduct[]): ShopperVariation[] {
@@ -79,23 +88,37 @@ async function limited<T, R>(items: T[], concurrency: number, work: (item: T) =>
   return output;
 }
 
+function settleWithin<T>(promise: Promise<T>, ms: number, fallback: T): Promise<{ value: T; timedOut: boolean }> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve({ value: fallback, timedOut: true }), ms);
+    promise.then((value) => { clearTimeout(timer); resolve({ value, timedOut: false }); }, () => { clearTimeout(timer); resolve({ value: fallback, timedOut: false }); });
+  });
+}
+
 export async function discoverProducts(query: ShopperQuery, provider = new SerpApiProductSearchProvider()) {
   const phrases = expandQueries(query);
   let searchCalls = 3;
-  const [exact, exactShopping, exactLight] = await Promise.all([
-    provider.searchGoogleResults(query).catch(() => []),
-    provider.searchDetailed(query, query.query).catch(() => null),
-    provider.searchDetailed(query, query.query, "google_shopping_light").catch(() => null),
+  const googlePromise = provider.searchGoogleResults(query).catch(() => [] as SearchedProduct[]);
+  const shoppingPromise = provider.searchDetailed(query, query.query).catch(() => null);
+  const lightPromise = provider.searchDetailed(query, query.query, "google_shopping_light").catch(() => null);
+  const exact = await googlePromise;
+  const recoveredFromGoogle = provider.googleDetailCandidates.length > 0 || exact.some((item) => item.price != null);
+  const shoppingWait = recoveredFromGoogle ? shoppingWaitAfterGoogleMs : shoppingWaitWithoutGoogleMs;
+  const [shoppingOutcome, lightOutcome] = await Promise.all([
+    settleWithin(shoppingPromise, shoppingWait, null),
+    settleWithin(lightPromise, shoppingWait, null),
   ]);
+  const exactShopping = shoppingOutcome.value;
+  const exactLight = lightOutcome.value;
   const initial = [...exact, ...(exactShopping?.results || []), ...(exactLight?.results || [])].filter((item) => item.price != null && matchesRequiredIntent(item, query) && evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).confidence >= 70);
   const enoughExactResults = new Set(initial.map((item) => normalizedUrl(item.productUrl))).size >= 8;
-  const fallbackPhrases = enoughExactResults ? [] : phrases.slice(1, 4);
-  const searched = await limited(fallbackPhrases, searchConcurrency, async (phrase) => {
+  let fallbackPhrases = enoughExactResults || provider.googleDetailCandidates.length > 0 ? [] : phrases.slice(1, 4);
+  let searched = await limited(fallbackPhrases, searchConcurrency, async (phrase) => {
     searchCalls++;
     return provider.searchDetailed(query, phrase, "google_shopping_light");
   });
   const successful = [...(exactShopping ? [exactShopping] : []), ...(exactLight ? [exactLight] : []), ...searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : [])];
-  if (!successful.length && !exact.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
+  if (!successful.length && !exact.length && !provider.googleDetailCandidates.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
   const raw = [...exact, ...successful.flatMap((entry) => entry.results)];
   const diagnostics: Array<Record<string, unknown>> = raw.map((item) => {
     const evaluation = evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
@@ -103,38 +126,74 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   });
   // Never use title-only eligibility as a gate for product details: Google often
   // puts the real composition in the immersive product data rather than the card.
-  const allDetailCandidates = [...new Map(successful.flatMap((entry) => entry.detailCandidates).sort((a, b) => b.relevance - a.relevance).map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
-  const candidates = enoughExactResults ? [] : allDetailCandidates.slice(0, MAX_DETAILS);
-  for (const item of allDetailCandidates.slice(candidates.length)) diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productId: item.productId, detailsFetched: false, reason: enoughExactResults ? "enough_exact_results" : "detail_limit" });
-  const detailed = await limited(candidates, detailConcurrency, (item) => provider.offersFor(item, query));
-  const offers = detailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []);
+  const allDetailCandidates = [...new Map([...provider.googleDetailCandidates, ...successful.flatMap((entry) => entry.detailCandidates)].sort((a, b) => b.relevance - a.relevance).map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
+  // Keep one detail slot available for a candidate discovered by a late fallback.
+  const firstCandidates = allDetailCandidates.slice(0, !enoughExactResults && provider.googleDetailCandidates.length ? MAX_DETAILS - 1 : MAX_DETAILS);
+  const firstDetailed = await limited(firstCandidates, detailConcurrency, (item) => provider.offersFor(item, query));
+  const firstOffers = firstDetailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []);
+  if (!enoughExactResults && !fallbackPhrases.length && provider.googleDetailCandidates.length) {
+    const compatible = [...raw, ...firstOffers].filter((item) => item.price != null && matchesRequiredIntent(item, query) && matchesQueryAttributes([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).eligible);
+    if (new Set(compatible.map((item) => offerKey(item))).size < 8) {
+      fallbackPhrases = phrases.slice(1, 4);
+      searched = await limited(fallbackPhrases, searchConcurrency, async (phrase) => {
+        searchCalls++;
+        return provider.searchDetailed(query, phrase, "google_shopping_light");
+      });
+      for (const entry of searched) if (entry.status === "fulfilled") {
+        successful.push(entry.value);
+        for (const item of entry.value.results) {
+          raw.push(item);
+          const evaluation = evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
+          diagnostics.push({ stage: "search", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, price: item.price, store: item.store, productId: item.productId, imageUrl: item.imageUrl, preFilter: evaluation.eligible ? "PASS" : "DEFERRED_TO_DETAILS", reason: evaluation.reason, normalized: evaluation.normalized });
+        }
+      }
+    }
+  }
+  const remaining = [...new Map([...allDetailCandidates.slice(firstCandidates.length), ...successful.flatMap((entry) => entry.detailCandidates)]
+    .filter((item) => !firstCandidates.some((first) => first.productId === item.productId))
+    .sort((a, b) => b.relevance - a.relevance)
+    .map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
+  const finalCandidates = remaining.slice(0, MAX_DETAILS - firstCandidates.length);
+  const candidates = [...firstCandidates, ...finalCandidates];
+  for (const item of remaining.slice(finalCandidates.length)) diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productId: item.productId, detailsFetched: false, reason: "detail_limit" });
+  const lastDetailed = await limited(finalCandidates, detailConcurrency, (item) => provider.offersFor(item, query));
+  const detailed = [...firstDetailed, ...lastDetailed];
+  const offers = [...firstOffers, ...lastDetailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : [])];
+  // One extra page for at most two selected products; each page has a six-second request timeout.
+  const storePageCandidates = candidates.filter((item) => provider.nextStorePageTokens.has(item.token))
+    .sort((a, b) => b.relevance - a.relevance).slice(0, maxAdditionalStorePages);
+  const storePages = await limited(storePageCandidates, maxAdditionalStorePages, (item) =>
+    provider.offersFor(item, query, provider.nextStorePageTokens.get(item.token)));
+  offers.push(...storePages.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []));
   for (const item of offers) {
-    const evaluation = evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
+    const evaluation = evaluateOfferMatch(item, query);
     diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productTitle: item.productTitle, price: item.price, store: item.store, productId: item.productId, imageUrl: item.imageUrl, detailsFetched: true, productMatch: evaluation.eligible ? "PASS" : "FAIL", reason: evaluation.reason, normalized: evaluation.normalized, confidence: evaluation.confidence });
   }
+  const compatibleOffers = [...raw, ...offers].filter((item) => {
+    if (matchesRequiredIntent(item, query)) return true;
+    diagnostics.push({ stage: "offer", title: item.title, price: item.price, store: item.store, productId: item.productId, offerMatch: "FAIL", reason: evaluateOfferMatch(item, query).reason || "price_out_of_range" });
+    return false;
+  });
   const byUrl = new Map<string, SearchedProduct>();
-  for (const item of [...raw, ...offers]) {
+  for (const item of compatibleOffers) {
     const key = offerKey(item);
     const existing = byUrl.get(key);
     if (!existing) byUrl.set(key, item);
-    else diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, survivorId: existing.id, reason: "same_product_store_title_price" });
+    else diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, discardedId: item.id, discardedUrl: item.productUrl, survivorId: existing.id, survivorUrl: existing.productUrl, dedupKey: key, reason: "same_offer_identity" });
   }
-  const eligible = [...byUrl.values()].filter((item) => {
-    const eligible = matchesRequiredIntent(item, query);
-    if (!eligible) diagnostics.push({ stage: "offer", title: item.title, price: item.price, store: item.store, productId: item.productId, offerMatch: "FAIL", reason: evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).reason || "price_out_of_range" });
-    return eligible;
-  });
+  const eligible = [...byUrl.values()];
   const pricedEligible = eligible.filter((item) => item.price != null);
+  if (pricedEligible.length) for (const item of eligible) if (item.price == null) diagnostics.push({ stage: "offer", title: item.title, store: item.store, productId: item.productId, id: item.id, url: item.productUrl, offerMatch: "FAIL", reason: "unpriced_when_priced_available" });
   const ranked = rankProducts(pricedEligible.length ? pricedEligible : eligible, query);
-  const cutoff = Math.max(55, (ranked[0]?.match.query || 0) - 20);
   const results = ranked.filter((item) => {
-    if (item.match.query >= cutoff) return true;
-    diagnostics.push({ stage: "ranking", title: item.title, score: item.match.query, reason: "low_relevance" });
+    const fit = matchesQueryAttributes([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
+    if (fit.eligible) return true;
+    diagnostics.push({ stage: "ranking", title: item.title, score: item.match.query, coverage: fit.coverage, reason: "low_relevance" });
     return false;
   });
   const grouped = groupVariations(results);
   const variations = grouped;
   const visibleResults = variations.flatMap((variation) => variation.offers);
   if (process.env.NODE_ENV !== "production") for (const row of diagnostics) console.info("[SHOPPER_SEARCH]", JSON.stringify(row));
-  return { results: visibleResults, variations, metrics: { queries: [query.query, ...fallbackPhrases], searchCalls, detailCalls: candidates.length, rawResults: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: [...(exactShopping || exactLight ? [] : [query.query]), ...searched.flatMap((entry, index) => entry.status === "rejected" ? [fallbackPhrases[index]] : [])], failedDetails: detailed.filter((entry) => entry.status === "rejected").length, sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, diagnostics } };
+  return { results: visibleResults, variations, metrics: { queries: [query.query, ...fallbackPhrases], searchCalls, detailCalls: candidates.length, storePageCalls: storePageCandidates.length, failedStorePages: storePages.filter((entry) => entry.status === "rejected").length, shoppingWaitMs: shoppingWait, sourcesExcludedByWait: [shoppingOutcome.timedOut ? "google_shopping" : null, lightOutcome.timedOut ? "google_shopping_light" : null].filter(Boolean), rawResults: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: [...(exactShopping || exactLight ? [] : [query.query]), ...searched.flatMap((entry, index) => entry.status === "rejected" ? [fallbackPhrases[index]] : [])], failedDetails: detailed.filter((entry) => entry.status === "rejected").length, sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, diagnostics } };
 }

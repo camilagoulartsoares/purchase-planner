@@ -3,15 +3,28 @@ import { createHash } from "node:crypto";
 import { AppError } from "../middlewares/errorHandler.js";
 import type { ProductSearchProvider, SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 import { normalizeShopperMerchant } from "./shopperMerchantService.js";
-import { normalizeShopperText } from "./shopperIntentService.js";
+import { normalizeShopperText, shopperTokens, tokenMatches } from "./shopperIntentService.js";
 
 type SerpResult = {
   position?: number; product_id?: string; title?: string; link?: string; product_link?: string; source?: string;
+  price?: string; installment?: { extracted_price?: number; period?: number }; snippet?: string; second_hand_condition?: string;
   extracted_price?: number; extracted_old_price?: number; thumbnail?: string; rating?: number; reviews?: number;
   delivery?: string; availability?: string; extensions?: string[];
   multiple_sources?: boolean; immersive_product_page_token?: string;
   images?: Array<{ thumbnail?: string; link?: string; image?: string }>;
 };
+
+function shoppingPrice(item: SerpResult) {
+  const listed = item.extracted_price;
+  if (typeof listed !== "number" || !Number.isFinite(listed) || listed <= 0) return null;
+  if (/\/(?:mo|month|mes|mês)\b/i.test(item.price || "")) return null;
+  if (item.installment?.extracted_price === listed && item.installment.period && item.installment.period > 1) return null;
+  return listed;
+}
+
+function shoppingOfferIdentity(url: string, item: SerpResult) {
+  return `${url}|${normalizeShopperText(item.source || "")}|${shoppingPrice(item) ?? ""}`;
+}
 
 export type ProductDetailCandidate = { productId: string; token: string; title: string; relevance: number; sourceQuery: string; sourcePosition: number; imageUrls: string[] };
 
@@ -32,7 +45,77 @@ function imageUrls(...values: unknown[]) {
 }
 
 function words(value: string) {
-  return normalizeShopperText(value).split(/[^a-z0-9]+/).filter((word) => word.length > 2);
+  return normalizeShopperText(value).split(/[^a-z0-9]+/).filter((word) => word.length > 2 || /\d/.test(word));
+}
+
+function parseMoney(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value !== "string") return null;
+  const match = /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d+[.,]\d{2}|\d+)/i.exec(value.trim());
+  if (!match) return null;
+  const raw = match[1];
+  const amount = raw.includes(",") ? Number(raw.replace(/\./g, "").replace(",", ".")) : /^\d{1,3}(?:\.\d{3})+$/.test(raw) ? Number(raw.replace(/\./g, "")) : Number(raw);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function isBrlCurrency(value: unknown) {
+  if (value == null || value === "") return true;
+  return /^(r\$?|brl|br)$/i.test(String(value).trim());
+}
+
+type OrganicPriceSource = {
+  snippet?: string;
+  extensions?: string[];
+  rich_snippet?: {
+    top?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] };
+    bottom?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] };
+  };
+};
+
+export function parseOrganicPrice(item: OrganicPriceSource) {
+  const snippets = [item.rich_snippet?.top, item.rich_snippet?.bottom];
+  for (const snippet of snippets) {
+    const detected = snippet?.detected_extensions;
+    const displayed = snippet?.extensions?.map((text) => /(?:r\$|brl)\s*(\d[\d.,]*)/i.exec(text))
+      .find((match) => match)?.[1];
+    const shownPrice = displayed ? parseMoney(displayed) : null;
+    const structuredPrice = parseMoney(detected?.price);
+    if (shownPrice) return shownPrice;
+    if (structuredPrice && detected?.currency && isBrlCurrency(detected.currency)) return structuredPrice;
+  }
+  // General snippets can quote a price for another item, installment or listing.
+  return null;
+}
+
+function parseInstallment(text: string) {
+  const match = /(\d+)\s*x\s*(?:de\s*)?(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+[.,]\d{2}|\d+)/i.exec(text);
+  if (!match) return null;
+  const amount = parseMoney(match[2]);
+  const count = Number(match[1]);
+  if (!amount || !Number.isFinite(count) || count < 2) return null;
+  return { count, amount };
+}
+
+type StorePriceSource = {
+  extracted_price?: number;
+  extracted_total?: number;
+  shipping_extracted?: number;
+  installments_description?: string;
+  details_and_offers?: string[];
+};
+
+export function resolveStorePrice(store: StorePriceSource) {
+  const listed = typeof store.extracted_price === "number" && store.extracted_price >= 0 ? store.extracted_price : null;
+  const total = typeof store.extracted_total === "number" && store.extracted_total > 0 ? store.extracted_total : null;
+  const shipping = typeof store.shipping_extracted === "number" && store.shipping_extracted >= 0 ? store.shipping_extracted : null;
+  if (listed != null && total != null && shipping != null && Math.abs(total - (listed + shipping)) <= 0.05) return listed;
+  const installment = parseInstallment([store.installments_description, ...(store.details_and_offers || [])].filter(Boolean).join(" "));
+  if (installment && listed != null && Math.abs(listed - installment.amount) <= 0.05) {
+    if (total != null && total > listed) return total;
+    return Math.round(installment.amount * installment.count * 100) / 100;
+  }
+  if ((store.installments_description || installment) && total != null && (listed == null || total > listed)) return total;
+  return listed ?? total;
 }
 
 function score(result: Omit<SearchedProduct, "match" | "reason">, query: ShopperQuery) {
@@ -47,22 +130,53 @@ function score(result: Omit<SearchedProduct, "match" | "reason">, query: Shopper
 
 export class SerpApiProductSearchProvider implements ProductSearchProvider {
   readonly id = "serpapi-google-shopping-v2";
-  googleDiagnostics: { status: string; pricedOffers: number; organicResults: number; parsedOffers: number; error?: string } = { status: "not_requested", pricedOffers: 0, organicResults: 0, parsedOffers: 0 };
+  googleDiagnostics: { status: string; pricedOffers: number; organicResults: number; immersiveProducts?: number; parsedOffers: number; error?: string } = { status: "not_requested", pricedOffers: 0, organicResults: 0, parsedOffers: 0 };
+  googleDetailCandidates: ProductDetailCandidate[] = [];
+  readonly nextStorePageTokens = new Map<string, string>();
   shoppingDiagnostics: Array<{ phrase: string; engine: string; status: string; rawCount: number; parsedCount: number; error?: string }> = [];
   available() { return Boolean(env.serpApi.apiKey); }
 
   async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
 
+  private parseShoppingItems(raw: SerpResult[], query: ShopperQuery, phrase: string, provider: string) {
+    const seen = new Set<string>();
+    const detailCandidates: ProductDetailCandidate[] = [];
+    const checkedAt = new Date().toISOString();
+    const results = raw.flatMap((item, index) => {
+      const productUrl = validUrl(item.link) || validUrl(item.product_link);
+      if (!productUrl || !item.title) return [];
+      const identity = shoppingOfferIdentity(productUrl, item);
+      const price = shoppingPrice(item);
+      const previousPrice = typeof item.extracted_old_price === "number" && item.extracted_old_price >= 0 ? item.extracted_old_price : null;
+      const images = imageUrls(item.thumbnail, item.images);
+      const base = { id: `search-${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`, provider, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: [item.availability, item.second_hand_condition].filter(Boolean).join("; ") || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
+      const match = score(base, query);
+      if (item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images });
+      if (seen.has(identity)) return [];
+      seen.add(identity);
+      return [{ ...base, match, reason: "Oferta encontrada na busca de produtos." }];
+    }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
+    return { results, detailCandidates };
+  }
+
   async searchGoogleResults(query: ShopperQuery): Promise<SearchedProduct[]> {
+    this.googleDetailCandidates = [];
     if (!this.available()) return [];
     const params = new URLSearchParams({ engine: "google", q: query.query, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
     let response: Response;
     try { response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) }); }
     catch (error) { this.googleDiagnostics = { status: "request_failed", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: error instanceof Error ? error.name : "unknown" }; return []; }
     if (!response.ok) { this.googleDiagnostics = { status: "http_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: String(response.status) }; return []; }
-    const body = await response.json() as { product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number }>; error?: string };
+    const body = await response.json() as { shopping_results?: SerpResult[]; product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; immersive_products?: Array<{ title?: string; thumbnail?: string; immersive_product_page_token?: string; extracted_price?: number; source?: string }>; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number; extensions?: string[]; rich_snippet?: { top?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] }; bottom?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] } } }>; error?: string };
     if (body.error) { this.googleDiagnostics = { status: "provider_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: body.error.slice(0, 160) }; return []; }
     const product = body.product_result;
+    this.googleDetailCandidates = (body.immersive_products || []).flatMap((item, index) => {
+      if (!item.title || !item.immersive_product_page_token) return [];
+      const titleTokens = shopperTokens(item.title);
+      const queryTokens = shopperTokens(query.query);
+      const relevance = queryTokens.length ? Math.round(queryTokens.filter((term) => titleTokens.some((candidate) => tokenMatches(term, candidate) || candidate === term)).length / queryTokens.length * 100) : 0;
+      return [{ productId: `google-${createHash("sha256").update(item.immersive_product_page_token).digest("hex").slice(0, 20)}`, token: item.immersive_product_page_token, title: item.title, relevance, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: imageUrls(item.thumbnail) }];
+    }).sort((a, b) => b.relevance - a.relevance);
     const checkedAt = new Date().toISOString();
     const priced = (product?.pricing || []).flatMap((offer, index) => {
       const productUrl = validUrl(offer.link);
@@ -78,11 +192,14 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const productUrl = validUrl(item.link);
       if (!productUrl || !item.title) return [];
       const imageUrl = validUrl(item.thumbnail);
-      const base = { id: `organic-${createHash("sha256").update(productUrl).digest("hex").slice(0, 24)}`, provider: "serpapi-google-organic", title: item.title, price: null, previousPrice: null, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
-      return [{ ...base, match: score(base, query), reason: "Resultado encontrado na busca Google; preço não informado." }];
+      const price = parseOrganicPrice(item);
+      const base = { id: `organic-${createHash("sha256").update(productUrl).digest("hex").slice(0, 24)}`, provider: "serpapi-google-organic", title: item.title, price, previousPrice: null, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
+      return [{ ...base, match: score(base, query), reason: price != null ? "Oferta encontrada na busca Google." : "Resultado encontrado na busca Google; preço não informado." }];
     });
-    this.googleDiagnostics = { status: product?.pricing?.length ? "product_block" : "organic_only", pricedOffers: product?.pricing?.length || 0, organicResults: body.organic_results?.length || 0, parsedOffers: priced.length + organic.length };
-    return [...priced, ...organic];
+    const shopping = this.parseShoppingItems(body.shopping_results || [], query, query.query, "serpapi-google-shopping-inline");
+    this.googleDetailCandidates.push(...shopping.detailCandidates);
+    this.googleDiagnostics = { status: product?.pricing?.length ? "product_block" : this.googleDetailCandidates.length ? "immersive_products" : "organic_only", pricedOffers: priced.length + shopping.results.filter((item) => item.price != null).length + organic.filter((item) => item.price != null).length, organicResults: body.organic_results?.length || 0, immersiveProducts: body.immersive_products?.length || 0, parsedOffers: priced.length + shopping.results.length + organic.length };
+    return [...priced, ...shopping.results, ...organic];
   }
 
   async searchDetailed(query: ShopperQuery, phrase: string, engine: "google_shopping" | "google_shopping_light" = "google_shopping"): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
@@ -99,43 +216,31 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
     }
     if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, error: String(response.status) }); throw new Error("Não foi possível consultar o Google Shopping agora."); }
-    const body = await response.json() as { shopping_results?: SerpResult[]; inline_shopping_results?: SerpResult[]; error?: string };
+    const body = await response.json() as { shopping_results?: SerpResult[]; inline_shopping_results?: SerpResult[]; categorized_shopping_results?: Array<{ shopping_results?: SerpResult[] }>; error?: string };
     if (body.error) { this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, error: body.error.slice(0, 160) }); throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503); }
-    const raw = [...(body.shopping_results || []), ...(body.inline_shopping_results || [])];
-    const detailCandidates: ProductDetailCandidate[] = [];
-    const seen = new Set<string>();
-    const checkedAt = new Date().toISOString();
-    const results = raw.flatMap((item, index) => {
-      const productUrl = validUrl(item.link) || validUrl(item.product_link);
-      if (!productUrl || !item.title || seen.has(productUrl)) return [];
-      seen.add(productUrl);
-      const price = typeof item.extracted_price === "number" && item.extracted_price >= 0 ? item.extracted_price : null;
-      const previousPrice = typeof item.extracted_old_price === "number" && item.extracted_old_price >= 0 ? item.extracted_old_price : null;
-      const images = imageUrls(item.thumbnail, item.images);
-      const base = { id: `search-${createHash("sha256").update(`${productUrl}|${item.source || ""}|${price ?? ""}`).digest("hex").slice(0, 24)}`, provider: this.id, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: item.availability || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title };
-      const match = score(base, query);
-      if (item.multiple_sources && item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images });
-      const reason = query.maxPrice != null && price != null && price <= query.maxPrice ? "Dentro do orçamento informado." : match.query >= 70 ? "Uma das opções mais próximas do que você pediu." : "Resultado encontrado nas fontes consultadas.";
-      return [{ ...base, match, reason }];
-    }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
+    const raw = [...(body.shopping_results || []), ...(body.inline_shopping_results || []), ...(body.categorized_shopping_results || []).flatMap((category) => category.shopping_results || [])];
+    const { results, detailCandidates } = this.parseShoppingItems(raw, query, phrase, this.id);
     this.shoppingDiagnostics.push({ phrase, engine, status: "ok", rawCount: raw.length, parsedCount: results.length });
     return { results, detailCandidates, rawCount: raw.length };
   }
 
-  async offersFor(candidate: ProductDetailCandidate, query: ShopperQuery): Promise<SearchedProduct[]> {
+  async offersFor(candidate: ProductDetailCandidate, query: ShopperQuery, nextPageToken?: string): Promise<SearchedProduct[]> {
     const params = new URLSearchParams({ engine: "google_immersive_product", page_token: candidate.token, more_stores: "true", api_key: env.serpApi.apiKey });
-    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(25_000) });
+    if (nextPageToken) params.set("next_page_token", nextPageToken);
+    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(nextPageToken ? 6_000 : 25_000) });
     if (!response.ok) return [];
-    const body = await response.json() as { product_results?: { title?: string; description?: string; images?: unknown; image?: unknown; product_images?: unknown; specifications?: unknown; stores?: Array<{ name?: string; title?: string; link?: string; extracted_price?: number; extracted_original_price?: number; shipping?: string; details_and_offers?: string[]; thumbnail?: string; image?: unknown; images?: unknown; product_details?: unknown }> }; error?: string };
+    const body = await response.json() as { product_results?: { title?: string; description?: string; images?: unknown; image?: unknown; product_images?: unknown; specifications?: unknown; stores_next_page_token?: string; stores?: Array<{ name?: string; title?: string; link?: string; extracted_price?: number; extracted_total?: number; shipping_extracted?: number; installments_description?: string; extracted_original_price?: number; shipping?: string; details_and_offers?: string[]; thumbnail?: string; image?: unknown; images?: unknown; product_details?: unknown }> }; error?: string };
     if (body.error) return [];
     const checkedAt = new Date().toISOString();
     const product = body.product_results || {};
+    if (product.stores_next_page_token) this.nextStorePageTokens.set(candidate.token, product.stores_next_page_token);
+    else this.nextStorePageTokens.delete(candidate.token);
     const productImages = imageUrls(candidate.imageUrls, product.images, product.image, product.product_images);
     const attributesText = [product.title, product.description, JSON.stringify(product.specifications || "")].filter(Boolean).join(" ");
     return (product.stores || []).flatMap((store, index) => {
       const productUrl = validUrl(store.link);
       if (!productUrl || !store.title) return [];
-      const price = typeof store.extracted_price === "number" && store.extracted_price >= 0 ? store.extracted_price : null;
+      const price = resolveStorePrice(store);
       const previousPrice = typeof store.extracted_original_price === "number" && store.extracted_original_price > (price ?? Infinity) ? store.extracted_original_price : null;
       const images = imageUrls(store.thumbnail, store.image, store.images, productImages);
       const base = { id: `offer-${createHash("sha256").update(`${candidate.productId}|${productUrl}|${store.name || ""}|${price ?? ""}|${index}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google-immersive-product", title: store.title, price, previousPrice, currency: "BRL" as const, store: store.name || null, merchant: normalizeShopperMerchant(store.name), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "product-detail" as const : null, productUrl, rating: null, reviewCount: null, shipping: store.shipping || store.details_and_offers?.find((item) => /frete|entrega|shipping|delivery/i.test(item)) || null, availability: null, discountPercent: price != null && previousPrice != null ? Math.round((1 - price / previousPrice) * 100) : null, productId: candidate.productId, checkedAt, sourceQuery: candidate.sourceQuery, sourcePosition: candidate.sourcePosition, productTitle: product.title || candidate.title, attributesText };
