@@ -5,7 +5,6 @@ import { HomePage } from "./pages/HomePage";
 import { BrandsPage } from "./pages/BrandsPage";
 import { BrandPage } from "./pages/BrandPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
-import { PromotionMonitorPage } from "./pages/PromotionMonitorPage";
 import type { ReactNode } from "react";
 import { AppBootSkeleton } from "./components/Skeletons";
 
@@ -29,7 +28,6 @@ export default function App() {
         <Route path="/marcas/:slug" element={<Private><BrandPage /></Private>} />
         <Route path="/marcas/:slug/:category" element={<Private><BrandPage /></Private>} />
         <Route path="/produtos/:id" element={<Private><ProductDetailPage /></Private>} />
-        <Route path="/monitor" element={<Private><PromotionMonitorPage /></Private>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

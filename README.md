@@ -615,8 +615,3 @@ Em caso de sessão desconectada ou falha da Evolution, o sincronismo de produtos
 - Pequenos ajustes permanecem isolados e reversíveis. Registro 18 desta rodada.
 - A interface mantém botões de ação visíveis no fluxo de revisão. Registro 19 desta rodada.
 <!-- maintenance-notes -->
-# Monitor de promoções
-
-O monitor é configurado em **Monitor** na aplicação. Ele busca Mercado Livre pela API pública; no estágio atual apenas resultados com frete grátis confirmado podem gerar alertas. Amazon Brasil, Shopee Brasil, Época Cosméticos e Beleza na Web aparecem como `aguardando integração` e não fazem buscas nem enviam alertas.
-
-No Render, configure `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE_NAME`, `EVOLUTION_RECIPIENT`, `PROMOTION_CHECK_INTERVAL_MINUTES` (padrão `60`) e `PROMOTION_ALERT_COOLDOWN_HOURS` (padrão `24`). O destinatário pode ser um telefone com DDI/DDD ou o JID de grupo terminado em `@g.us`. Execute `npx prisma migrate deploy` no deploy; o `render.yaml` já o executa no comando de inicialização.

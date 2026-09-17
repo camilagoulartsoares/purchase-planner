@@ -17,7 +17,6 @@ import { findingRoutes } from "./routes/findingRoutes.js";
 import { shoppingAssistantRoutes } from "./routes/shoppingAssistantRoutes.js";
 import { personalShopperRoutes } from "./routes/personalShopperRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
-import { promotionMonitorRoutes } from "./routes/promotionMonitorRoutes.js";
 import { uploadsDir } from "./services/imageService.js";
 import { backupService } from "./services/backupService.js";
 import { cloudinaryConfigured } from "./config/env.js";
@@ -166,7 +165,6 @@ export function createApp() {
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/integrations", integrationRoutes);
   app.use("/api/notifications", notificationRoutes);
-  app.use("/api/promotion-monitor", promotionMonitorRoutes);
 
   void __dirname;
 

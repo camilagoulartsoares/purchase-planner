@@ -320,10 +320,6 @@ export type WhatsAppQrCode = {
   pairingCode: string | null;
 };
 
-export type PromotionOffer = { id: string; store: string; title: string; productPrice: number; shippingPrice: number | null; totalPrice: number | null; originalPrice: number | null; discountPercentage: number | null; url: string; imageUrl: string | null; seller: string | null; availability: string | null; checkedAt: string };
-export type PromotionWatchItem = { id: string; name: string; searchTerm: string; maximumTotalPrice: number; active: boolean; lastCheckedAt: string | null; createdAt: string; updatedAt: string; offers?: PromotionOffer[] };
-export type PromotionSettings = { shippingPostalCode: string | null };
-export type PromotionProvider = { id: string; status: "operational" | "awaiting_integration" };
 
 export type ProductQuery = {
   search?: string;

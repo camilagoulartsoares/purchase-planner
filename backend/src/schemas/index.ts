@@ -175,14 +175,3 @@ export const productQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   perPage: z.coerce.number().int().positive().max(50).optional().default(12),
 });
-
-export const promotionSettingsSchema = z.object({
-  shippingPostalCode: z.string().trim().regex(/^\d{5}-?\d{3}$/, "Informe um CEP válido").nullable(),
-});
-
-export const promotionWatchItemSchema = z.object({
-  name: z.string().trim().min(2).max(160),
-  searchTerm: z.string().trim().min(2).max(160),
-  maximumTotalPrice: z.coerce.number().positive().max(1_000_000),
-  active: z.boolean().optional().default(true),
-});

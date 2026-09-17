@@ -16,20 +16,7 @@ import type {
   FindingInput,
   ShopperConversation,
   ShopperReply,
-  PromotionSettings,
-  PromotionWatchItem,
-  PromotionProvider,
 } from "../types";
-
-export async function fetchPromotionSettings() { const res = await api.get("/promotion-monitor/settings"); return res.data.data as PromotionSettings; }
-export async function savePromotionSettings(data: PromotionSettings) { const res = await api.put("/promotion-monitor/settings", data); return res.data.data as PromotionSettings; }
-export async function fetchPromotionWatchItems() { const res = await api.get("/promotion-monitor/watch-items"); return res.data.data as PromotionWatchItem[]; }
-export async function createPromotionWatchItem(data: Pick<PromotionWatchItem, "name" | "searchTerm" | "maximumTotalPrice" | "active">) { const res = await api.post("/promotion-monitor/watch-items", data); return res.data.data as PromotionWatchItem; }
-export async function updatePromotionWatchItem(id: string, data: Partial<Pick<PromotionWatchItem, "name" | "searchTerm" | "maximumTotalPrice" | "active">>) { const res = await api.patch(`/promotion-monitor/watch-items/${id}`, data); return res.data.data as PromotionWatchItem; }
-export async function deletePromotionWatchItem(id: string) { await api.delete(`/promotion-monitor/watch-items/${id}`); }
-export async function fetchPromotionOffers(id: string) { const res = await api.get(`/promotion-monitor/watch-items/${id}/offers`); return res.data.data as PromotionWatchItem; }
-export async function checkPromotionWatchItemNow(id: string) { const res = await api.post(`/promotion-monitor/watch-items/${id}/check`, undefined, { timeout: 60000 }); return res.data.data as PromotionWatchItem; }
-export async function fetchPromotionProviders() { const res = await api.get("/promotion-monitor/providers"); return res.data.data as PromotionProvider[]; }
 
 export async function register(data: { name: string; email: string; password: string }) {
   const res = await api.post("/auth/register", data);
