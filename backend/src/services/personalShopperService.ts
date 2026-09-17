@@ -30,7 +30,7 @@ function json(value: unknown) { return value as Prisma.InputJsonValue; }
 
 export const personalShopperService = {
   async listConversations(userId: string) { return prisma.shopperConversation.findMany({ where: { userId }, select: { id: true, title: true, updatedAt: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: "desc" }, take: 30 }); },
-  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); return { ...conversation, searches: [], variations: [] }; },
+  async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } }, searches: { orderBy: { createdAt: "asc" } } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); const latest = conversation.searches.at(-1); const results = Array.isArray(latest?.results) ? latest.results as unknown as SearchedProduct[] : []; return { ...conversation, variations: groupVariations(results) }; },
   async message(userId: string, conversationId: string | undefined, message: string) {
     const conversation = conversationId ? await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } }) : await prisma.shopperConversation.create({ data: { userId, title: message.slice(0, 80) } });
     if (!conversation) throw new AppError("Conversa não encontrada.", 404);
@@ -47,12 +47,20 @@ export const personalShopperService = {
     const variations = groupVariations(results);
     if (!cached) shopperSearchCache.set(conversation.id, query, raw);
     const answer = results.length ? `Encontrei ${variations.length} variação${variations.length === 1 ? "" : "ões"} e ${results.length} oferta${results.length === 1 ? "" : "s"} nas fontes consultadas.` : answerFor(query, results);
-    await prisma.$transaction([prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }), prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: answer, structuredData: json({ query, resultIds: results.map((item) => item.id) }) } })]);
+    await prisma.$transaction([prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }), prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: answer, structuredData: json({ query, resultIds: results.map((item) => item.id) }) } }), prisma.shopperSearch.create({ data: { conversationId: conversation.id, provider: provider.id, query: json(query), results: json(results) } })]);
     return { conversationId: conversation.id, query, answer, results, variations, cacheHit: Boolean(cached), metrics: discovery?.metrics || null, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async action(userId: string, conversationId: string, resultId: string, action: "save" | "add-to-planner", options: { category?: string; priority?: string; purchaseIntent?: string }) {
     const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });
-    const result = conversation ? shopperSearchCache.result(conversationId, resultId) : null;
+    let result = conversation ? shopperSearchCache.result(conversationId, resultId) : null;
+    if (conversation && !result) {
+      const searches = await prisma.shopperSearch.findMany({ where: { conversationId }, orderBy: { createdAt: "desc" }, select: { results: true } });
+      for (const search of searches) {
+        if (!Array.isArray(search.results)) continue;
+        result = (search.results as unknown as SearchedProduct[]).find((item) => item.id === resultId) || null;
+        if (result) break;
+      }
+    }
     if (!conversation || !result) throw new AppError("Esse resultado expirou. Faça a pesquisa novamente para salvar o produto.", 410, { code: "RESULT_EXPIRED" });
     if (action === "save") return { action, finding: await findingService.create(userId, { title: result.title, brand: result.brand, store: result.store, price: result.price, previousPrice: result.previousPrice, currency: "BRL", originalUrl: result.productUrl, category: options.category || null, availability: result.availability, provider: result.provider, foundAt: new Date(), media: result.imageUrl ? [{ type: "image", url: result.imageUrl }] : [] }) };
     if (result.price == null) throw new AppError("Esse resultado não possui preço disponível para adicionar ao Planner.", 400);
