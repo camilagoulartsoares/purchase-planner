@@ -6,12 +6,11 @@ const query: ShopperQuery = { query: "kit shampoo Wella", category: null, maxPri
 const offer = (title: string, url: string): SearchedProduct => ({ id: url, provider: "test", title, price: 100, previousPrice: null, currency: "BRL", store: "Loja", brand: null, imageUrl: null, productUrl: url, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 80, budget: 50, style: 50, completeness: 60, total: 70 }, reason: "", productId: "google-1" });
 
 describe("shopper discovery", () => {
-  it("expande sem depender de uma marca fixa e limita chamadas", () => {
+  it("mantém todos os termos do usuário nas variantes de consulta", () => {
     expect(expandQueries(query)).toContain("kit shampoo Wella");
-    expect(expandQueries(query)).toContain("kit Wella");
-    expect(expandQueries(query)).toContain("shampoo e condicionador Wella");
-    expect(expandQueries({ ...query, query: "kit shampoo Lola", brands: ["Lola"] })).toContain("kit Lola");
-    expect(expandQueries(query).length).toBeLessThanOrEqual(5);
+    expect(expandQueries({ ...query, query: "air fryer 5 litros" })).toContain("air fryer 5000ml");
+    expect(expandQueries({ ...query, query: "notebook lenovo i5 16gb" }).every((value) => /lenovo/i.test(value))).toBe(true);
+    expect(expandQueries(query).length).toBeLessThanOrEqual(3);
   });
   it("agrupa a mesma composição, separa máscara de condicionador e volumes distintos", () => {
     const variations = groupVariations([

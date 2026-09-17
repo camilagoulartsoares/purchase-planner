@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Bot, ExternalLink, Heart, LoaderCircle, Plus, Send, X } from "lucide-react";
 import * as api from "../api/closet";
 import { formatBRL, type ShopperConversation, type ShopperResult, type ShopperVariation } from "../types";
-import { normalizeShopperMerchant, shopperMerchants } from "../utils/shopperMerchant";
+import { normalizeShopperMerchant } from "../utils/shopperMerchant";
 type Message = { role: "user" | "assistant"; content: string };
 export function PersonalShopper() {
   const [open,setOpen]=useState(false),[message,setMessage]=useState(""),[conversationId,setConversationId]=useState<string>(),[history,setHistory]=useState<ShopperConversation[]>([]),[messages,setMessages]=useState<Message[]>([]),[all,setAll]=useState<ShopperVariation[]>([]),[shown,setShown]=useState<ShopperVariation[]>([]),[store,setStore]=useState(""),[loading,setLoading]=useState(false),[error,setError]=useState("");
   useEffect(()=>{void api.fetchShopperConversations().then(setHistory).catch(()=>undefined);},[]);
-  const merchants=useMemo(()=>{const values=[...new Set(all.flatMap(v=>v.offers.map(o=>o.merchant||normalizeShopperMerchant(o.store))))]; return [...shopperMerchants.filter(x=>values.includes(x)),...values.filter(x=>!shopperMerchants.includes(x as never)).sort((a,b)=>a.localeCompare(b,"pt-BR"))];},[all]);
+  const merchants=useMemo(()=>[...new Set(all.flatMap(v=>v.offers.map(o=>o.merchant||normalizeShopperMerchant(o.store))))].sort((a,b)=>a.localeCompare(b,"pt-BR")),[all]);
   const offers=shown.flatMap(v=>v.offers);
   const filter=(value:string)=>{setStore(value);setShown(!value?all:all.flatMap(v=>{const offers=v.offers.filter(o=>(o.merchant||normalizeShopperMerchant(o.store))===value);return offers.length?[{...v,offers,imageUrl:offers.find(o=>o.imageUrl)?.imageUrl||v.imageUrl}]:[]}));};
   const load=(variations:ShopperVariation[])=>{setAll(variations);setShown(variations);setStore("");};

@@ -47,6 +47,8 @@ function score(result: Omit<SearchedProduct, "match" | "reason">, query: Shopper
 
 export class SerpApiProductSearchProvider implements ProductSearchProvider {
   readonly id = "serpapi-google-shopping-v2";
+  googleDiagnostics: { status: string; pricedOffers: number; organicResults: number; parsedOffers: number; error?: string } = { status: "not_requested", pricedOffers: 0, organicResults: 0, parsedOffers: 0 };
+  shoppingDiagnostics: Array<{ phrase: string; engine: string; status: string; rawCount: number; parsedCount: number; error?: string }> = [];
   available() { return Boolean(env.serpApi.apiKey); }
 
   async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
@@ -54,39 +56,52 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
   async searchGoogleResults(query: ShopperQuery): Promise<SearchedProduct[]> {
     if (!this.available()) return [];
     const params = new URLSearchParams({ engine: "google", q: query.query, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
-    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) });
-    if (!response.ok) return [];
-    const body = await response.json() as { product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; error?: string };
-    if (body.error || !body.product_result?.title) return [];
+    let response: Response;
+    try { response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) }); }
+    catch (error) { this.googleDiagnostics = { status: "request_failed", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: error instanceof Error ? error.name : "unknown" }; return []; }
+    if (!response.ok) { this.googleDiagnostics = { status: "http_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: String(response.status) }; return []; }
+    const body = await response.json() as { product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number }>; error?: string };
+    if (body.error) { this.googleDiagnostics = { status: "provider_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: body.error.slice(0, 160) }; return []; }
     const product = body.product_result;
     const checkedAt = new Date().toISOString();
-    return (product.pricing || []).flatMap((offer, index) => {
+    const priced = (product?.pricing || []).flatMap((offer, index) => {
       const productUrl = validUrl(offer.link);
       const price = typeof offer.extracted_price === "number" && offer.extracted_price >= 0 ? offer.extracted_price : null;
       if (!productUrl || price == null) return [];
       const imageUrl = validUrl(offer.thumbnail);
-      const title = offer.description || product.title!;
-      const base = { id: `google-${createHash("sha256").update(`${productUrl}|${price}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google", title, price, previousPrice: null, currency: "BRL" as const, store: offer.name || null, merchant: normalizeShopperMerchant(offer.name), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: typeof product.rating === "number" ? product.rating : null, reviewCount: typeof product.reviews === "number" ? product.reviews : null, shipping: offer.buying_options?.find((option) => /frete|entrega|delivery/i.test(option)) || null, availability: offer.buying_options?.find((option) => /estoque|stock/i.test(option)) || null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: index + 1, productTitle: product.title, attributesText: offer.description || null };
+      const title = offer.description || product?.title;
+      if (!title) return [];
+      const base = { id: `google-${createHash("sha256").update(`${productUrl}|${price}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google", title, price, previousPrice: null, currency: "BRL" as const, store: offer.name || null, merchant: normalizeShopperMerchant(offer.name), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: typeof product?.rating === "number" ? product.rating : null, reviewCount: typeof product?.reviews === "number" ? product.reviews : null, shipping: offer.buying_options?.find((option) => /frete|entrega|delivery/i.test(option)) || null, availability: offer.buying_options?.find((option) => /estoque|stock/i.test(option)) || null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: index + 1, productTitle: product?.title || title, attributesText: offer.description || null };
       return [{ ...base, match: score(base, query), reason: "Oferta encontrada na busca exata do Google." }];
     });
+    const organic = (body.organic_results || []).flatMap((item, index) => {
+      const productUrl = validUrl(item.link);
+      if (!productUrl || !item.title) return [];
+      const imageUrl = validUrl(item.thumbnail);
+      const base = { id: `organic-${createHash("sha256").update(productUrl).digest("hex").slice(0, 24)}`, provider: "serpapi-google-organic", title: item.title, price: null, previousPrice: null, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
+      return [{ ...base, match: score(base, query), reason: "Resultado encontrado na busca Google; preço não informado." }];
+    });
+    this.googleDiagnostics = { status: product?.pricing?.length ? "product_block" : "organic_only", pricedOffers: product?.pricing?.length || 0, organicResults: body.organic_results?.length || 0, parsedOffers: priced.length + organic.length };
+    return [...priced, ...organic];
   }
 
-  async searchDetailed(query: ShopperQuery, phrase: string): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
+  async searchDetailed(query: ShopperQuery, phrase: string, engine: "google_shopping" | "google_shopping_light" = "google_shopping"): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
     if (!this.available()) return { results: [], detailCandidates: [], rawCount: 0 };
-    const params = new URLSearchParams({ engine: "google_shopping", q: phrase, gl: "br", hl: "pt-br", num: "20", api_key: env.serpApi.apiKey });
+    const params = new URLSearchParams({ engine, q: phrase, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
     // Google Shopping via SerpApi pode retornar uma lista vazia no Brasil quando
     // recebe max_price, mesmo havendo itens abaixo do teto. Buscamos o catálogo
     // normal e aplicamos o limite rígido localmente em visibleResults().
     let response: Response;
     try {
-      response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) });
-    } catch {
+      response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(engine === "google_shopping_light" ? 20_000 : 30_000) });
+    } catch (error) {
+      this.shoppingDiagnostics.push({ phrase, engine, status: "request_failed", rawCount: 0, parsedCount: 0, error: error instanceof Error ? error.name : "unknown" });
       throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
     }
-    if (!response.ok) throw new Error("Não foi possível consultar o Google Shopping agora.");
-    const body = await response.json() as { shopping_results?: SerpResult[]; error?: string };
-    if (body.error) throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503);
-    const raw = body.shopping_results || [];
+    if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, error: String(response.status) }); throw new Error("Não foi possível consultar o Google Shopping agora."); }
+    const body = await response.json() as { shopping_results?: SerpResult[]; inline_shopping_results?: SerpResult[]; error?: string };
+    if (body.error) { this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, error: body.error.slice(0, 160) }); throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503); }
+    const raw = [...(body.shopping_results || []), ...(body.inline_shopping_results || [])];
     const detailCandidates: ProductDetailCandidate[] = [];
     const seen = new Set<string>();
     const checkedAt = new Date().toISOString();
@@ -103,6 +118,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const reason = query.maxPrice != null && price != null && price <= query.maxPrice ? "Dentro do orçamento informado." : match.query >= 70 ? "Uma das opções mais próximas do que você pediu." : "Resultado encontrado nas fontes consultadas.";
       return [{ ...base, match, reason }];
     }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
+    this.shoppingDiagnostics.push({ phrase, engine, status: "ok", rawCount: raw.length, parsedCount: results.length });
     return { results, detailCandidates, rawCount: raw.length };
   }
 

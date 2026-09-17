@@ -1,169 +1,111 @@
 import type { SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 
-export const normalizeShopperText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\bcond\.?\b/g, "condicionador").replace(/\b(?:sh|shp)\.?\b/g, "shampoo").replace(/\btam\.?\b/g, "tamanho").replace(/\b(\d+)\s*(?:litros?|l)\b/g, (_, n: string) => `${Number(n) * 1000}ml`).replace(/\b(\d+)\s+(ml|g|gb|tb|mm|cm|kg)\b/g, "$1$2").replace(/\s+/g, " ").trim();
-const normalize = normalizeShopperText;
-const cleanMoney = (value: string) => value.replace(/\b(?:a partir de|acima de|mais de|ate|até|no maximo|no máximo|menos de|abaixo de)\s*(?:r\$\s*)?\d{1,5}(?:[.,]\d{1,2})?\s*(?:reais?)?\b|r\$\s*\d{1,5}(?:[.,]\d{1,2})?/gi, " ").replace(/\s+/g, " ").trim();
-const productWords = new Set(["kit", "tenis", "tênis", "shampoo", "condicionador", "mascara", "máscara", "protetor", "solar", "celular", "smartphone", "bolsa", "feminino", "masculino", "profissional", "professionals", "agora", "quero"]);
-const componentWords = ["shampoo", "condicionador", "máscara", "mascara", "óleo", "oleo", "hidratante", "protetor"];
-const queryBase = (value: string) => cleanMoney(value).replace(/\b(?:agora quero (?:procurar|buscar)?|quero (?:procurar|buscar|encontrar)|procure|busque)\b/gi, " ").replace(/\s+/g, " ").trim();
+const stopwords = new Set(["a", "as", "o", "os", "de", "da", "do", "das", "dos", "e", "em", "no", "na", "nos", "nas", "para", "por", "com", "um", "uma", "que", "quero", "procuro", "buscar", "encontrar", "reais", "r"]);
+const quantityPattern = /^(\d+)(ml|g|gb|tb|mm|cm)$/;
 
+export function normalizeShopperText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*(?:litros?|l)\b/g, (_, amount: string) => `${Math.round(Number(amount.replace(",", ".")) * 1000)}ml`)
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*(?:quilos?|kg)\b/g, (_, amount: string) => `${Math.round(Number(amount.replace(",", ".")) * 1000)}g`)
+    .replace(/\b(\d+)\s+(ml|g|gb|tb|mm|cm)\b/g, "$1$2")
+    .replace(/\b(?:tam\.?|tamanho)\s*(\d{1,3})\b/g, "tamanho $1")
+    .replace(/[\u2010-\u2015]/g, "-").replace(/\s+/g, " ").trim();
+}
+
+export function shopperTokens(value: string) {
+  return [...new Set((normalizeShopperText(value).match(/[\p{L}\d]+/gu) || []).filter((token) => !stopwords.has(token)))];
+}
+
+export function tokenMatches(expected: string, actual: string) {
+  if (expected === actual) return true;
+  if (/\d/.test(expected) || /\d/.test(actual)) return false;
+  const shorter = expected.length < actual.length ? expected : actual;
+  const longer = expected.length < actual.length ? actual : expected;
+  return shorter.length >= 2 && longer.length >= 5 && longer.startsWith(shorter);
+}
+
+function money(value: string) { return Number(value.replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".")); }
 function price(message: string, kind: "max" | "min") {
-  const pattern = kind === "max" ? /\b(?:ate|no maximo|menos de|abaixo de)\s*(?:r\$\s*)?(\d{1,5}(?:[.,]\d{1,2})?)/i : /\b(?:a partir de|acima de|mais de|no minimo)\s*(?:r\$\s*)?(\d{1,5}(?:[.,]\d{1,2})?)/i;
-  const match = normalize(message).match(pattern);
-  return match ? Number(match[1].replace(".", "").replace(",", ".")) : null;
+  const text = normalizeShopperText(message);
+  const prefix = kind === "max" ? "(?:ate|no maximo|menos de|abaixo de)" : "(?:a partir de|acima de|mais de|no minimo)";
+  const match = new RegExp(`\\b${prefix}\\s*(?:r\\$\\s*)?([\\d.,]+)`, "i").exec(text);
+  const amount = match ? money(match[1]) : null;
+  return amount != null && Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
-function explicitBrand(message: string, previous: ShopperQuery | null) {
-  if (/^(?:s[oó] da linha|prefiro|pode ser)\b/i.test(message.trim())) return null;
-  const words = message.match(/\b[A-ZÁÉÍÓÚ][a-záéíóúA-ZÁÉÍÓÚ]{2,}\b/g) || [];
-  const afterLine = /\blinha\s+([\p{L}\d-]+)/iu.exec(message)?.[1];
-  const candidates = words.filter((word) => !productWords.has(normalize(word)) && normalize(word) !== normalize(afterLine || ""));
-  const prior = previous?.requiredBrands?.find((brand) => normalize(message).includes(normalize(brand)));
-  return prior || candidates[0] || null;
-}
-
-function productQualifiers(message: string) {
-  const normalized = normalize(queryBase(message));
-  const matches = [...normalized.matchAll(/\b(?:shampoo|condicionador|mascara|protetor|hidratante)\b/g)];
-  if (matches.length < 2 || !/\bkit\b/.test(normalized)) return [];
-  const tail = normalized.slice(matches.at(-1)!.index! + matches.at(-1)![0].length);
-  return tail.replace(/\b\d+\s*(?:l|litros?|ml|g)\b/g, " ").split(/[^\p{L}\d]+/u)
-    .filter((word) => word.length > 2 && !["para", "com", "sem", "kit", "duo", "trio", "cabelos", "profissional", "professionals"].includes(word));
-}
-
-function components(message: string) {
-  const normalized = normalize(message);
-  return [...new Set(componentWords.filter((word) => normalized.includes(normalize(word))).map((word) => normalize(word)))];
-}
-
-function volumes(message: string) {
-  return [...new Set([...normalize(message).matchAll(/\b(\d+)\s*(l|litros?|ml|g)\b/g)].map((match) => /^(l|litro)/.test(match[2]) ? `${Number(match[1]) * 1000}ml` : `${Number(match[1])}${match[2]}`))];
-}
-
-function componentVolumeRequirements(message: string, selectedComponents: string[], requestedVolumes: string[]) {
-  if (!requestedVolumes.length || !selectedComponents.length) return {};
-  if (requestedVolumes.length === 1) return Object.fromEntries(selectedComponents.map((component) => [component, requestedVolumes]));
-  const text = normalize(message);
-  const mentions = selectedComponents.flatMap((component) => [...text.matchAll(new RegExp(`\\b${component}\\b`, "g"))].map((match) => ({ component, index: match.index! }))).sort((a, b) => a.index - b.index);
-  const requirements: Record<string, string[]> = {};
-  for (let index = 0; index < mentions.length; index++) {
-    const mention = mentions[index];
-    const portion = text.slice(mention.index, mentions[index + 1]?.index ?? text.length);
-    const found = volumes(portion);
-    if (found.length) requirements[mention.component] = found;
-  }
-  for (const component of selectedComponents) requirements[component] ||= requestedVolumes;
-  return requirements;
-}
-
-function modelTerms(message: string) {
-  const normalized = normalize(message);
-  const specs = [...normalized.matchAll(/\b\d+\s*(?:gb|tb|mm|cm|kg)\b/g)].map((match) => match[0].replace(/\s+/g, ""));
-  const clothingSize = /\b(?:tamanho|tam)\s*(\d{2})\b/.exec(normalized)?.[1];
-  if (clothingSize) specs.push(clothingSize);
-  if (/\biphone\b/.test(normalized)) specs.push("iphone", ...[...normalized.matchAll(/\b\d+\b/g)].map((match) => match[0]));
-  return [...new Set(specs)];
+function searchPhrase(message: string) {
+  return message.replace(/\b(?:ate|até|no m[aá]ximo|menos de|abaixo de|a partir de|acima de|mais de|no m[ií]nimo)\s*(?:r\$\s*)?[\d.,]+\s*(?:reais?)?/gi, " ")
+    .replace(/^(?:agora quero|nova busca|outro produto|em vez de|quero (?:procurar|buscar|encontrar)?|procure|busque)\s*/i, "")
+    .replace(/\s+/g, " ").trim();
 }
 
 export function interpretShopperIntent(message: string, previous: ShopperQuery | null, proposed?: ShopperQuery | null): ShopperQuery {
-  const normalized = normalize(message);
-  const reset = /\b(?:agora quero|nova busca|outro produto|em vez de)\b/.test(normalized);
-  const refinement = /^(?:ate|no maximo|a partir de|s[oó] da linha|prefiro|pode ser|tamb[eé]m|com|sem)\b/.test(normalized);
-  const clean = queryBase(message);
-  const previousBase = previous?.query || "";
-  const repeatsPrevious = previous && normalize(clean) === normalize(previousBase);
-  const extendsPrevious = previous && normalize(clean).startsWith(normalize(previousBase) + " ");
-  const newProduct = reset || (!refinement && !repeatsPrevious && !extendsPrevious && clean.length > 2 && !/^(?:s[oó] da linha|prefiro|pode ser)/.test(normalized));
+  const text = normalizeShopperText(message);
+  const clean = searchPhrase(message);
+  const reset = /^(?:agora quero|nova busca|outro produto|em vez de)\b/.test(text);
+  const refinement = /^(?:ate|no maximo|a partir de|prefiro|so|tambem|com|sem)\b/.test(text);
+  const previousPhrase = previous?.query || "";
+  const repeated = previousPhrase && normalizeShopperText(clean) === normalizeShopperText(previousPhrase);
+  const extended = previousPhrase && normalizeShopperText(clean).startsWith(`${normalizeShopperText(previousPhrase)} `);
+  const newProduct = reset || (!refinement && !repeated && !extended && clean.length > 2);
   const baseline = newProduct ? null : previous;
-  const qualifiers = newProduct || repeatsPrevious ? productQualifiers(message) : [];
-  const brand = explicitBrand(message, baseline) || proposed?.brands?.find((value) => normalized.includes(normalize(value))) || qualifiers[0] || null;
-  const baselineBrand = baseline?.requiredBrands?.[0] || (baseline ? explicitBrand(baseline.query, null) : null);
-  const requiredBrands = brand ? [brand] : baselineBrand ? [baselineBrand] : [];
-  const capitalized = message.match(/\b[A-ZÁÉÍÓÚ][a-záéíóúA-ZÁÉÍÓÚ]{2,}\b/g) || [];
-  const inferredLine = brand ? capitalized.find((word) => normalize(word) !== normalize(brand) && !productWords.has(normalize(word))) : null;
-  const line = /\blinha\s+([\p{L}\d-]+)/iu.exec(message)?.[1] || (/^prefiro\s+([\p{L}\d-]+)/iu.exec(message)?.[1]) || inferredLine || qualifiers.find((word) => normalize(word) !== normalize(brand || "")) || baseline?.requiredLine || null;
-  const directComponents = components(message);
-  let requiredComponents = baseline?.requiredComponents?.length ? baseline.requiredComponents : baseline?.query ? [components(baseline.query)] : [];
-  if (newProduct) requiredComponents = directComponents.length ? [directComponents] : [];
-  else if (directComponents.length > 1) requiredComponents = /pode ser|tamb[eé]m/i.test(message) ? [...requiredComponents, directComponents] : [directComponents];
-  const directVolumes = volumes(message);
-  const requiredVolumes = directVolumes.length ? directVolumes : baseline?.requiredVolumes || [];
-  // "shampoo e condicionador ... 1L" means 1L for each component.  Keep this
-  // separately from the legacy global volume list so a 1L + 200ml kit cannot pass.
-  const volumeComponents = newProduct ? directComponents : (requiredComponents.flat().length ? [...new Set(requiredComponents.flat())] : directComponents);
-  const requiredComponentVolumes = directVolumes.length
-    ? componentVolumeRequirements(message, volumeComponents, directVolumes)
-    : baseline?.requiredComponentVolumes || componentVolumeRequirements(message, volumeComponents, requiredVolumes);
-  const requiredModelTerms = modelTerms(message).length ? modelTerms(message) : baseline?.requiredModelTerms || [];
+  const extra = refinement ? clean.replace(/^(?:prefiro|s[oó](?: da linha)?|tamb[eé]m|com|sem)\s*/i, "").trim() : "";
+  const query = newProduct ? clean : extended ? clean : [previousPhrase || clean, extra].filter(Boolean).join(" ").trim();
   const maxPrice = price(message, "max") ?? baseline?.maxPrice ?? null;
   const minPrice = price(message, "min") ?? baseline?.minPrice ?? null;
-  const base = newProduct ? clean : previousBase || clean;
-  const query = line && !normalize(base).includes(normalize(line)) ? `${base} ${line}` : base;
-  const interpreted = proposed && !newProduct ? proposed : null;
   return {
-    query, category: newProduct ? proposed?.category || null : baseline?.category || interpreted?.category || null,
+    query, category: proposed?.category || baseline?.category || null,
     maxPrice, minPrice, maxPriceIsHard: maxPrice != null, currency: "BRL",
-    colors: newProduct ? proposed?.colors || [] : baseline?.colors || proposed?.colors || [],
-    size: newProduct ? proposed?.size || null : baseline?.size || proposed?.size || null,
-    brands: requiredBrands, requiredBrands, requiredLine: line, requiredComponents, requiredVolumes, requiredComponentVolumes, requiredModelTerms,
-    requiredKit: newProduct ? /\bkit\b/.test(normalized) : baseline?.requiredKit || /\bkit\b/.test(normalize(baseline?.query || "")),
-    usage: newProduct ? proposed?.usage || null : baseline?.usage || proposed?.usage || null,
-    style: newProduct ? proposed?.style || [] : baseline?.style || proposed?.style || [],
-    exclude: newProduct ? proposed?.exclude || [] : baseline?.exclude || proposed?.exclude || [],
-    originalOnly: newProduct ? proposed?.originalOnly || false : baseline?.originalOnly || proposed?.originalOnly || false,
+    colors: proposed?.colors || baseline?.colors || [], size: proposed?.size || baseline?.size || null,
+    brands: proposed?.brands || baseline?.brands || [], requiredBrands: [], requiredLine: null,
+    requiredComponents: [], requiredVolumes: [], requiredComponentVolumes: {}, requiredModelTerms: [],
+    requiredKit: false, usage: proposed?.usage || baseline?.usage || null,
+    style: proposed?.style || baseline?.style || [], exclude: proposed?.exclude || baseline?.exclude || [],
+    originalOnly: proposed?.originalOnly || baseline?.originalOnly || false,
     sortPreference: proposed?.sortPreference || baseline?.sortPreference || "best_match",
   };
 }
 
 export type IntentEvaluation = { eligible: boolean; reason: string | null; normalized: string; confirmed: string[]; confidence: number };
 
-function volumeMatches(text: string, volume: string) {
-  const amount = Number.parseInt(volume);
-  return new RegExp(`\\b${amount}\\s*ml\\b`, "i").test(text) || (volume.endsWith("ml") && amount % 1000 === 0 && new RegExp(`\\b${amount / 1000}\\s*(?:l|litro)\\b`, "i").test(text));
+function requestedPair(query: ShopperQuery) {
+  const match = normalizeShopperText(query.query).match(/\b([\p{L}\d]+)\s+e\s+([\p{L}\d]+)\b/u);
+  return match ? [match[1], match[2]] : [];
 }
 
-function componentVolumes(text: string, component: string) {
-  const normalized = normalize(text).replace(/(\d+)\s*(?:litros?|l)\b/g, (_, n: string) => `${Number(n) * 1000}ml`);
-  const occurrences = [...normalized.matchAll(new RegExp(`\\b${component}\\b`, "g"))];
-  return occurrences.map((match, index) => normalized.slice(match.index!, occurrences[index + 1]?.index ?? normalized.length));
+function contradictoryQuantity(expected: string[], actual: string[]) {
+  const expectedQuantities = expected.map((token) => token.match(quantityPattern)).filter((match): match is RegExpMatchArray => !!match);
+  const actualQuantities = actual.map((token) => token.match(quantityPattern)).filter((match): match is RegExpMatchArray => !!match);
+  for (const term of expectedQuantities) {
+    const requestedUnitCount = expectedQuantities.filter((candidate) => candidate[2] === term[2]).length;
+    const sameUnit = actualQuantities.filter((candidate) => candidate[2] === term[2]);
+    if (sameUnit.length >= requestedUnitCount && !sameUnit.some((candidate) => candidate[1] === term[1])) return true;
+  }
+  return false;
 }
 
-function sharedVolume(text: string, required: string[]) {
-  const values = [...new Set([...text.matchAll(/\b\d+\s*(?:ml|g)\b/g)].map((match) => match[0].replace(/\s+/g, "")))];
-  return values.length === 1 && required.every((volume) => volumeMatches(values[0], volume));
-}
-
-/** Product eligibility. It deliberately has no price check: that belongs to offer eligibility. */
 export function evaluateProductMatch(rawText: string, query: ShopperQuery): IntentEvaluation {
-  const title = normalize(rawText);
-  const confirmed: string[] = [];
-  const fail = (reason: string) => ({ eligible: false, reason, normalized: title, confirmed, confidence: confirmed.length * 15 });
-  if (query.requiredBrands?.length) { if (!query.requiredBrands.some((brand) => title.includes(normalize(brand)))) return fail("brand_missing"); confirmed.push("brand"); }
-  if (query.requiredLine) { if (!title.includes(normalize(query.requiredLine))) return fail("line_missing"); confirmed.push("line"); }
-  if (query.requiredKit) { if (!/\b(kit|combo|duo|trio|conjunto|[2-9]\s*(?:unidades|produtos))\b/.test(title) && components(title).length < 2) return fail("kit_missing"); confirmed.push("kit"); }
-  if (query.requiredComponents?.length) { if (!query.requiredComponents.some((group) => group.every((component) => title.includes(component)))) return fail("components_missing"); confirmed.push("components"); }
-  for (const [component, required] of Object.entries(query.requiredComponentVolumes || {})) {
-    const portions = componentVolumes(title, component);
-    if ((!portions.length || !required.every((volume) => portions.some((portion) => volumeMatches(portion, volume)))) && !sharedVolume(title, required)) return fail(`component_volume_missing:${component}`);
-    confirmed.push(`${component}_volume`);
+  const normalized = normalizeShopperText(rawText);
+  const expected = shopperTokens(query.query);
+  const actual = shopperTokens(rawText);
+  const confirmed = expected.filter((term) => actual.some((candidate) => tokenMatches(term, candidate)));
+  const fail = (reason: string): IntentEvaluation => ({ eligible: false, reason, normalized, confirmed, confidence: Math.round(100 * confirmed.length / Math.max(1, expected.length)) });
+  if (contradictoryQuantity(expected, actual)) return fail("quantity_conflict");
+  const size = /\btamanho\s*(\d{1,3})\b/.exec(normalizeShopperText(query.query))?.[1];
+  if (size) {
+    const sizes = [...normalized.matchAll(/(?<![\d])\d{1,3}(?![\d]|\s*(?:ml|g|gb|tb|mm|cm)\b)/g)].map((match) => String(Number(match[0]))).filter((value) => Number(value) >= 20 && Number(value) <= 60);
+    if (sizes.length && !sizes.includes(size)) return fail("size_conflict");
   }
-  if (!(query.requiredComponentVolumes && Object.keys(query.requiredComponentVolumes).length) && query.requiredVolumes?.length) {
-    if (!query.requiredVolumes.every((volume) => volumeMatches(title, volume))) return fail("volume_missing");
-    confirmed.push("volume");
-  }
-  if (query.requiredModelTerms?.length) { if (!query.requiredModelTerms.every((term) => { const capacity = term.match(/^(\d+)(gb|tb|mm|cm|kg)$/); return new RegExp(capacity ? `\\b${capacity[1]}\\s*${capacity[2]}\\b` : `\\b${term}\\b`, "i").test(title); })) return fail("model_missing"); confirmed.push("model"); }
-  return { eligible: true, reason: null, normalized: title, confirmed, confidence: Math.min(100, 45 + confirmed.length * 10) };
+  const pair = requestedPair(query);
+  if (pair.length && !pair.every((term) => actual.some((candidate) => tokenMatches(term, candidate)))) return fail("composition_missing");
+  if (expected.length && !confirmed.length) return fail("no_query_overlap");
+  return { eligible: true, reason: null, normalized, confirmed, confidence: Math.round(100 * confirmed.length / Math.max(1, expected.length)) };
 }
 
-export function matchesMandatoryAttributes(rawTitle: string, query: ShopperQuery) {
-  return evaluateProductMatch(rawTitle, query).eligible;
-}
+export function matchesMandatoryAttributes(rawTitle: string, query: ShopperQuery) { return evaluateProductMatch(rawTitle, query).eligible; }
 
 export function matchesRequiredIntent(item: SearchedProduct, query: ShopperQuery) {
-  // Details and structured attributes are authoritative evidence for the product;
-  // title alone is only a fallback.
-  if (!evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).eligible) return false;
   if (query.maxPrice != null && query.maxPriceIsHard && (item.price == null || item.price > query.maxPrice)) return false;
   if (query.minPrice != null && (item.price == null || item.price < query.minPrice)) return false;
-  return true;
+  return evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).eligible;
 }

@@ -63,7 +63,7 @@ describe("Personal Shopper search flow", () => {
     vi.spyOn(provider, "searchGoogleResults").mockResolvedValue(results);
     const shopping = vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [], detailCandidates: [], rawCount: 0 });
     const discovered = await discoverProducts(query, provider);
-    expect(shopping).toHaveBeenCalledTimes(1);
+    expect(shopping).toHaveBeenCalledTimes(2);
     expect(discovered.metrics.queries).toEqual([query.query]);
   });
 });
