@@ -56,5 +56,7 @@ describe("Personal Shopper intent and mandatory constraints", () => {
     expect(query.requiredLine).toBe("invigo");
     expect(matchesRequiredIntent(item("Kit Wella Invigo Nutri Enrich Shampoo 1000ml + Cond 1000ml", 339.9), query)).toBe(true);
     expect(matchesRequiredIntent(item("Kit Wella Fusion Shampoo 1000ml + Cond 1000ml", 300), query)).toBe(false);
+    const oldContext = { ...query, requiredBrands: [], requiredLine: null };
+    expect(interpretShopperIntent("kit shampoo e condicionador wella 1l invigo", oldContext).requiredLine).toBe("invigo");
   });
 });

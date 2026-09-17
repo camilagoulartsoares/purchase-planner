@@ -55,7 +55,7 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
   const extendsPrevious = previous && normalize(clean).startsWith(normalize(previousBase) + " ");
   const newProduct = reset || (!refinement && !repeatsPrevious && !extendsPrevious && clean.length > 2 && !/^(?:s[oó] da linha|prefiro|pode ser)/.test(normalized));
   const baseline = newProduct ? null : previous;
-  const qualifiers = newProduct ? productQualifiers(message) : [];
+  const qualifiers = newProduct || repeatsPrevious ? productQualifiers(message) : [];
   const brand = explicitBrand(message, baseline) || proposed?.brands?.find((value) => normalized.includes(normalize(value))) || qualifiers[0] || null;
   const baselineBrand = baseline?.requiredBrands?.[0] || (baseline ? explicitBrand(baseline.query, null) : null);
   const requiredBrands = brand ? [brand] : baselineBrand ? [baselineBrand] : [];
