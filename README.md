@@ -64,7 +64,7 @@ npm --prefix backend test
 
 ## Encontre para mim — Personal Shopper IA
 
-A Home agora inclui a área **Encontre para mim**, com conversa contextual e cards de produtos reais retornados pelo Google Shopping via SerpApi. A busca preserva o contexto da conversa (por exemplo, cor, tamanho e orçamento), mantém histórico e permite salvar o resultado em **Meus achados** ou adicioná-lo diretamente ao Planner.
+A Home inclui a área **Encontre para mim**, com conversa contextual e cards de produtos reais retornados pela busca Google e pelo Google Shopping via SerpApi. A frase original é consultada nas duas fontes; consultas mais amplas só são usadas quando os resultados exatos são insuficientes. A busca preserva o contexto da conversa (por exemplo, cor, tamanho e orçamento), mantém histórico e permite salvar o resultado em **Meus achados** ou adicioná-lo diretamente ao Planner.
 
 Os dados comerciais exibidos nos cards — preço, loja, imagem, frete, avaliação e link — vêm exclusivamente do provider. Quando um dado não é fornecido pela fonte, ele não é inventado nem exibido.
 

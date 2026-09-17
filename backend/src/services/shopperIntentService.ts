@@ -1,6 +1,7 @@
 import type { SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 
-const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\bcond\.?\b/g, "condicionador").replace(/\b(?:sh|shp)\.?\b/g, "shampoo").replace(/\s+/g, " ").trim();
+export const normalizeShopperText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\bcond\.?\b/g, "condicionador").replace(/\b(?:sh|shp)\.?\b/g, "shampoo").replace(/\btam\.?\b/g, "tamanho").replace(/\b(\d+)\s*(?:litros?|l)\b/g, (_, n: string) => `${Number(n) * 1000}ml`).replace(/\b(\d+)\s+(ml|g|gb|tb|mm|cm|kg)\b/g, "$1$2").replace(/\s+/g, " ").trim();
+const normalize = normalizeShopperText;
 const cleanMoney = (value: string) => value.replace(/\b(?:a partir de|acima de|mais de|ate|até|no maximo|no máximo|menos de|abaixo de)\s*(?:r\$\s*)?\d{1,5}(?:[.,]\d{1,2})?\s*(?:reais?)?\b|r\$\s*\d{1,5}(?:[.,]\d{1,2})?/gi, " ").replace(/\s+/g, " ").trim();
 const productWords = new Set(["kit", "tenis", "tênis", "shampoo", "condicionador", "mascara", "máscara", "protetor", "solar", "celular", "smartphone", "bolsa", "feminino", "masculino", "profissional", "professionals", "agora", "quero"]);
 const componentWords = ["shampoo", "condicionador", "máscara", "mascara", "óleo", "oleo", "hidratante", "protetor"];
@@ -39,10 +40,29 @@ function volumes(message: string) {
   return [...new Set([...normalize(message).matchAll(/\b(\d+)\s*(l|litros?|ml|g)\b/g)].map((match) => /^(l|litro)/.test(match[2]) ? `${Number(match[1]) * 1000}ml` : `${Number(match[1])}${match[2]}`))];
 }
 
+function componentVolumeRequirements(message: string, selectedComponents: string[], requestedVolumes: string[]) {
+  if (!requestedVolumes.length || !selectedComponents.length) return {};
+  if (requestedVolumes.length === 1) return Object.fromEntries(selectedComponents.map((component) => [component, requestedVolumes]));
+  const text = normalize(message);
+  const mentions = selectedComponents.flatMap((component) => [...text.matchAll(new RegExp(`\\b${component}\\b`, "g"))].map((match) => ({ component, index: match.index! }))).sort((a, b) => a.index - b.index);
+  const requirements: Record<string, string[]> = {};
+  for (let index = 0; index < mentions.length; index++) {
+    const mention = mentions[index];
+    const portion = text.slice(mention.index, mentions[index + 1]?.index ?? text.length);
+    const found = volumes(portion);
+    if (found.length) requirements[mention.component] = found;
+  }
+  for (const component of selectedComponents) requirements[component] ||= requestedVolumes;
+  return requirements;
+}
+
 function modelTerms(message: string) {
   const normalized = normalize(message);
-  if (!/\biphone\b/.test(normalized)) return [];
-  return ["iphone", ...[...normalized.matchAll(/\b\d+(?:gb|tb)?\b/g)].map((match) => match[0])];
+  const specs = [...normalized.matchAll(/\b\d+\s*(?:gb|tb|mm|cm|kg)\b/g)].map((match) => match[0].replace(/\s+/g, ""));
+  const clothingSize = /\b(?:tamanho|tam)\s*(\d{2})\b/.exec(normalized)?.[1];
+  if (clothingSize) specs.push(clothingSize);
+  if (/\biphone\b/.test(normalized)) specs.push("iphone", ...[...normalized.matchAll(/\b\d+\b/g)].map((match) => match[0]));
+  return [...new Set(specs)];
 }
 
 export function interpretShopperIntent(message: string, previous: ShopperQuery | null, proposed?: ShopperQuery | null): ShopperQuery {
@@ -66,13 +86,14 @@ export function interpretShopperIntent(message: string, previous: ShopperQuery |
   let requiredComponents = baseline?.requiredComponents?.length ? baseline.requiredComponents : baseline?.query ? [components(baseline.query)] : [];
   if (newProduct) requiredComponents = directComponents.length ? [directComponents] : [];
   else if (directComponents.length > 1) requiredComponents = /pode ser|tamb[eé]m/i.test(message) ? [...requiredComponents, directComponents] : [directComponents];
-  const requiredVolumes = volumes(message).length ? volumes(message) : baseline?.requiredVolumes || [];
+  const directVolumes = volumes(message);
+  const requiredVolumes = directVolumes.length ? directVolumes : baseline?.requiredVolumes || [];
   // "shampoo e condicionador ... 1L" means 1L for each component.  Keep this
   // separately from the legacy global volume list so a 1L + 200ml kit cannot pass.
   const volumeComponents = newProduct ? directComponents : (requiredComponents.flat().length ? [...new Set(requiredComponents.flat())] : directComponents);
-  const requiredComponentVolumes = requiredVolumes.length && volumeComponents.length
-    ? Object.fromEntries(volumeComponents.map((component) => [component, requiredVolumes]))
-    : baseline?.requiredComponentVolumes || {};
+  const requiredComponentVolumes = directVolumes.length
+    ? componentVolumeRequirements(message, volumeComponents, directVolumes)
+    : baseline?.requiredComponentVolumes || componentVolumeRequirements(message, volumeComponents, requiredVolumes);
   const requiredModelTerms = modelTerms(message).length ? modelTerms(message) : baseline?.requiredModelTerms || [];
   const maxPrice = price(message, "max") ?? baseline?.maxPrice ?? null;
   const minPrice = price(message, "min") ?? baseline?.minPrice ?? null;
@@ -107,6 +128,11 @@ function componentVolumes(text: string, component: string) {
   return occurrences.map((match, index) => normalized.slice(match.index!, occurrences[index + 1]?.index ?? normalized.length));
 }
 
+function sharedVolume(text: string, required: string[]) {
+  const values = [...new Set([...text.matchAll(/\b\d+\s*(?:ml|g)\b/g)].map((match) => match[0].replace(/\s+/g, "")))];
+  return values.length === 1 && required.every((volume) => volumeMatches(values[0], volume));
+}
+
 /** Product eligibility. It deliberately has no price check: that belongs to offer eligibility. */
 export function evaluateProductMatch(rawText: string, query: ShopperQuery): IntentEvaluation {
   const title = normalize(rawText);
@@ -118,14 +144,14 @@ export function evaluateProductMatch(rawText: string, query: ShopperQuery): Inte
   if (query.requiredComponents?.length) { if (!query.requiredComponents.some((group) => group.every((component) => title.includes(component)))) return fail("components_missing"); confirmed.push("components"); }
   for (const [component, required] of Object.entries(query.requiredComponentVolumes || {})) {
     const portions = componentVolumes(title, component);
-    if (!portions.length || !required.every((volume) => portions.some((portion) => volumeMatches(portion, volume)))) return fail(`component_volume_missing:${component}`);
+    if ((!portions.length || !required.every((volume) => portions.some((portion) => volumeMatches(portion, volume)))) && !sharedVolume(title, required)) return fail(`component_volume_missing:${component}`);
     confirmed.push(`${component}_volume`);
   }
   if (!(query.requiredComponentVolumes && Object.keys(query.requiredComponentVolumes).length) && query.requiredVolumes?.length) {
     if (!query.requiredVolumes.every((volume) => volumeMatches(title, volume))) return fail("volume_missing");
     confirmed.push("volume");
   }
-  if (query.requiredModelTerms?.length) { if (!query.requiredModelTerms.every((term) => { const capacity = term.match(/^(\d+)(gb|tb)$/); return new RegExp(capacity ? `\\b${capacity[1]}\\s*${capacity[2]}\\b` : `\\b${term}\\b`, "i").test(title); })) return fail("model_missing"); confirmed.push("model"); }
+  if (query.requiredModelTerms?.length) { if (!query.requiredModelTerms.every((term) => { const capacity = term.match(/^(\d+)(gb|tb|mm|cm|kg)$/); return new RegExp(capacity ? `\\b${capacity[1]}\\s*${capacity[2]}\\b` : `\\b${term}\\b`, "i").test(title); })) return fail("model_missing"); confirmed.push("model"); }
   return { eligible: true, reason: null, normalized: title, confirmed, confidence: Math.min(100, 45 + confirmed.length * 10) };
 }
 

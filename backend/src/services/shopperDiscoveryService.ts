@@ -4,7 +4,7 @@ import { evaluateProductMatch, matchesRequiredIntent } from "./shopperIntentServ
 import { preferredMerchants } from "./shopperMerchantService.js";
 
 const MAX_QUERIES = 5;
-const MAX_DETAILS = 20;
+const MAX_DETAILS = 8;
 const searchConcurrency = 2;
 const detailConcurrency = 2;
 
@@ -100,14 +100,21 @@ async function limited<T, R>(items: T[], concurrency: number, work: (item: T) =>
 
 export async function discoverProducts(query: ShopperQuery, provider = new SerpApiProductSearchProvider()) {
   const phrases = expandQueries(query);
-  let searchCalls = 0;
-  const searched = await limited(phrases, searchConcurrency, async (phrase) => {
-    try { searchCalls++; return await provider.searchDetailed(query, phrase); }
-    catch { searchCalls++; return provider.searchDetailed(query, phrase); }
+  let searchCalls = 2;
+  const [exact, exactShopping] = await Promise.all([
+    provider.searchGoogleResults(query).catch(() => []),
+    provider.searchDetailed(query, query.query).catch(() => null),
+  ]);
+  const initial = [...exact, ...(exactShopping?.results || [])].filter((item) => matchesRequiredIntent(item, query));
+  const enoughExactResults = new Set(initial.map((item) => normalizedUrl(item.productUrl))).size >= 8;
+  const fallbackPhrases = enoughExactResults ? [] : phrases.slice(1, 4);
+  const searched = await limited(fallbackPhrases, searchConcurrency, async (phrase) => {
+    searchCalls++;
+    return provider.searchDetailed(query, phrase);
   });
-  const successful = searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : []);
-  if (!successful.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
-  const raw = successful.flatMap((entry) => entry.results);
+  const successful = [...(exactShopping ? [exactShopping] : []), ...searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : [])];
+  if (!successful.length && !exact.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
+  const raw = [...exact, ...successful.flatMap((entry) => entry.results)];
   const diagnostics: Array<Record<string, unknown>> = raw.map((item) => {
     const evaluation = evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
     return { stage: "search", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, price: item.price, store: item.store, productId: item.productId, imageUrl: item.imageUrl, preFilter: evaluation.eligible ? "PASS" : "DEFERRED_TO_DETAILS", reason: evaluation.reason, normalized: evaluation.normalized };
@@ -115,8 +122,8 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   // Never use title-only eligibility as a gate for product details: Google often
   // puts the real composition in the immersive product data rather than the card.
   const allDetailCandidates = [...new Map(successful.flatMap((entry) => entry.detailCandidates).sort((a, b) => b.relevance - a.relevance).map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
-  const candidates = allDetailCandidates.slice(0, MAX_DETAILS);
-  for (const item of allDetailCandidates.slice(MAX_DETAILS)) diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productId: item.productId, detailsFetched: false, reason: "detail_limit" });
+  const candidates = enoughExactResults ? [] : allDetailCandidates.slice(0, MAX_DETAILS);
+  for (const item of allDetailCandidates.slice(candidates.length)) diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productId: item.productId, detailsFetched: false, reason: enoughExactResults ? "enough_exact_results" : "detail_limit" });
   const detailed = await limited(candidates, detailConcurrency, (item) => provider.offersFor(item, query));
   const offers = detailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []);
   for (const item of offers) {
@@ -125,7 +132,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   }
   const byUrl = new Map<string, SearchedProduct>();
   for (const item of [...raw, ...offers]) {
-    const key = item.productId ? `${item.productId}:${normalize(item.store || "")}:${normalize(item.title)}:${item.price ?? ""}` : `${normalizedUrl(item.productUrl)}:${item.store || ""}:${item.price ?? ""}`;
+    const key = `${normalizedUrl(item.productUrl)}:${item.price ?? ""}`;
     const existing = byUrl.get(key);
     if (!existing) byUrl.set(key, item);
     else diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, survivorId: existing.id, reason: "same_product_store_title_price" });
@@ -136,14 +143,8 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
     return eligible;
   }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
   const grouped = groupVariations(results);
-  // Image eligibility is deliberately last: detail data and another validated
-  // offer in this exact composition may supply the product image.
-  const variations = grouped.filter((variation) => {
-    if (variation.imageUrl) return true;
-    diagnostics.push({ stage: "display", groupKey: variation.id, title: variation.title, excludedReason: "missing_image", offerIds: variation.offers.map((offer) => offer.id) });
-    return false;
-  });
+  const variations = grouped;
   const visibleResults = variations.flatMap((variation) => variation.offers);
   if (process.env.NODE_ENV !== "production") for (const row of diagnostics) console.info("[SHOPPER_SEARCH]", JSON.stringify(row));
-  return { results: visibleResults, variations, metrics: { queries: phrases, searchCalls, detailCalls: candidates.length, rawResults: successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: searched.flatMap((entry, index) => entry.status === "rejected" ? [phrases[index]] : []), failedDetails: detailed.filter((entry) => entry.status === "rejected").length, diagnostics } };
+  return { results: visibleResults, variations, metrics: { queries: [query.query, ...fallbackPhrases], searchCalls, detailCalls: candidates.length, rawResults: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: [...(exactShopping ? [] : [query.query]), ...searched.flatMap((entry, index) => entry.status === "rejected" ? [fallbackPhrases[index]] : [])], failedDetails: detailed.filter((entry) => entry.status === "rejected").length, diagnostics } };
 }

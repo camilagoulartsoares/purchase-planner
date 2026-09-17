@@ -58,5 +58,21 @@ describe("Personal Shopper intent and mandatory constraints", () => {
     expect(matchesRequiredIntent(item("Kit Wella Fusion Shampoo 1000ml + Cond 1000ml", 300), query)).toBe(false);
     const oldContext = { ...query, requiredBrands: [], requiredLine: null };
     expect(interpretShopperIntent("kit shampoo e condicionador wella 1l invigo", oldContext).requiredLine).toBe("invigo");
+    expect(matchesRequiredIntent(item("Kit Shampoo e Condicionador Wella Invigo Nutri Enrich 1L", 350), query)).toBe(true);
+    expect(matchesRequiredIntent(item("Kit Wella Invigo Shampoo 1L + Condicionador 200ml", 250), query)).toBe(false);
+  });
+  it("aplica tamanhos e capacidades em categorias diferentes sem depender da marca", () => {
+    const notebook = interpretShopperIntent("Notebook Lenovo 16GB 512GB", null);
+    expect(matchesRequiredIntent(item("Lenovo Notebook 512 GB SSD 16 GB RAM"), notebook)).toBe(true);
+    expect(matchesRequiredIntent(item("Lenovo Notebook 8GB RAM 256GB SSD"), notebook)).toBe(false);
+    const shoes = interpretShopperIntent("Tênis Nike tamanho 42", null);
+    expect(matchesRequiredIntent(item("Tênis Nike masculino tam. 42"), shoes)).toBe(true);
+    expect(matchesRequiredIntent(item("Tênis Nike masculino tamanho 41"), shoes)).toBe(false);
+  });
+  it("preserva volumes diferentes de cada item do kit", () => {
+    const query = interpretShopperIntent("kit shampoo 1L e condicionador 200ml Wella", null);
+    expect(query.requiredComponentVolumes).toEqual({ shampoo: ["1000ml"], condicionador: ["200ml"] });
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 1000ml + Condicionador 200ml"), query)).toBe(true);
+    expect(matchesRequiredIntent(item("Kit Wella Shampoo 200ml + Condicionador 1000ml"), query)).toBe(false);
   });
 });

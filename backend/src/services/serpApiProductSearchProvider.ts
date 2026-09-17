@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { AppError } from "../middlewares/errorHandler.js";
 import type { ProductSearchProvider, SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
 import { normalizeShopperMerchant } from "./shopperMerchantService.js";
+import { normalizeShopperText } from "./shopperIntentService.js";
 
 type SerpResult = {
   position?: number; product_id?: string; title?: string; link?: string; product_link?: string; source?: string;
@@ -31,17 +32,17 @@ function imageUrls(...values: unknown[]) {
 }
 
 function words(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2);
+  return normalizeShopperText(value).split(/[^a-z0-9]+/).filter((word) => word.length > 2);
 }
 
 function score(result: Omit<SearchedProduct, "match" | "reason">, query: ShopperQuery) {
-  const title = words(result.title);
-  const requested = words([query.query, ...query.colors, ...query.style, ...query.brands].join(" "));
+  const title = words([result.title, result.productTitle, result.attributesText].filter(Boolean).join(" "));
+  const requested = [...new Set(words([query.query, ...query.colors, ...query.style, ...query.brands].join(" ")))];
   const queryScore = requested.length ? Math.round((requested.filter((word) => title.includes(word)).length / requested.length) * 100) : 50;
   const budgetScore = query.maxPrice == null || result.price == null ? 50 : result.price <= query.maxPrice ? 100 : Math.max(0, 100 - ((result.price - query.maxPrice) / query.maxPrice) * 100);
   const styleScore = query.style.length + query.colors.length ? Math.min(100, queryScore + 10) : 50;
   const completeness = [result.imageUrl, result.store, result.price, result.productUrl, result.rating].filter((item) => item != null).length * 20;
-  return { query: queryScore, budget: Math.round(budgetScore), style: styleScore, completeness, total: Math.round(queryScore * .45 + budgetScore * .3 + styleScore * .1 + completeness * .15) };
+  return { query: queryScore, budget: Math.round(budgetScore), style: styleScore, completeness, total: Math.round(queryScore * .7 + budgetScore * .15 + styleScore * .05 + completeness * .1) };
 }
 
 export class SerpApiProductSearchProvider implements ProductSearchProvider {
@@ -49,6 +50,26 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
   available() { return Boolean(env.serpApi.apiKey); }
 
   async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
+
+  async searchGoogleResults(query: ShopperQuery): Promise<SearchedProduct[]> {
+    if (!this.available()) return [];
+    const params = new URLSearchParams({ engine: "google", q: query.query, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
+    const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) });
+    if (!response.ok) return [];
+    const body = await response.json() as { product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; error?: string };
+    if (body.error || !body.product_result?.title) return [];
+    const product = body.product_result;
+    const checkedAt = new Date().toISOString();
+    return (product.pricing || []).flatMap((offer, index) => {
+      const productUrl = validUrl(offer.link);
+      const price = typeof offer.extracted_price === "number" && offer.extracted_price >= 0 ? offer.extracted_price : null;
+      if (!productUrl || price == null) return [];
+      const imageUrl = validUrl(offer.thumbnail);
+      const title = offer.description || product.title!;
+      const base = { id: `google-${createHash("sha256").update(`${productUrl}|${price}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google", title, price, previousPrice: null, currency: "BRL" as const, store: offer.name || null, merchant: normalizeShopperMerchant(offer.name), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: typeof product.rating === "number" ? product.rating : null, reviewCount: typeof product.reviews === "number" ? product.reviews : null, shipping: offer.buying_options?.find((option) => /frete|entrega|delivery/i.test(option)) || null, availability: offer.buying_options?.find((option) => /estoque|stock/i.test(option)) || null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: index + 1, productTitle: product.title, attributesText: offer.description || null };
+      return [{ ...base, match: score(base, query), reason: "Oferta encontrada na busca exata do Google." }];
+    });
+  }
 
   async searchDetailed(query: ShopperQuery, phrase: string): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
     if (!this.available()) return { results: [], detailCandidates: [], rawCount: 0 };
