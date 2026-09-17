@@ -53,7 +53,7 @@ describe("Personal Shopper search flow", () => {
     expect(discovered.results.map((result) => result.productUrl)).toEqual([exact.productUrl, lessRelevant.productUrl]);
     expect(discovered.metrics.uniqueResults).toBe(2);
     expect(discovered.variations[0].imageUrl).toBeNull();
-    expect(shopping).toHaveBeenCalledTimes(4);
+    expect(shopping).toHaveBeenCalledTimes(5);
   });
 
   it("uses broader queries only when the exact results are scarce", async () => {

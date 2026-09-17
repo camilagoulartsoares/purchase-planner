@@ -12,12 +12,18 @@ export function expandQueries(query: ShopperQuery) {
   const base = query.query.trim();
   const normalizedUnits = normalizeShopperText(base);
   const terms = shopperTokens(base).join(" ");
-  const withoutAttributeLabels = terms.split(" ").filter((term) => !["tamanho", "capacidade", "peso", "cor"].includes(term)).join(" ");
-  return [...new Set([base, normalizedUnits, withoutAttributeLabels, terms].filter(Boolean))];
+  const meaningful = terms.split(" ").filter((term) => !["tamanho", "capacidade", "peso", "cor"].includes(term));
+  const withoutAttributeLabels = meaningful.join(" ");
+  const broad = meaningful.flatMap((term, index) => index > 0 && !/\d/.test(term) ? [meaningful.filter((_, position) => position !== index).join(" ")] : []);
+  return [...new Set([base, normalizedUnits, withoutAttributeLabels, ...broad, terms].filter(Boolean))];
 }
 
 function normalizedUrl(value: string) {
   try { const url = new URL(value); url.hash = ""; for (const key of [...url.searchParams.keys()]) if (/^(utm_|gclid|fbclid)/i.test(key)) url.searchParams.delete(key); return url.toString(); } catch { return value; }
+}
+
+function offerKey(item: SearchedProduct) {
+  return item.productId && item.store ? `product:${item.productId}:${normalize(item.store)}:${item.price ?? ""}` : `url:${normalizedUrl(item.productUrl)}:${item.price ?? ""}`;
 }
 
 export function groupVariations(results: SearchedProduct[]): ShopperVariation[] {
@@ -35,7 +41,7 @@ export function groupVariations(results: SearchedProduct[]): ShopperVariation[] 
     });
     const target = group || { variation: { id: `${offer.productId || offer.id}:${tokens.slice().sort().join("-")}`, title: productIdentity, imageUrl: offer.imageUrl, imageSource: offer.imageSource || null, offers: [] }, tokens, quantities, productId: offer.productId || null };
     if (!group) groups.push(target);
-    if (!target.variation.offers.some((old) => normalizedUrl(old.productUrl) === normalizedUrl(offer.productUrl) && old.price === offer.price)) target.variation.offers.push(offer);
+    if (!target.variation.offers.some((old) => offerKey(old) === offerKey(offer))) target.variation.offers.push(offer);
     if (!target.variation.imageUrl && offer.imageUrl) { target.variation.imageUrl = offer.imageUrl; target.variation.imageSource = offer.imageSource || null; }
   }
   return groups.map(({ variation: group }) => {
@@ -108,7 +114,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   }
   const byUrl = new Map<string, SearchedProduct>();
   for (const item of [...raw, ...offers]) {
-    const key = `${normalizedUrl(item.productUrl)}:${item.price ?? ""}`;
+    const key = offerKey(item);
     const existing = byUrl.get(key);
     if (!existing) byUrl.set(key, item);
     else diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, survivorId: existing.id, reason: "same_product_store_title_price" });

@@ -6,16 +6,24 @@ const query: ShopperQuery = { query: "kit shampoo Wella", category: null, maxPri
 const offer = (title: string, url: string): SearchedProduct => ({ id: url, provider: "test", title, price: 100, previousPrice: null, currency: "BRL", store: "Loja", brand: null, imageUrl: null, productUrl: url, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 80, budget: 50, style: 50, completeness: 60, total: 70 }, reason: "", productId: "google-1" });
 
 describe("shopper discovery", () => {
+  it("deduplicates the same product and merchant across source query URLs", () => {
+    const grouped = groupVariations([
+      offer("Product 36 black", "https://google.com/search?q=product+black+36"),
+      offer("Product 36 black", "https://google.com/search?q=product+36"),
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].offers).toHaveLength(1);
+  });
   it("mantém todos os termos do usuário nas variantes de consulta", () => {
     expect(expandQueries(query)).toContain("kit shampoo Wella");
     expect(expandQueries({ ...query, query: "air fryer 5 litros" })).toContain("air fryer 5000ml");
-    expect(expandQueries({ ...query, query: "notebook lenovo i5 16gb" }).every((value) => /lenovo/i.test(value))).toBe(true);
-    expect(expandQueries(query).length).toBeLessThanOrEqual(3);
+    expect(expandQueries({ ...query, query: "notebook lenovo i5 16gb" })[0]).toBe("notebook lenovo i5 16gb");
+    expect(expandQueries({ ...query, query: "crocs feminino preto tamanho 36" })).toContain("crocs preto 36");
   });
   it("agrupa a mesma composição, separa máscara de condicionador e volumes distintos", () => {
     const variations = groupVariations([
       offer("Wella Fusion Shampoo 1L + Condicionador 1L", "https://a.test/1"),
-      offer("Kit Wella Fusion Shampoo 1000ml + Condicionador 1000ml", "https://b.test/2"),
+      { ...offer("Kit Wella Fusion Shampoo 1000ml + Condicionador 1000ml", "https://b.test/2"), store: "Outra Loja" },
       offer("Wella Fusion Shampoo 1L + Máscara 500ml", "https://c.test/3"),
       offer("Wella Fusion Shampoo 250ml + Condicionador 200ml", "https://d.test/4"),
       offer("Wella Fusion Shampoo 1L", "https://e.test/5"),
