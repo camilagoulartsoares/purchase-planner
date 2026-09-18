@@ -21,6 +21,8 @@ model User {
   notifications              UserNotification[]
   findings                   Finding[]
   shopperConversations       ShopperConversation[]
+  shopperCatalogProducts     ShopperCatalogProduct[]
+  shopperCatalogQueries      ShopperCatalogQuery[]
   promotionSettings          PromotionSettings?
   promotionWatchItems        PromotionWatchItem[]
 }
@@ -121,6 +123,74 @@ model ShopperSearch {
   expiresAt      DateTime?
 
   @@index([conversationId, createdAt])
+}
+
+model ShopperCatalogQuery {
+  id             String                       @id @default(cuid())
+  userId         String
+  user           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalQuery  String
+  intentKey      String
+  intent         Json
+  discoveredAt   DateTime                     @default(now())
+  mapExpiresAt   DateTime
+  products       ShopperCatalogQueryProduct[]
+
+  @@index([userId, intentKey])
+  @@index([userId, mapExpiresAt])
+}
+
+model ShopperCatalogProduct {
+  id                String                       @id @default(cuid())
+  userId            String
+  user              User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identityKey       String
+  title             String
+  brand             String?
+  line              String?
+  composition       Json?
+  measure           String?
+  imageUrl          String?
+  googleProductId   String?
+  detailToken       String?
+  attributes        Json?
+  discoveredAt      DateTime                     @default(now())
+  identityExpiresAt DateTime
+  offers            ShopperCatalogOffer[]
+  queries           ShopperCatalogQueryProduct[]
+
+  @@unique([userId, identityKey])
+  @@index([userId, identityExpiresAt])
+}
+
+model ShopperCatalogOffer {
+  id               String                @id @default(cuid())
+  catalogProductId String
+  catalogProduct   ShopperCatalogProduct @relation(fields: [catalogProductId], references: [id], onDelete: Cascade)
+  store            String                @default("")
+  merchant         String?
+  price            Decimal?
+  currency         String                @default("BRL")
+  productUrl       String
+  availability     String?
+  source           String
+  title            String
+  payload          Json
+  discoveredAt     DateTime              @default(now())
+  priceCheckedAt   DateTime
+  offerKey         String
+
+  @@unique([catalogProductId, offerKey])
+  @@index([priceCheckedAt])
+}
+
+model ShopperCatalogQueryProduct {
+  queryId   String
+  productId String
+  query     ShopperCatalogQuery   @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  product   ShopperCatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([queryId, productId])
 }
 
 model Finding {

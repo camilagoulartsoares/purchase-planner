@@ -9,4 +9,5 @@ personalShopperRoutes.use(rateLimit({ windowMs: 60_000, max: 12, standardHeaders
 personalShopperRoutes.get("/conversations", personalShopperController.list);
 personalShopperRoutes.get("/conversations/:id", personalShopperController.get);
 personalShopperRoutes.post("/messages", personalShopperController.message);
+personalShopperRoutes.post("/conversations/:id/refresh", personalShopperController.refresh);
 personalShopperRoutes.post("/conversations/:id/actions", personalShopperController.action);

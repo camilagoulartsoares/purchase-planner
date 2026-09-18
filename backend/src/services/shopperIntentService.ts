@@ -202,3 +202,44 @@ export function matchesQueryAttributes(rawText: string, query: ShopperQuery) {
     numeric,
   };
 }
+
+const identityStop = new Set(["kit", "tamanho", "capacidade", "peso", "cor"]);
+const hardIntentConflicts = new Set(["quantity_conflict", "size_conflict", "color_conflict", "gender_conflict", "brand_similarity_conflict"]);
+
+export function productIntentText(query: ShopperQuery) {
+  return [query.query, ...query.colors, query.size, ...query.brands].filter(Boolean).join(" ");
+}
+
+export function productIntentTokens(query: ShopperQuery) {
+  return shopperTokens(productIntentText(query)).filter((token) => !identityStop.has(token));
+}
+
+export function productIntentKey(query: ShopperQuery) {
+  return productIntentTokens(query).slice().sort().join("|");
+}
+
+function distinctiveToken(token: string) {
+  return token.length >= 4 && !/^\d/.test(token) && !identityStop.has(token);
+}
+
+function tokensOverlap(expected: string[], actual: string[]) {
+  return expected.filter((term) => actual.some((candidate) => tokenMatches(term, candidate) || tokenMatches(candidate, term)));
+}
+
+export function compatibleProductIntent(stored: ShopperQuery, incoming: ShopperQuery) {
+  const storedText = productIntentText(stored);
+  const incomingText = productIntentText(incoming);
+  const forward = evaluateProductMatch(storedText, incoming);
+  const reverse = evaluateProductMatch(incomingText, stored);
+  if (hardIntentConflicts.has(forward.reason || "") || hardIntentConflicts.has(reverse.reason || "")) return false;
+  const storedTokens = productIntentTokens(stored);
+  const incomingTokens = productIntentTokens(incoming);
+  if (!storedTokens.length || !incomingTokens.length) return false;
+  const shared = tokensOverlap(incomingTokens, storedTokens);
+  const shorter = Math.min(storedTokens.length, incomingTokens.length);
+  if (shared.length / shorter < .5) return false;
+  if (shorter >= 2 && shared.length < 2) return false;
+  const unmatchedStored = storedTokens.filter((token) => !incomingTokens.some((candidate) => tokenMatches(token, candidate) || tokenMatches(candidate, token)));
+  const unmatchedIncoming = incomingTokens.filter((token) => !storedTokens.some((candidate) => tokenMatches(token, candidate) || tokenMatches(candidate, token)));
+  return !(unmatchedStored.some(distinctiveToken) && unmatchedIncoming.some(distinctiveToken));
+}

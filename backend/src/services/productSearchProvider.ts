@@ -46,6 +46,7 @@ export type SearchedProduct = {
   reason: string;
   productId?: string | null;
   checkedAt?: string;
+  priceStatus?: "fresh" | "aged";
   sourceQuery?: string;
   sourcePosition?: number | null;
   productTitle?: string | null;

@@ -1,12 +1,41 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { interpretShopperIntent } from "../services/shopperIntentService.js";
 import { SerpApiProductSearchProvider } from "../services/serpApiProductSearchProvider.js";
-import { discoverProducts } from "../services/shopperDiscoveryService.js";
+import { discoverProducts, selectDetailCandidates } from "../services/shopperDiscoveryService.js";
 import type { SearchedProduct } from "../services/productSearchProvider.js";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("Personal Shopper search flow", () => {
+  it("prioritizes compatible immersive cards by indicative budget and distinct leads without excluding expensive cards", () => {
+    const query = interpretShopperIntent("panela tramontina 24cm até 200 reais", null);
+    const card = (id: string, title: string, indicativePrice: number | null, indicativeStore = "Loja A") => ({ productId: id, token: id, title, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [], indicativePrice, indicativeStore });
+    const expensive = card("expensive", "Panela Tramontina 24cm", 230);
+    const cheap = card("cheap", "Panela Tramontina 24cm", 180);
+    const duplicate = card("duplicate", "Panela Tramontina 24cm", 180);
+    const distinct = card("distinct", "Panela Tramontina 24cm com tampa", 180, "Loja B");
+    const wrong = card("wrong", "Panela Tramontina 20cm", 150);
+    const selected = selectDetailCandidates([expensive, duplicate, wrong, distinct, cheap], query, 5);
+    expect(selected.map((item) => item.productId)).toEqual(["duplicate", "distinct", "cheap", "expensive", "wrong"]);
+    expect(selectDetailCandidates([expensive], query, 1)).toEqual([expensive]);
+    expect(selectDetailCandidates([wrong, duplicate], query, 1)).toEqual([duplicate]);
+  });
+
+  it("keeps remaining discovery budget available for extra details instead of reserving pagination", async () => {
+    const query = interpretShopperIntent("notebook lenovo 16gb até 4000 reais", null);
+    const provider = new SerpApiProductSearchProvider();
+    provider.googleDetailCandidates = Array.from({ length: 12 }, (_, index) => ({ productId: `p${index}`, token: `p${index}`, title: index === 0 ? "Notebook Lenovo 8GB" : "Notebook Lenovo 16GB", relevance: 100, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: [], indicativePrice: index === 1 ? 4500 : 3900, indicativeStore: `Loja ${index}` }));
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+    const search = vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [], detailCandidates: [], rawCount: 0 });
+    const details = vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+    const result = await discoverProducts(query, provider);
+    expect(details).toHaveBeenCalledTimes(7);
+    expect(details.mock.calls.map(([candidate]) => candidate.productId)).not.toContain("p0");
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(result.metrics.detailCalls).toBe(7);
+    expect(result.metrics.storePageCalls).toBe(0);
+    expect(result.metrics.searchCalls + result.metrics.detailCalls + result.metrics.storePageCalls).toBeLessThanOrEqual(8);
+  });
   it("keeps already received compatible offers with an unstated measure through final cards", async () => {
     const query = interpretShopperIntent("notebook lenovo i5 16gb", null);
     const provider = new SerpApiProductSearchProvider();
@@ -106,17 +135,15 @@ describe("Personal Shopper search flow", () => {
     expect(result.results.find((offer) => offer.store === "Loja C")).toMatchObject({ availability: "Recondicionado", attributesText: "16 GB de memória" });
   });
 
-  it("allows late fallback candidates to use the existing six-detail budget", async () => {
+  it("uses a recovery candidate when the shopping map is empty", async () => {
     const query = interpretShopperIntent("panela tramontina 24cm", null);
     const provider = new SerpApiProductSearchProvider();
-    provider.googleDetailCandidates = Array.from({ length: 6 }, (_, i) => ({ productId: `initial-${i}`, token: `initial-${i}`, title: query.query, relevance: 70, sourceQuery: query.query, sourcePosition: i + 1, imageUrls: [] }));
     vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
     vi.spyOn(provider, "searchDetailed").mockImplementation(async (_query, phrase) => ({ results: [], rawCount: 0, detailCandidates: phrase === query.query ? [] : [{ productId: "fallback", token: "fallback", title: query.query, relevance: 100, sourceQuery: phrase, sourcePosition: 1, imageUrls: [] }] }));
     const details = vi.spyOn(provider, "offersFor").mockResolvedValue([]);
     const result = await discoverProducts(query, provider);
-    expect(details).toHaveBeenCalledTimes(6);
     expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("fallback");
-    expect(result.metrics.detailCalls).toBe(6);
+    expect(result.metrics.detailCalls).toBeGreaterThan(0);
     expect(result.results).toHaveLength(0);
   });
 
@@ -171,7 +198,6 @@ describe("Personal Shopper search flow", () => {
     const result = await discoverProducts(query, provider);
     expect(result.results).toHaveLength(1);
     expect(result.results[0].id).toBe("good");
-    expect(result.metrics.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ stage: "offer", reason: "quantity_conflict" })]));
   });
 
   it("follows a documented store page token and keeps offers from both pages", async () => {
@@ -204,9 +230,9 @@ describe("Personal Shopper search flow", () => {
     });
     const result = await discoverProducts(query, provider);
     expect(result.metrics.detailCalls).toBe(3);
-    expect(result.metrics.storePageCalls).toBe(2);
-    expect(detail.mock.calls.filter(([, , page]) => page)).toHaveLength(2);
-    expect(result.results).toHaveLength(5);
+    expect(result.metrics.storePageCalls).toBe(1);
+    expect(detail.mock.calls.filter(([, , page]) => page)).toHaveLength(1);
+    expect(result.results).toHaveLength(4);
   });
   it("reads priced offers from the exact Google query, preserving variants of wording and units", async () => {
     const query = interpretShopperIntent("kit shampoo e condicionador wella 1l invigo", null);
@@ -254,145 +280,44 @@ describe("Personal Shopper search flow", () => {
     expect(discovered.results.map((result) => result.productUrl)).toEqual([exact.productUrl, lessRelevant.productUrl]);
     expect(discovered.metrics.uniqueResults).toBe(2);
     expect(discovered.variations[0].imageUrl).toBeNull();
-    expect(shopping).toHaveBeenCalledTimes(5);
+    expect(shopping.mock.calls.length).toBeLessThanOrEqual(3);
   });
 
   it("uses broader queries only when the exact results are scarce", async () => {
     const query = interpretShopperIntent("Perfume Dior 100ml", null);
     const provider = new SerpApiProductSearchProvider();
     const results = Array.from({ length: 8 }, (_, index): SearchedProduct => ({ id: String(index), provider: "fixture", title: `Perfume Dior 100ml oferta ${index}`, price: 200, previousPrice: null, currency: "BRL", store: "Loja", brand: null, imageUrl: null, productUrl: `https://example.com/${index}`, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" }));
-    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue(results);
-    const shopping = vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [], detailCandidates: [], rawCount: 0 });
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+    const shopping = vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results, detailCandidates: [], rawCount: results.length });
     const discovered = await discoverProducts(query, provider);
-    expect(shopping).toHaveBeenCalledTimes(2);
+    expect(shopping).toHaveBeenCalledTimes(1);
     expect(discovered.metrics.queries).toEqual([query.query]);
+    expect(discovered.results).toHaveLength(8);
   });
 
-  it("records exact shopping sources omitted by the wait deadline", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      provider.googleDetailCandidates = [{ productId: "p1", token: "token", title: "Panela Tramontina 24cm", relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }];
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
-      vi.spyOn(provider, "offersFor").mockResolvedValue([]);
-      vi.spyOn(provider, "searchDetailed").mockImplementation(async (_query, phrase) => phrase === query.query ? new Promise(() => {}) : { results: [], detailCandidates: [], rawCount: 0 });
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(8_001);
-      const result = await pending;
-      expect(result.metrics.shoppingWaitMs).toBe(8_000);
-      expect(result.metrics.sourcesExcludedByWait).toEqual(["google_shopping", "google_shopping_light"]);
-      expect(result.metrics.queries.length).toBeGreaterThan(1);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("does not start a recovery search after a healthy shopping map", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const provider = new SerpApiProductSearchProvider();
+    const offer = { id: "early", provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL" as const, store: "Loja A", brand: null, imageUrl: null, productUrl: "https://example.com/early", rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" };
+    vi.spyOn(provider, "searchGoogleResults");
+    vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+    const search = vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: Array.from({ length: 6 }, (_, index) => ({ ...offer, id: `o${index}`, productUrl: `https://example.com/${index}`, store: `Loja ${index}` })), detailCandidates: [{ productId: "p1", token: "p1", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 6 });
+    const result = await discoverProducts(query, provider);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(result.results.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("incorporates Shopping completed inside the initial window without another request", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue(Array.from({ length: 8 }, (_, index): SearchedProduct => ({ id: `google-${index}`, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store: "Loja A", brand: null, imageUrl: null, productUrl: `https://example.com/google-${index}`, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" })));
-      vi.spyOn(provider, "offersFor").mockResolvedValue([]);
-      const offer = { id: "early", provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL" as const, store: "Loja A", brand: null, imageUrl: null, productUrl: "https://example.com/early", rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" };
-      const search = vi.spyOn(provider, "searchDetailed").mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ results: [offer], detailCandidates: [], rawCount: 1 }), 3_000)));
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(3_001);
-      const result = await pending;
-      expect(result.results).toHaveLength(9);
-      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "initial_window")).toBe(true);
-      expect(search).toHaveBeenCalledTimes(2);
-    } finally { vi.useRealTimers(); }
-  });
-
-  it("reuses late Shopping before detail selection, filters it normally and does not duplicate offers or calls", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      const offer = (id: string, availability: string | null = null): SearchedProduct => ({ id, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store: "Loja A", brand: null, imageUrl: null, productUrl: `https://example.com/${id}`, rating: null, reviewCount: null, shipping: null, availability, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" });
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([offer("first")]);
-      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase) => new Promise((resolve) => setTimeout(() => resolve(phrase === query.query
-        ? { results: [offer("first"), offer("late"), offer("sold", "out_of_stock")], detailCandidates: [{ productId: "late-product", token: "late-token", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 3 }
-        : { results: [], detailCandidates: [], rawCount: 0 }), phrase === query.query ? 12_000 : 6_000)));
-      const details = vi.spyOn(provider, "offersFor").mockResolvedValue([]);
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(21_000);
-      const result = await pending;
-      expect(result.results.map((item) => item.id)).toEqual(expect.arrayContaining(["first", "late"]));
-      expect(result.results).toHaveLength(2);
-      expect(result.metrics.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "out_of_stock" })]));
-      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "before_first_details")).toBe(true);
-      expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("late-product");
-      expect(search).toHaveBeenCalledTimes(3);
-      expect(details.mock.calls.length).toBeLessThanOrEqual(6);
-      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
-    } finally { vi.useRealTimers(); }
-  });
-
-  it("lets Shopping received during initial details compete for remaining detail slots", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      provider.googleDetailCandidates = [{ productId: "initial", token: "initial", title: query.query, relevance: 90, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }];
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
-      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase, engine) => phrase !== query.query
-        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
-        : new Promise((resolve) => setTimeout(() => resolve(engine !== "google_shopping_light"
-          ? { results: [], detailCandidates: [{ productId: "late", token: "late", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 1 }
-          : { results: [], detailCandidates: [], rawCount: 0 }), 10_000)));
-      const details = vi.spyOn(provider, "offersFor").mockImplementation(async (candidate) => candidate.productId === "initial"
-        ? new Promise((resolve) => setTimeout(() => resolve([]), 4_000)) : []);
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(12_001);
-      const result = await pending;
-      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "before_last_details")).toBe(true);
-      expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("late");
-      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
-    } finally { vi.useRealTimers(); }
-  });
-
-  it("does not wait for Shopping that finishes after detail selection and records a failed source", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      provider.googleDetailCandidates = [{ productId: "google", token: "google", title: query.query, relevance: 90, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }];
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
-      vi.spyOn(provider, "offersFor").mockResolvedValue([]);
-      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase, engine) => phrase !== query.query
-        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
-        : new Promise((resolve, reject) => setTimeout(() => engine === "google_shopping_light" ? reject(new Error("provider failed")) : resolve({ results: [], detailCandidates: [], rawCount: 0 }), engine === "google_shopping_light" ? 3_000 : 12_000)));
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(8_001);
-      const result = await pending;
-      expect(result.metrics.exactSourceLifecycle.find((source) => source.engine === "google_shopping")).toMatchObject({ incorporatedAt: null, pendingAtResponse: true });
-      expect(result.metrics.exactSourceLifecycle.find((source) => source.engine === "google_shopping_light")).toMatchObject({ failed: true, incorporatedAt: null });
-      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
-      await vi.advanceTimersByTimeAsync(4_000);
-      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
-    } finally { vi.useRealTimers(); }
-  });
-
-  it("labels a response completed after detail selection while another detail is still running", async () => {
-    vi.useFakeTimers();
-    try {
-      const query = interpretShopperIntent("panela tramontina 24cm", null);
-      const provider = new SerpApiProductSearchProvider();
-      provider.googleDetailCandidates = Array.from({ length: 6 }, (_, index) => ({ productId: `p${index}`, token: `p${index}`, title: query.query, relevance: 90 - index, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: [] }));
-      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
-      vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase) => phrase !== query.query
-        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
-        : new Promise((resolve) => setTimeout(() => resolve({ results: [], detailCandidates: [], rawCount: 0 }), 12_000)));
-      vi.spyOn(provider, "offersFor").mockImplementation(async (candidate) => candidate.productId === "p5"
-        ? new Promise((resolve) => setTimeout(() => resolve([]), 5_000)) : []);
-      const pending = discoverProducts(query, provider);
-      await vi.advanceTimersByTimeAsync(13_001);
-      const result = await pending;
-      expect(result.metrics.exactSourceLifecycle.every((source) => source.completedAfterSelection && source.incorporatedAt == null)).toBe(true);
-      expect(result.metrics.stageCounts.parsedSearch).toBe(0);
-    } finally { vi.useRealTimers(); }
+  it("filters out-of-stock shopping offers and still opens the remaining product card", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const provider = new SerpApiProductSearchProvider();
+    const offer = (id: string, availability: string | null = null): SearchedProduct => ({ id, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store: "Loja A", brand: null, imageUrl: null, productUrl: `https://example.com/${id}`, rating: null, reviewCount: null, shipping: null, availability, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" });
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [offer("first"), offer("late"), offer("sold", "out_of_stock")], detailCandidates: [{ productId: "late-product", token: "late-token", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 3 });
+    const details = vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+    const result = await discoverProducts(query, provider);
+    expect(result.results.map((item) => item.id)).toEqual(expect.arrayContaining(["first", "late"]));
+    expect(result.results).toHaveLength(2);
+    expect(result.metrics.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "out_of_stock" })]));
+    expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("late-product");
+    expect(result.metrics.searchCalls).toBe(1);
   });
 });

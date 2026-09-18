@@ -1,6 +1,6 @@
 import { env } from "../config/env.js";
 import { createHash } from "node:crypto";
-import { AppError } from "../middlewares/errorHandler.js";
+import { ShopperProviderError, shopperProviderErrorFromUnknown } from "./shopperProviderFailure.js";
 import { preserveBetterOfferReview, type ProductSearchProvider, type SearchedProduct, type ShopperQuery } from "./productSearchProvider.js";
 import { normalizeShopperMerchant } from "./shopperMerchantService.js";
 import { availabilityFromSource } from "./shopperAvailabilityService.js";
@@ -35,7 +35,7 @@ function shoppingOfferIdentity(url: string, item: SerpResult) {
   return `${url}|${normalizeShopperText(item.source || "")}|${shoppingPrice(item) ?? ""}`;
 }
 
-export type ProductDetailCandidate = { productId: string; token: string; title: string; relevance: number; sourceQuery: string; sourcePosition: number; imageUrls: string[] };
+export type ProductDetailCandidate = { productId: string; token: string; title: string; relevance: number; sourceQuery: string; sourcePosition: number; imageUrls: string[]; indicativePrice?: number | null; indicativeStore?: string | null; multipleSources?: boolean };
 
 function validUrl(value: unknown) {
   if (typeof value !== "string") return null;
@@ -163,7 +163,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const images = imageUrls(item.thumbnail, item.images);
       const base = { id: `search-${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`, provider, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: validRating(item.rating), reviewCount: validReviewCount(item.reviews), shipping: item.delivery || null, availability: [availabilityFromSource(item) || item.availability, item.second_hand_condition].filter(Boolean).join("; ") || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
       const match = score(base, query);
-      if (item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images });
+      if (item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images, indicativePrice: price, indicativeStore: item.source || null, multipleSources: Boolean(item.multiple_sources) });
       const result = { ...base, match, reason: "Oferta encontrada na busca de produtos." };
       const existing = seen.get(identity);
       if (existing) { duplicateOffer++; preserveBetterOfferReview(existing, result); if (availabilityFromSource({ availability: result.availability }) === "out_of_stock") existing.availability = "out_of_stock"; return []; }
@@ -191,7 +191,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const titleTokens = shopperTokens(item.title);
       const queryTokens = shopperTokens(query.query);
       const relevance = queryTokens.length ? Math.round(queryTokens.filter((term) => titleTokens.some((candidate) => tokenMatches(term, candidate) || candidate === term)).length / queryTokens.length * 100) : 0;
-      return [{ productId: `google-${createHash("sha256").update(item.immersive_product_page_token).digest("hex").slice(0, 20)}`, token: item.immersive_product_page_token, title: item.title, relevance, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: imageUrls(item.thumbnail) }];
+      return [{ productId: `google-${createHash("sha256").update(item.immersive_product_page_token).digest("hex").slice(0, 20)}`, token: item.immersive_product_page_token, title: item.title, relevance, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: imageUrls(item.thumbnail), indicativePrice: typeof item.extracted_price === "number" && Number.isFinite(item.extracted_price) && item.extracted_price > 0 ? item.extracted_price : null, indicativeStore: item.source || null, multipleSources: false }];
     }).sort((a, b) => b.relevance - a.relevance);
     const checkedAt = new Date().toISOString();
     const priced = (product?.pricing || []).flatMap((offer, index) => {
@@ -230,11 +230,16 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(engine === "google_shopping_light" ? 20_000 : 30_000) });
     } catch (error) {
       this.shoppingDiagnostics.push({ phrase, engine, status: "request_failed", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: error instanceof Error ? error.name : "unknown" });
-      throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
+      throw shopperProviderErrorFromUnknown(error);
     }
-    if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: String(response.status) }); throw new Error("Não foi possível consultar o Google Shopping agora."); }
+    if (response.status === 429) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: "429" }); throw new ShopperProviderError("quota", "HTTP 429"); }
+    if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: String(response.status) }); throw new ShopperProviderError(response.status >= 500 ? "unavailable" : "error", `HTTP ${response.status}`); }
     const body = await response.json() as { shopping_results?: SerpResult[]; inline_shopping_results?: SerpResult[]; categorized_shopping_results?: Array<{ shopping_results?: SerpResult[] }>; error?: string };
-    if (body.error) { this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: body.error.slice(0, 160) }); throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503); }
+    if (body.error) {
+      this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: body.error.slice(0, 160) });
+      const quota = /rate limit|run out of search|out of searches|quota|too many requests/i.test(body.error);
+      throw new ShopperProviderError(quota ? "quota" : "error", body.error.slice(0, 160));
+    }
     const raw = [...(body.shopping_results || []), ...(body.inline_shopping_results || []), ...(body.categorized_shopping_results || []).flatMap((category) => category.shopping_results || [])];
     const { results, detailCandidates } = this.parseShoppingItems(raw, query, phrase, this.id);
     this.shoppingDiagnostics.push({ phrase, engine, status: "ok", rawCount: raw.length, parsedCount: results.length, durationMs: Date.now() - startedAt });

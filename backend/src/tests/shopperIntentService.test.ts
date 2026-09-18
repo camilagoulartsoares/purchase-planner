@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateProductMatch, interpretShopperIntent, matchesQueryAttributes, matchesRequiredIntent, normalizeShopperText } from "../services/shopperIntentService.js";
+import { evaluateProductMatch, interpretShopperIntent, matchesQueryAttributes, matchesRequiredIntent, normalizeShopperText, compatibleProductIntent } from "../services/shopperIntentService.js";
 import type { SearchedProduct } from "../services/productSearchProvider.js";
 
 const item = (title: string, price = 200) => ({ title, price } as SearchedProduct);
@@ -132,5 +132,14 @@ describe("generic shopper intent", () => {
     expect(evaluateProductMatch("Notebook Lenovo i5 16GB", query).eligible).toBe(true);
     const styleQuery = interpretShopperIntent("sapato estilo casual tamanho 36", null);
     expect(evaluateProductMatch("Sapato estilo casual tamanho 36", styleQuery).eligible).toBe(true);
+  });
+
+  it("treats equivalent product wording as compatible intent and rejects a real product contradiction", () => {
+    const kit = interpretShopperIntent("kit shampoo condicionador Wella Invigo 1L", null);
+    expect(compatibleProductIntent(kit, interpretShopperIntent("kit Wella Invigo 1L até 298 reais", null))).toBe(true);
+    expect(compatibleProductIntent(kit, interpretShopperIntent("Wella Invigo shampoo e condicionador até 250", null))).toBe(true);
+    expect(compatibleProductIntent(kit, interpretShopperIntent("notebook lenovo i5 16gb", null))).toBe(false);
+    expect(compatibleProductIntent(interpretShopperIntent("notebook lenovo 16gb", null), interpretShopperIntent("notebook lenovo 8gb", null))).toBe(false);
+    expect(compatibleProductIntent(interpretShopperIntent("crocs feminino preto tamanho 36", null), interpretShopperIntent("crocs feminino preto tamanho 37", null))).toBe(false);
   });
 });

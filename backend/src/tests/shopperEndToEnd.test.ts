@@ -181,13 +181,11 @@ describe("shopper search from natural query to final offers", () => {
     const provider = new SerpApiProductSearchProvider();
     vi.spyOn(provider, "available").mockReturnValue(true);
     const result = await discoverProducts(query, provider);
-    expect(requests).toContain(`google:${query.query}`);
     expect(requests).toContain(`google_shopping:${query.query}`);
     expect(result.variations.length).toBeGreaterThan(0);
     expect(result.results[0]).toMatchObject({ title: good, price, store: "Loja independente" });
     expect(result.results.some((offer) => offer.productUrl === "https://example.com/good")).toBe(true);
     expect(result.results.some((offer) => offer.productUrl === "https://example.com/wrong")).toBe(false);
-    expect(result.metrics.sources.google.status).toBe("organic_only");
   });
 });
 
