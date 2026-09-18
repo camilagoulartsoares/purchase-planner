@@ -1,5 +1,6 @@
 import { SerpApiProductSearchProvider, type ProductDetailCandidate } from "./serpApiProductSearchProvider.js";
-import type { SearchedProduct, ShopperQuery, ShopperVariation } from "./productSearchProvider.js";
+import { preserveBetterOfferReview, type SearchedProduct, type ShopperQuery, type ShopperVariation } from "./productSearchProvider.js";
+import { isExplicitlyUnavailable } from "./shopperAvailabilityService.js";
 import { evaluateOfferMatch, evaluateProductMatch, matchesQueryAttributes, matchesRequiredIntent, normalizeShopperText, shopperTokens, tokenMatches } from "./shopperIntentService.js";
 
 const MAX_DETAILS = 6;
@@ -181,6 +182,10 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
     diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productTitle: item.productTitle, price: item.price, store: item.store, productId: item.productId, imageUrl: item.imageUrl, detailsFetched: true, productMatch: evaluation.eligible ? "PASS" : "FAIL", reason: evaluation.reason, normalized: evaluation.normalized, confidence: evaluation.confidence });
   }
   const compatibleOffers = [...raw, ...offers].filter((item) => {
+    if (isExplicitlyUnavailable(item.availability)) {
+      diagnostics.push({ stage: "offer", title: item.title, price: item.price, store: item.store, productId: item.productId, offerMatch: "FAIL", reason: "out_of_stock" });
+      return false;
+    }
     if (matchesRequiredIntent(item, query)) return true;
     diagnostics.push({ stage: "offer", title: item.title, price: item.price, store: item.store, productId: item.productId, offerMatch: "FAIL", reason: evaluateOfferMatch(item, query).reason || "price_out_of_range" });
     return false;
@@ -190,7 +195,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
     const key = offerKey(item);
     const existing = byUrl.get(key);
     if (!existing) byUrl.set(key, item);
-    else diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, discardedId: item.id, discardedUrl: item.productUrl, survivorId: existing.id, survivorUrl: existing.productUrl, dedupKey: key, reason: "same_offer_identity" });
+    else { preserveBetterOfferReview(existing, item); diagnostics.push({ stage: "deduplication", title: item.title, productId: item.productId, store: item.store, price: item.price, deduplicated: true, discardedId: item.id, discardedUrl: item.productUrl, survivorId: existing.id, survivorUrl: existing.productUrl, dedupKey: key, reason: "same_offer_identity" }); }
   }
   const eligible = [...byUrl.values()];
   const pricedEligible = eligible.filter((item) => item.price != null);

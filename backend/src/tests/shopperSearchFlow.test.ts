@@ -61,6 +61,37 @@ describe("Personal Shopper search flow", () => {
     expect(result.results.map((offer) => [offer.store, offer.price])).toEqual(expect.arrayContaining([["Loja A", 120], ["Loja B", 120], ["Loja A", 130]]));
   });
 
+  it("keeps validated reviews from the same Shopping offer when a duplicate has richer metadata", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const item = { title: query.query, source: "Loja A", link: "https://example.com/panela", extracted_price: 120 };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ shopping_results: [
+      { ...item, rating: 5, reviews: -2 },
+      { ...item, rating: 4.8, reviews: 3542 },
+      { ...item, source: "Loja B", rating: 4.1, reviews: 16 },
+    ] }), { status: 200 }));
+    const provider = new SerpApiProductSearchProvider();
+    vi.spyOn(provider, "available").mockReturnValue(true);
+    const result = await provider.searchDetailed(query, query.query);
+    expect(result.results).toHaveLength(2);
+    expect(result.results.find((offer) => offer.store === "Loja A")).toMatchObject({ rating: 4.8, reviewCount: 3542 });
+    expect(result.results.find((offer) => offer.store === "Loja B")).toMatchObject({ rating: 4.1, reviewCount: 16 });
+  });
+
+  it("keeps Shopping stock signals without using a missing stock field as rejection", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ shopping_results: [
+      { title: query.query, source: "Loja A", link: "https://example.com/a", extracted_price: 120, availability: "Out of stock" },
+      { title: query.query, source: "Loja B", link: "https://example.com/b", extracted_price: 130, in_stock: true },
+      { title: query.query, source: "Loja C", link: "https://example.com/c", extracted_price: 140 },
+    ] }), { status: 200 }));
+    const provider = new SerpApiProductSearchProvider();
+    vi.spyOn(provider, "available").mockReturnValue(true);
+    const result = await provider.searchDetailed(query, query.query);
+    expect(result.results.find((offer) => offer.store === "Loja A")?.availability).toBe("out_of_stock");
+    expect(result.results.find((offer) => offer.store === "Loja B")?.availability).toBe("in_stock");
+    expect(result.results.find((offer) => offer.store === "Loja C")?.availability).toBeNull();
+  });
+
   it("does not present an installment or zero upfront payment as a full product price", async () => {
     const query = interpretShopperIntent("notebook lenovo 16gb", null);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ shopping_results: [
@@ -101,6 +132,36 @@ describe("Personal Shopper search flow", () => {
     expect(result.variations.flatMap((variation) => variation.offers)).toHaveLength(3);
   });
 
+  it("removes only unavailable shops and drops a variation when every shop is unavailable", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const provider = new SerpApiProductSearchProvider();
+    const make = (id: string, store: string, availability: string | null): SearchedProduct => ({ id, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store, brand: null, imageUrl: null, productUrl: `https://${id}.example/panela`, rating: 4.8, reviewCount: 3542, shipping: null, availability, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" });
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [make("sold", "Loja A", "out_of_stock"), make("available", "Loja B", "in_stock"), make("unknown", "Loja C", null)], detailCandidates: [], rawCount: 3 });
+    const mixed = await discoverProducts(query, provider);
+    expect(mixed.results.map((offer) => offer.store)).toEqual(expect.arrayContaining(["Loja B", "Loja C"]));
+    expect(mixed.results).toHaveLength(2);
+    expect(mixed.variations.flatMap((variation) => variation.offers)).toHaveLength(2);
+    expect(mixed.results.find((offer) => offer.store === "Loja B")).toMatchObject({ rating: 4.8, reviewCount: 3542 });
+    expect(mixed.metrics.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "out_of_stock", store: "Loja A" })]));
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [make("sold", "Loja A", "out_of_stock")], detailCandidates: [], rawCount: 1 });
+    const empty = await discoverProducts(query, provider);
+    expect(empty.results).toHaveLength(0);
+    expect(empty.variations).toHaveLength(0);
+  });
+
+  it("preserves a complete rating and review pair for a deduplicated commercial offer", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const provider = new SerpApiProductSearchProvider();
+    const make = (id: string, store: string, rating: number | null, reviewCount: number | null): SearchedProduct => ({ id, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store, brand: null, imageUrl: null, productUrl: "https://example.com/product", rating, reviewCount, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" });
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([make("first", "Loja A", 5, null)]);
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [make("duplicate", "Loja A", 4.8, 3542), make("other-store", "Loja B", 4.1, 16)], detailCandidates: [], rawCount: 2 });
+    const result = await discoverProducts(query, provider);
+    expect(result.results).toHaveLength(2);
+    expect(result.results.find((offer) => offer.store === "Loja A")).toMatchObject({ rating: 4.8, reviewCount: 3542 });
+    expect(result.results.find((offer) => offer.store === "Loja B")).toMatchObject({ rating: 4.1, reviewCount: 16 });
+  });
+
   it("rejects a contradictory offer before it can displace a compatible offer with the same commercial key", async () => {
     const query = interpretShopperIntent("ração gatos 10kg", null);
     const provider = new SerpApiProductSearchProvider();
@@ -118,13 +179,15 @@ describe("Personal Shopper search flow", () => {
     const provider = new SerpApiProductSearchProvider();
     const candidate = { productId: "p1", token: "product-token", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] };
     const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ product_results: { title: query.query, stores_next_page_token: "page-two", stores: [{ name: "Loja A", title: query.query, link: "https://example.com/a", extracted_price: 120 }] } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ product_results: { title: query.query, stores: [{ name: "Loja B", title: query.query, link: "https://example.com/b", extracted_price: 130 }] } }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ product_results: { title: query.query, stores_next_page_token: "page-two", stores: [{ name: "Loja A", title: query.query, link: "https://example.com/a", extracted_price: 120, rating: 4.8, reviews: 3542, details_and_offers: ["In stock online"] }] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ product_results: { title: query.query, stores: [{ name: "Loja B", title: query.query, link: "https://example.com/b", extracted_price: 130, rating: 6, reviews: -2, details_and_offers: ["Sold out"] }] } }), { status: 200 }));
     const first = await provider.offersFor(candidate, query);
     expect(provider.nextStorePageTokens.get(candidate.token)).toBe("page-two");
     const second = await provider.offersFor(candidate, query, provider.nextStorePageTokens.get(candidate.token));
     expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("next_page_token")).toBe("page-two");
     expect([...first, ...second].map((offer) => offer.store)).toEqual(["Loja A", "Loja B"]);
+    expect(first[0]).toMatchObject({ rating: 4.8, reviewCount: 3542, availability: "in_stock" });
+    expect(second[0]).toMatchObject({ rating: null, reviewCount: null, availability: "out_of_stock" });
     expect(provider.nextStorePageTokens.has(candidate.token)).toBe(false);
   });
 

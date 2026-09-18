@@ -1,15 +1,16 @@
 import { env } from "../config/env.js";
 import { createHash } from "node:crypto";
 import { AppError } from "../middlewares/errorHandler.js";
-import type { ProductSearchProvider, SearchedProduct, ShopperQuery } from "./productSearchProvider.js";
+import { preserveBetterOfferReview, type ProductSearchProvider, type SearchedProduct, type ShopperQuery } from "./productSearchProvider.js";
 import { normalizeShopperMerchant } from "./shopperMerchantService.js";
+import { availabilityFromSource } from "./shopperAvailabilityService.js";
 import { normalizeShopperText, shopperTokens, tokenMatches } from "./shopperIntentService.js";
 
 type SerpResult = {
   position?: number; product_id?: string; title?: string; link?: string; product_link?: string; source?: string;
   price?: string; installment?: { extracted_price?: number; period?: number }; snippet?: string; second_hand_condition?: string;
   extracted_price?: number; extracted_old_price?: number; thumbnail?: string; rating?: number; reviews?: number;
-  delivery?: string; availability?: string; extensions?: string[];
+  delivery?: string; availability?: string; in_stock?: boolean; out_of_stock?: boolean; stock?: string | number; extensions?: string[];
   multiple_sources?: boolean; immersive_product_page_token?: string;
   images?: Array<{ thumbnail?: string; link?: string; image?: string }>;
 };
@@ -20,6 +21,14 @@ function shoppingPrice(item: SerpResult) {
   if (/\/(?:mo|month|mes|mês)\b/i.test(item.price || "")) return null;
   if (item.installment?.extracted_price === listed && item.installment.period && item.installment.period > 1) return null;
   return listed;
+}
+
+function validRating(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 5 ? value : null;
+}
+
+function validReviewCount(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
 function shoppingOfferIdentity(url: string, item: SerpResult) {
@@ -140,7 +149,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
   async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
 
   private parseShoppingItems(raw: SerpResult[], query: ShopperQuery, phrase: string, provider: string) {
-    const seen = new Set<string>();
+    const seen = new Map<string, SearchedProduct>();
     let missingCommercialUrlOrTitle = 0;
     let duplicateOffer = 0;
     const detailCandidates: ProductDetailCandidate[] = [];
@@ -152,12 +161,14 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const price = shoppingPrice(item);
       const previousPrice = typeof item.extracted_old_price === "number" && item.extracted_old_price >= 0 ? item.extracted_old_price : null;
       const images = imageUrls(item.thumbnail, item.images);
-      const base = { id: `search-${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`, provider, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: [item.availability, item.second_hand_condition].filter(Boolean).join("; ") || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
+      const base = { id: `search-${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`, provider, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: validRating(item.rating), reviewCount: validReviewCount(item.reviews), shipping: item.delivery || null, availability: [availabilityFromSource(item) || item.availability, item.second_hand_condition].filter(Boolean).join("; ") || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
       const match = score(base, query);
       if (item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images });
-      if (seen.has(identity)) { duplicateOffer++; return []; }
-      seen.add(identity);
-      return [{ ...base, match, reason: "Oferta encontrada na busca de produtos." }];
+      const result = { ...base, match, reason: "Oferta encontrada na busca de produtos." };
+      const existing = seen.get(identity);
+      if (existing) { duplicateOffer++; preserveBetterOfferReview(existing, result); if (availabilityFromSource({ availability: result.availability }) === "out_of_stock") existing.availability = "out_of_stock"; return []; }
+      seen.set(identity, result);
+      return [result];
     }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
     this.parseDiagnostics.push({ phrase, provider, raw: raw.length, parsed: results.length, missingCommercialUrlOrTitle, duplicateOffer });
     return { results, detailCandidates };
@@ -172,7 +183,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
     try { response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) }); }
     catch (error) { this.googleDiagnostics = { status: "request_failed", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: error instanceof Error ? error.name : "unknown" }; return []; }
     if (!response.ok) { this.googleDiagnostics = { status: "http_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: String(response.status) }; return []; }
-    const body = await response.json() as { shopping_results?: SerpResult[]; product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; immersive_products?: Array<{ title?: string; thumbnail?: string; immersive_product_page_token?: string; extracted_price?: number; source?: string }>; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number; extensions?: string[]; rich_snippet?: { top?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] }; bottom?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] } } }>; error?: string };
+    const body = await response.json() as { shopping_results?: SerpResult[]; product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; availability?: string; in_stock?: boolean; out_of_stock?: boolean; stock?: string | number; buying_options?: string[] }> }; immersive_products?: Array<{ title?: string; thumbnail?: string; immersive_product_page_token?: string; extracted_price?: number; source?: string }>; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number; availability?: string; in_stock?: boolean; out_of_stock?: boolean; stock?: string | number; extensions?: string[]; rich_snippet?: { top?: { detected_extensions?: { price?: unknown; currency?: unknown; availability?: string }; extensions?: string[] }; bottom?: { detected_extensions?: { price?: unknown; currency?: unknown; availability?: string }; extensions?: string[] } } }>; error?: string };
     if (body.error) { this.googleDiagnostics = { status: "provider_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: body.error.slice(0, 160) }; return []; }
     const product = body.product_result;
     this.googleDetailCandidates = (body.immersive_products || []).flatMap((item, index) => {
@@ -190,7 +201,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const imageUrl = validUrl(offer.thumbnail);
       const title = offer.description || product?.title;
       if (!title) return [];
-      const base = { id: `google-${createHash("sha256").update(`${productUrl}|${price}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google", title, price, previousPrice: null, currency: "BRL" as const, store: offer.name || null, merchant: normalizeShopperMerchant(offer.name), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: typeof product?.rating === "number" ? product.rating : null, reviewCount: typeof product?.reviews === "number" ? product.reviews : null, shipping: offer.buying_options?.find((option) => /frete|entrega|delivery/i.test(option)) || null, availability: offer.buying_options?.find((option) => /estoque|stock/i.test(option)) || null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: index + 1, productTitle: product?.title || title, attributesText: offer.description || null };
+      const base = { id: `google-${createHash("sha256").update(`${productUrl}|${price}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google", title, price, previousPrice: null, currency: "BRL" as const, store: offer.name || null, merchant: normalizeShopperMerchant(offer.name), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: validRating(product?.rating), reviewCount: validReviewCount(product?.reviews), shipping: offer.buying_options?.find((option) => /frete|entrega|delivery/i.test(option)) || null, availability: availabilityFromSource(offer), discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: index + 1, productTitle: product?.title || title, attributesText: offer.description || null };
       return [{ ...base, match: score(base, query), reason: "Oferta encontrada na busca exata do Google." }];
     });
     const organic = (body.organic_results || []).flatMap((item, index) => {
@@ -198,7 +209,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       if (!productUrl || !item.title) return [];
       const imageUrl = validUrl(item.thumbnail);
       const price = parseOrganicPrice(item);
-      const base = { id: `organic-${createHash("sha256").update(productUrl).digest("hex").slice(0, 24)}`, provider: "serpapi-google-organic", title: item.title, price, previousPrice: null, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
+      const base = { id: `organic-${createHash("sha256").update(productUrl).digest("hex").slice(0, 24)}`, provider: "serpapi-google-organic", title: item.title, price, previousPrice: null, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl, imageUrls: imageUrl ? [imageUrl] : [], imageSource: imageUrl ? "thumbnail" as const : null, productUrl, rating: null, reviewCount: null, shipping: null, availability: availabilityFromSource({ ...item, availability: item.availability || item.rich_snippet?.top?.detected_extensions?.availability || item.rich_snippet?.bottom?.detected_extensions?.availability }), discountPercent: null, productId: null, checkedAt, sourceQuery: query.query, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
       return [{ ...base, match: score(base, query), reason: price != null ? "Oferta encontrada na busca Google." : "Resultado encontrado na busca Google; preço não informado." }];
     });
     const shopping = this.parseShoppingItems(body.shopping_results || [], query, query.query, "serpapi-google-shopping-inline");
@@ -235,7 +246,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
     if (nextPageToken) params.set("next_page_token", nextPageToken);
     const response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(nextPageToken ? 6_000 : 25_000) });
     if (!response.ok) return [];
-    const body = await response.json() as { product_results?: { title?: string; description?: string; images?: unknown; image?: unknown; product_images?: unknown; specifications?: unknown; stores_next_page_token?: string; stores?: Array<{ name?: string; title?: string; link?: string; extracted_price?: number; extracted_total?: number; shipping_extracted?: number; installments_description?: string; extracted_original_price?: number; shipping?: string; details_and_offers?: string[]; thumbnail?: string; image?: unknown; images?: unknown; product_details?: unknown }> }; error?: string };
+    const body = await response.json() as { product_results?: { title?: string; description?: string; images?: unknown; image?: unknown; product_images?: unknown; specifications?: unknown; stores_next_page_token?: string; stores?: Array<{ name?: string; title?: string; link?: string; rating?: number; reviews?: number; availability?: string; in_stock?: boolean; out_of_stock?: boolean; stock?: string | number; extracted_price?: number; extracted_total?: number; shipping_extracted?: number; installments_description?: string; extracted_original_price?: number; shipping?: string; details_and_offers?: string[]; thumbnail?: string; image?: unknown; images?: unknown; product_details?: unknown }> }; error?: string };
     if (body.error) return [];
     const checkedAt = new Date().toISOString();
     const product = body.product_results || {};
@@ -249,7 +260,7 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const price = resolveStorePrice(store);
       const previousPrice = typeof store.extracted_original_price === "number" && store.extracted_original_price > (price ?? Infinity) ? store.extracted_original_price : null;
       const images = imageUrls(store.thumbnail, store.image, store.images, productImages);
-      const base = { id: `offer-${createHash("sha256").update(`${candidate.productId}|${productUrl}|${store.name || ""}|${price ?? ""}|${index}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google-immersive-product", title: store.title, price, previousPrice, currency: "BRL" as const, store: store.name || null, merchant: normalizeShopperMerchant(store.name), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "product-detail" as const : null, productUrl, rating: null, reviewCount: null, shipping: store.shipping || store.details_and_offers?.find((item) => /frete|entrega|shipping|delivery/i.test(item)) || null, availability: null, discountPercent: price != null && previousPrice != null ? Math.round((1 - price / previousPrice) * 100) : null, productId: candidate.productId, checkedAt, sourceQuery: candidate.sourceQuery, sourcePosition: candidate.sourcePosition, productTitle: product.title || candidate.title, attributesText };
+      const base = { id: `offer-${createHash("sha256").update(`${candidate.productId}|${productUrl}|${store.name || ""}|${price ?? ""}|${index}`).digest("hex").slice(0, 24)}`, provider: "serpapi-google-immersive-product", title: store.title, price, previousPrice, currency: "BRL" as const, store: store.name || null, merchant: normalizeShopperMerchant(store.name), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "product-detail" as const : null, productUrl, rating: validRating(store.rating), reviewCount: validReviewCount(store.reviews), shipping: store.shipping || store.details_and_offers?.find((item) => /frete|entrega|shipping|delivery/i.test(item)) || null, availability: availabilityFromSource(store), discountPercent: price != null && previousPrice != null ? Math.round((1 - price / previousPrice) * 100) : null, productId: candidate.productId, checkedAt, sourceQuery: candidate.sourceQuery, sourcePosition: candidate.sourcePosition, productTitle: product.title || candidate.title, attributesText };
       const match = score(base, query);
       return [{ ...base, match, reason: "Oferta encontrada em lojas relacionadas ao produto." }];
     });

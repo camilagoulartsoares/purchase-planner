@@ -55,6 +55,21 @@ export type SearchedProduct = {
 
 export type ShopperVariation = { id: string; title: string; imageUrl: string | null; imageSource?: string | null; offers: SearchedProduct[] };
 
+/** Enrich only the same commercial offer; never combine a rating from one source with another source's count. */
+export function preserveBetterOfferReview(survivor: SearchedProduct, candidate: SearchedProduct) {
+  const validRating = (value: number | null) => value != null && Number.isFinite(value) && value >= 1 && value <= 5;
+  const validCount = (value: number | null) => value != null && Number.isSafeInteger(value) && value > 0;
+  const oldPair = validRating(survivor.rating) && validCount(survivor.reviewCount);
+  const newPair = validRating(candidate.rating) && validCount(candidate.reviewCount);
+  if (newPair && (!oldPair || candidate.reviewCount! > survivor.reviewCount!)) {
+    survivor.rating = candidate.rating;
+    survivor.reviewCount = candidate.reviewCount;
+  } else if (!oldPair && !newPair && validCount(candidate.reviewCount) && (!validCount(survivor.reviewCount) || candidate.reviewCount! > survivor.reviewCount!)) {
+    survivor.rating = null;
+    survivor.reviewCount = candidate.reviewCount;
+  }
+}
+
 export interface ProductSearchProvider {
   readonly id: string;
   available(): boolean;
