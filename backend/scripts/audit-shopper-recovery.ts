@@ -142,7 +142,7 @@ async function auditQuery(message: string) {
       rejectionReasons: countBy(rejected, (row) => String(row.reason || "unknown")),
       stageTimings: stages,
       networkCalls: network,
-      waitAndFallback: { shoppingWaitMs: result.metrics.shoppingWaitMs, sourcesExcludedByWait: result.metrics.sourcesExcludedByWait, pendingAtSearchEnd: stages.filter((call) => call.excludedBecauseStillPending), failedSearches: result.metrics.failedSearches, fallbackQueries: result.metrics.queries.slice(1), shoppingDiagnostics: result.metrics.sources.shopping },
+      waitAndFallback: { shoppingWaitMs: result.metrics.shoppingWaitMs, sourcesExcludedByWait: result.metrics.sourcesExcludedByWait, exactSourceLifecycle: result.metrics.exactSourceLifecycle, pendingAtSearchEnd: stages.filter((call) => call.excludedBecauseStillPending), failedSearches: result.metrics.failedSearches, fallbackQueries: result.metrics.queries.slice(1), shoppingDiagnostics: result.metrics.sources.shopping },
       parser: provider.parseDiagnostics,
       immersiveCandidates,
       detailCandidatesSkipped: detailSkipped,

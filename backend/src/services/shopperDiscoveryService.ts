@@ -96,26 +96,48 @@ function settleWithin<T>(promise: Promise<T>, ms: number, fallback: T): Promise<
   });
 }
 
+function observeCompletion<T>(promise: Promise<T>) {
+  let completion: { value: T; at: number } | null = null;
+  const observed = promise.then((value) => { completion = { value, at: Date.now() }; return value; });
+  return { promise: observed, completed: () => completion };
+}
+
 export async function discoverProducts(query: ShopperQuery, provider = new SerpApiProductSearchProvider()) {
   const startedAt = Date.now();
   const milestones: Record<string, number> = {};
   const mark = (stage: string) => { milestones[stage] = Date.now() - startedAt; };
   const phrases = expandQueries(query);
   let searchCalls = 3;
+  let selectionClosedAt: number | null = null;
   const googlePromise = provider.searchGoogleResults(query).catch(() => [] as SearchedProduct[]);
-  const shoppingPromise = provider.searchDetailed(query, query.query).catch(() => null);
-  const lightPromise = provider.searchDetailed(query, query.query, "google_shopping_light").catch(() => null);
+  const shopping = observeCompletion(provider.searchDetailed(query, query.query).catch(() => null));
+  const light = observeCompletion(provider.searchDetailed(query, query.query, "google_shopping_light").catch(() => null));
+  for (const [engine, observed] of [["google_shopping", shopping], ["google_shopping_light", light]] as const) {
+    void observed.promise.then((result) => {
+      if (selectionClosedAt != null && result) console.info("[shopper.shopping.late]", { engine, status: "completed_after_detail_selection", elapsedMs: Date.now() - startedAt });
+    });
+  }
   const exact = await googlePromise;
   mark("google");
   const recoveredFromGoogle = provider.googleDetailCandidates.length > 0 || exact.some((item) => item.price != null);
   const shoppingWait = recoveredFromGoogle ? shoppingWaitAfterGoogleMs : shoppingWaitWithoutGoogleMs;
   const [shoppingOutcome, lightOutcome] = await Promise.all([
-    settleWithin(shoppingPromise, shoppingWait, null),
-    settleWithin(lightPromise, shoppingWait, null),
+    settleWithin(shopping.promise, shoppingWait, null),
+    settleWithin(light.promise, shoppingWait, null),
   ]);
   const exactShopping = shoppingOutcome.value;
   mark("shopping");
   const exactLight = lightOutcome.value;
+  const exactSources = [
+    { engine: "google_shopping", observed: shopping, initial: exactShopping, timedOut: shoppingOutcome.timedOut, incorporatedAt: exactShopping ? "initial_window" : null as string | null },
+    { engine: "google_shopping_light", observed: light, initial: exactLight, timedOut: lightOutcome.timedOut, incorporatedAt: exactLight ? "initial_window" : null as string | null },
+  ];
+  const harvestCompleted = (stage: string) => exactSources.flatMap((source) => {
+    const completion = source.observed.completed();
+    if (source.incorporatedAt || !completion?.value) return [];
+    source.incorporatedAt = stage;
+    return [completion.value];
+  });
   const initial = [...exact, ...(exactShopping?.results || []), ...(exactLight?.results || [])].filter((item) => item.price != null && matchesRequiredIntent(item, query) && evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).confidence >= 70);
   const enoughExactResults = new Set(initial.map((item) => normalizedUrl(item.productUrl))).size >= 8;
   let fallbackPhrases = enoughExactResults || provider.googleDetailCandidates.length > 0 ? [] : phrases.slice(1, 4);
@@ -123,7 +145,7 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
     searchCalls++;
     return provider.searchDetailed(query, phrase, "google_shopping_light");
   });
-  const successful = [...(exactShopping ? [exactShopping] : []), ...(exactLight ? [exactLight] : []), ...searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : [])];
+  const successful = [...(exactShopping ? [exactShopping] : []), ...(exactLight ? [exactLight] : []), ...searched.flatMap((entry) => entry.status === "fulfilled" ? [entry.value] : []), ...harvestCompleted("before_first_details")];
   mark("initialFallback");
   if (!successful.length && !exact.length && !provider.googleDetailCandidates.length) throw new Error("Nenhuma consulta ao shopping pôde ser concluída.");
   const raw = [...exact, ...successful.flatMap((entry) => entry.results)];
@@ -139,6 +161,17 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   const firstDetailed = await limited(firstCandidates, detailConcurrency, (item) => provider.offersFor(item, query));
   const firstOffers = firstDetailed.flatMap((entry) => entry.status === "fulfilled" ? entry.value : []);
   mark("initialDetails");
+  const appendLateResults = (stage: string) => {
+    for (const result of harvestCompleted(stage)) {
+      successful.push(result);
+      for (const item of result.results) {
+        raw.push(item);
+        const evaluation = evaluateProductMatch([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query);
+        diagnostics.push({ stage: "search", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, price: item.price, store: item.store, productId: item.productId, imageUrl: item.imageUrl, preFilter: evaluation.eligible ? "PASS" : "DEFERRED_TO_DETAILS", reason: evaluation.reason, normalized: evaluation.normalized });
+      }
+    }
+  };
+  appendLateResults("before_last_details");
   if (!enoughExactResults && !fallbackPhrases.length && provider.googleDetailCandidates.length) {
     const compatible = [...raw, ...firstOffers].filter((item) => item.price != null && matchesRequiredIntent(item, query) && matchesQueryAttributes([item.title, item.productTitle, item.attributesText].filter(Boolean).join(" "), query).eligible);
     if (new Set(compatible.map((item) => offerKey(item))).size < 8) {
@@ -158,11 +191,16 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
       }
     }
   }
-  const remaining = [...new Map([...allDetailCandidates.slice(firstCandidates.length), ...successful.flatMap((entry) => entry.detailCandidates)]
+  appendLateResults("before_last_details");
+  const finalDetailCandidates = [...new Map([...allDetailCandidates, ...successful.flatMap((entry) => entry.detailCandidates)]
+    .sort((a, b) => b.relevance - a.relevance)
+    .map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
+  const remaining = [...new Map([...finalDetailCandidates]
     .filter((item) => !firstCandidates.some((first) => first.productId === item.productId))
     .sort((a, b) => b.relevance - a.relevance)
     .map((item) => [item.productId, item] as [string, ProductDetailCandidate])).values()];
   const finalCandidates = remaining.slice(0, MAX_DETAILS - firstCandidates.length);
+  selectionClosedAt = Date.now();
   const candidates = [...firstCandidates, ...finalCandidates];
   for (const item of remaining.slice(finalCandidates.length)) diagnostics.push({ stage: "details", sourceQuery: item.sourceQuery, position: item.sourcePosition, title: item.title, productId: item.productId, detailsFetched: false, reason: "detail_limit" });
   const lastDetailed = await limited(finalCandidates, detailConcurrency, (item) => provider.offersFor(item, query));
@@ -211,6 +249,10 @@ export async function discoverProducts(query: ShopperQuery, provider = new SerpA
   const variations = grouped;
   const visibleResults = variations.flatMap((variation) => variation.offers);
   mark("ranking");
+  const exactSourceLifecycle = exactSources.map((source) => {
+    const completion = source.observed.completed();
+    return { engine: source.engine, started: true, receivedInInitialWindow: Boolean(source.initial), receivedAfterInitialWindow: source.timedOut && completion != null, incorporatedAt: source.incorporatedAt, completedAfterSelection: selectionClosedAt != null && completion != null && completion.at > selectionClosedAt, pendingAtResponse: completion == null, failed: completion != null && completion.value == null, completedAtMs: completion ? completion.at - startedAt : null };
+  });
   if (process.env.NODE_ENV !== "production") for (const row of diagnostics) console.info("[SHOPPER_SEARCH]", JSON.stringify(row));
-  return { results: visibleResults, variations, metrics: { timingsMs: { total: milestones.ranking, milestones }, stageCounts: { rawSearch: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), parsedSearch: raw.length, detailCandidates: allDetailCandidates.length, enrichedProducts: candidates.length, pageableProducts: pageableCandidates.length, storePagesFetched: storePageCandidates.length, unpagedProducts: pageableCandidates.length - storePageCandidates.length, extractedDetailOffers: offers.length, beforeCompatibility: raw.length + offers.length, afterCompatibility: compatibleOffers.length, afterDeduplication: eligible.length, afterRanking: results.length, finalOffers: visibleResults.length, finalVariations: variations.length }, queries: [query.query, ...fallbackPhrases], searchCalls, detailCalls: candidates.length, storePageCalls: storePageCandidates.length, failedStorePages: storePages.filter((entry) => entry.status === "rejected").length, shoppingWaitMs: shoppingWait, sourcesExcludedByWait: [shoppingOutcome.timedOut ? "google_shopping" : null, lightOutcome.timedOut ? "google_shopping_light" : null].filter(Boolean), rawResults: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: [...(exactShopping || exactLight ? [] : [query.query]), ...searched.flatMap((entry, index) => entry.status === "rejected" ? [fallbackPhrases[index]] : [])], failedDetails: detailed.filter((entry) => entry.status === "rejected").length, sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, diagnostics } };
+  return { results: visibleResults, variations, metrics: { timingsMs: { total: milestones.ranking, milestones }, stageCounts: { rawSearch: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), parsedSearch: raw.length, detailCandidates: finalDetailCandidates.length, enrichedProducts: candidates.length, pageableProducts: pageableCandidates.length, storePagesFetched: storePageCandidates.length, unpagedProducts: pageableCandidates.length - storePageCandidates.length, extractedDetailOffers: offers.length, beforeCompatibility: raw.length + offers.length, afterCompatibility: compatibleOffers.length, afterDeduplication: eligible.length, afterRanking: results.length, finalOffers: visibleResults.length, finalVariations: variations.length }, queries: [query.query, ...fallbackPhrases], searchCalls, detailCalls: candidates.length, storePageCalls: storePageCandidates.length, failedStorePages: storePages.filter((entry) => entry.status === "rejected").length, shoppingWaitMs: shoppingWait, sourcesExcludedByWait: [shoppingOutcome.timedOut ? "google_shopping" : null, lightOutcome.timedOut ? "google_shopping_light" : null].filter(Boolean), exactSourceLifecycle, rawResults: exact.length + successful.reduce((sum, item) => sum + item.rawCount, 0), uniqueResults: byUrl.size, retainedResults: visibleResults.length, variationCount: variations.length, offerCount: visibleResults.length, failedSearches: [...(exactSources.some((source) => source.incorporatedAt) ? [] : [query.query]), ...searched.flatMap((entry, index) => entry.status === "rejected" ? [fallbackPhrases[index]] : [])], failedDetails: detailed.filter((entry) => entry.status === "rejected").length, sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, diagnostics } };
 }

@@ -287,4 +287,112 @@ describe("Personal Shopper search flow", () => {
       vi.useRealTimers();
     }
   });
+
+  it("incorporates Shopping completed inside the initial window without another request", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = interpretShopperIntent("panela tramontina 24cm", null);
+      const provider = new SerpApiProductSearchProvider();
+      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue(Array.from({ length: 8 }, (_, index): SearchedProduct => ({ id: `google-${index}`, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store: "Loja A", brand: null, imageUrl: null, productUrl: `https://example.com/google-${index}`, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" })));
+      vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+      const offer = { id: "early", provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL" as const, store: "Loja A", brand: null, imageUrl: null, productUrl: "https://example.com/early", rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" };
+      const search = vi.spyOn(provider, "searchDetailed").mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ results: [offer], detailCandidates: [], rawCount: 1 }), 3_000)));
+      const pending = discoverProducts(query, provider);
+      await vi.advanceTimersByTimeAsync(3_001);
+      const result = await pending;
+      expect(result.results).toHaveLength(9);
+      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "initial_window")).toBe(true);
+      expect(search).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("reuses late Shopping before detail selection, filters it normally and does not duplicate offers or calls", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = interpretShopperIntent("panela tramontina 24cm", null);
+      const provider = new SerpApiProductSearchProvider();
+      const offer = (id: string, availability: string | null = null): SearchedProduct => ({ id, provider: "fixture", title: query.query, productTitle: query.query, price: 120, previousPrice: null, currency: "BRL", store: "Loja A", brand: null, imageUrl: null, productUrl: `https://example.com/${id}`, rating: null, reviewCount: null, shipping: null, availability, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" });
+      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([offer("first")]);
+      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase) => new Promise((resolve) => setTimeout(() => resolve(phrase === query.query
+        ? { results: [offer("first"), offer("late"), offer("sold", "out_of_stock")], detailCandidates: [{ productId: "late-product", token: "late-token", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 3 }
+        : { results: [], detailCandidates: [], rawCount: 0 }), phrase === query.query ? 12_000 : 6_000)));
+      const details = vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+      const pending = discoverProducts(query, provider);
+      await vi.advanceTimersByTimeAsync(21_000);
+      const result = await pending;
+      expect(result.results.map((item) => item.id)).toEqual(expect.arrayContaining(["first", "late"]));
+      expect(result.results).toHaveLength(2);
+      expect(result.metrics.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "out_of_stock" })]));
+      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "before_first_details")).toBe(true);
+      expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("late-product");
+      expect(search).toHaveBeenCalledTimes(3);
+      expect(details.mock.calls.length).toBeLessThanOrEqual(6);
+      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("lets Shopping received during initial details compete for remaining detail slots", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = interpretShopperIntent("panela tramontina 24cm", null);
+      const provider = new SerpApiProductSearchProvider();
+      provider.googleDetailCandidates = [{ productId: "initial", token: "initial", title: query.query, relevance: 90, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }];
+      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase, engine) => phrase !== query.query
+        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
+        : new Promise((resolve) => setTimeout(() => resolve(engine !== "google_shopping_light"
+          ? { results: [], detailCandidates: [{ productId: "late", token: "late", title: query.query, relevance: 100, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }], rawCount: 1 }
+          : { results: [], detailCandidates: [], rawCount: 0 }), 10_000)));
+      const details = vi.spyOn(provider, "offersFor").mockImplementation(async (candidate) => candidate.productId === "initial"
+        ? new Promise((resolve) => setTimeout(() => resolve([]), 4_000)) : []);
+      const pending = discoverProducts(query, provider);
+      await vi.advanceTimersByTimeAsync(12_001);
+      const result = await pending;
+      expect(result.metrics.exactSourceLifecycle.every((source) => source.incorporatedAt === "before_last_details")).toBe(true);
+      expect(details.mock.calls.map(([candidate]) => candidate.productId)).toContain("late");
+      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not wait for Shopping that finishes after detail selection and records a failed source", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = interpretShopperIntent("panela tramontina 24cm", null);
+      const provider = new SerpApiProductSearchProvider();
+      provider.googleDetailCandidates = [{ productId: "google", token: "google", title: query.query, relevance: 90, sourceQuery: query.query, sourcePosition: 1, imageUrls: [] }];
+      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+      vi.spyOn(provider, "offersFor").mockResolvedValue([]);
+      const search = vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase, engine) => phrase !== query.query
+        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
+        : new Promise((resolve, reject) => setTimeout(() => engine === "google_shopping_light" ? reject(new Error("provider failed")) : resolve({ results: [], detailCandidates: [], rawCount: 0 }), engine === "google_shopping_light" ? 3_000 : 12_000)));
+      const pending = discoverProducts(query, provider);
+      await vi.advanceTimersByTimeAsync(8_001);
+      const result = await pending;
+      expect(result.metrics.exactSourceLifecycle.find((source) => source.engine === "google_shopping")).toMatchObject({ incorporatedAt: null, pendingAtResponse: true });
+      expect(result.metrics.exactSourceLifecycle.find((source) => source.engine === "google_shopping_light")).toMatchObject({ failed: true, incorporatedAt: null });
+      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(search.mock.calls.length + 1).toBe(result.metrics.searchCalls);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("labels a response completed after detail selection while another detail is still running", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = interpretShopperIntent("panela tramontina 24cm", null);
+      const provider = new SerpApiProductSearchProvider();
+      provider.googleDetailCandidates = Array.from({ length: 6 }, (_, index) => ({ productId: `p${index}`, token: `p${index}`, title: query.query, relevance: 90 - index, sourceQuery: query.query, sourcePosition: index + 1, imageUrls: [] }));
+      vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+      vi.spyOn(provider, "searchDetailed").mockImplementation((_query, phrase) => phrase !== query.query
+        ? Promise.resolve({ results: [], detailCandidates: [], rawCount: 0 })
+        : new Promise((resolve) => setTimeout(() => resolve({ results: [], detailCandidates: [], rawCount: 0 }), 12_000)));
+      vi.spyOn(provider, "offersFor").mockImplementation(async (candidate) => candidate.productId === "p5"
+        ? new Promise((resolve) => setTimeout(() => resolve([]), 5_000)) : []);
+      const pending = discoverProducts(query, provider);
+      await vi.advanceTimersByTimeAsync(13_001);
+      const result = await pending;
+      expect(result.metrics.exactSourceLifecycle.every((source) => source.completedAfterSelection && source.incorporatedAt == null)).toBe(true);
+      expect(result.metrics.stageCounts.parsedSearch).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
 });
