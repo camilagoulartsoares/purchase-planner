@@ -130,21 +130,24 @@ function score(result: Omit<SearchedProduct, "match" | "reason">, query: Shopper
 
 export class SerpApiProductSearchProvider implements ProductSearchProvider {
   readonly id = "serpapi-google-shopping-v2";
-  googleDiagnostics: { status: string; pricedOffers: number; organicResults: number; immersiveProducts?: number; parsedOffers: number; error?: string } = { status: "not_requested", pricedOffers: 0, organicResults: 0, parsedOffers: 0 };
+  googleDiagnostics: { status: string; pricedOffers: number; organicResults: number; immersiveProducts?: number; parsedOffers: number; durationMs?: number; error?: string } = { status: "not_requested", pricedOffers: 0, organicResults: 0, parsedOffers: 0 };
   googleDetailCandidates: ProductDetailCandidate[] = [];
   readonly nextStorePageTokens = new Map<string, string>();
-  shoppingDiagnostics: Array<{ phrase: string; engine: string; status: string; rawCount: number; parsedCount: number; error?: string }> = [];
+  shoppingDiagnostics: Array<{ phrase: string; engine: string; status: string; rawCount: number; parsedCount: number; durationMs?: number; error?: string }> = [];
+  parseDiagnostics: Array<{ phrase: string; provider: string; raw: number; parsed: number; missingCommercialUrlOrTitle: number; duplicateOffer: number }> = [];
   available() { return Boolean(env.serpApi.apiKey); }
 
   async search(query: ShopperQuery) { return (await this.searchDetailed(query, query.query)).results; }
 
   private parseShoppingItems(raw: SerpResult[], query: ShopperQuery, phrase: string, provider: string) {
     const seen = new Set<string>();
+    let missingCommercialUrlOrTitle = 0;
+    let duplicateOffer = 0;
     const detailCandidates: ProductDetailCandidate[] = [];
     const checkedAt = new Date().toISOString();
     const results = raw.flatMap((item, index) => {
       const productUrl = validUrl(item.link) || validUrl(item.product_link);
-      if (!productUrl || !item.title) return [];
+      if (!productUrl || !item.title) { missingCommercialUrlOrTitle++; return []; }
       const identity = shoppingOfferIdentity(productUrl, item);
       const price = shoppingPrice(item);
       const previousPrice = typeof item.extracted_old_price === "number" && item.extracted_old_price >= 0 ? item.extracted_old_price : null;
@@ -152,23 +155,25 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
       const base = { id: `search-${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`, provider, title: item.title, price, previousPrice, currency: "BRL" as const, store: item.source || null, merchant: normalizeShopperMerchant(item.source), brand: null, imageUrl: images[0] || null, imageUrls: images, imageSource: images.length ? "thumbnail" as const : null, productUrl, rating: typeof item.rating === "number" ? item.rating : null, reviewCount: typeof item.reviews === "number" ? item.reviews : null, shipping: item.delivery || null, availability: [item.availability, item.second_hand_condition].filter(Boolean).join("; ") || null, discountPercent: price != null && previousPrice != null && previousPrice > price ? Math.round(((previousPrice - price) / previousPrice) * 100) : null, productId: item.product_id || null, checkedAt, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, productTitle: item.title, attributesText: item.snippet || null };
       const match = score(base, query);
       if (item.product_id && item.immersive_product_page_token) detailCandidates.push({ productId: item.product_id, token: item.immersive_product_page_token, title: item.title, relevance: match.total, sourceQuery: phrase, sourcePosition: item.position ?? index + 1, imageUrls: images });
-      if (seen.has(identity)) return [];
+      if (seen.has(identity)) { duplicateOffer++; return []; }
       seen.add(identity);
       return [{ ...base, match, reason: "Oferta encontrada na busca de produtos." }];
     }).sort((a, b) => b.match.total - a.match.total || (a.price ?? Infinity) - (b.price ?? Infinity));
+    this.parseDiagnostics.push({ phrase, provider, raw: raw.length, parsed: results.length, missingCommercialUrlOrTitle, duplicateOffer });
     return { results, detailCandidates };
   }
 
   async searchGoogleResults(query: ShopperQuery): Promise<SearchedProduct[]> {
+    const startedAt = Date.now();
     this.googleDetailCandidates = [];
     if (!this.available()) return [];
     const params = new URLSearchParams({ engine: "google", q: query.query, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
     let response: Response;
     try { response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(35_000) }); }
-    catch (error) { this.googleDiagnostics = { status: "request_failed", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: error instanceof Error ? error.name : "unknown" }; return []; }
-    if (!response.ok) { this.googleDiagnostics = { status: "http_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: String(response.status) }; return []; }
+    catch (error) { this.googleDiagnostics = { status: "request_failed", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: error instanceof Error ? error.name : "unknown" }; return []; }
+    if (!response.ok) { this.googleDiagnostics = { status: "http_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: String(response.status) }; return []; }
     const body = await response.json() as { shopping_results?: SerpResult[]; product_result?: { title?: string; rating?: number; reviews?: number; pricing?: Array<{ name?: string; description?: string; link?: string; extracted_price?: number; thumbnail?: string; buying_options?: string[] }> }; immersive_products?: Array<{ title?: string; thumbnail?: string; immersive_product_page_token?: string; extracted_price?: number; source?: string }>; organic_results?: Array<{ title?: string; link?: string; source?: string; snippet?: string; thumbnail?: string; position?: number; extensions?: string[]; rich_snippet?: { top?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] }; bottom?: { detected_extensions?: { price?: unknown; currency?: unknown }; extensions?: string[] } } }>; error?: string };
-    if (body.error) { this.googleDiagnostics = { status: "provider_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, error: body.error.slice(0, 160) }; return []; }
+    if (body.error) { this.googleDiagnostics = { status: "provider_error", pricedOffers: 0, organicResults: 0, parsedOffers: 0, durationMs: Date.now() - startedAt, error: body.error.slice(0, 160) }; return []; }
     const product = body.product_result;
     this.googleDetailCandidates = (body.immersive_products || []).flatMap((item, index) => {
       if (!item.title || !item.immersive_product_page_token) return [];
@@ -198,11 +203,12 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
     });
     const shopping = this.parseShoppingItems(body.shopping_results || [], query, query.query, "serpapi-google-shopping-inline");
     this.googleDetailCandidates.push(...shopping.detailCandidates);
-    this.googleDiagnostics = { status: product?.pricing?.length ? "product_block" : this.googleDetailCandidates.length ? "immersive_products" : "organic_only", pricedOffers: priced.length + shopping.results.filter((item) => item.price != null).length + organic.filter((item) => item.price != null).length, organicResults: body.organic_results?.length || 0, immersiveProducts: body.immersive_products?.length || 0, parsedOffers: priced.length + shopping.results.length + organic.length };
+    this.googleDiagnostics = { status: product?.pricing?.length ? "product_block" : this.googleDetailCandidates.length ? "immersive_products" : "organic_only", pricedOffers: priced.length + shopping.results.filter((item) => item.price != null).length + organic.filter((item) => item.price != null).length, organicResults: body.organic_results?.length || 0, immersiveProducts: body.immersive_products?.length || 0, parsedOffers: priced.length + shopping.results.length + organic.length, durationMs: Date.now() - startedAt };
     return [...priced, ...shopping.results, ...organic];
   }
 
   async searchDetailed(query: ShopperQuery, phrase: string, engine: "google_shopping" | "google_shopping_light" = "google_shopping"): Promise<{ results: SearchedProduct[]; detailCandidates: ProductDetailCandidate[]; rawCount: number }> {
+    const startedAt = Date.now();
     if (!this.available()) return { results: [], detailCandidates: [], rawCount: 0 };
     const params = new URLSearchParams({ engine, q: phrase, gl: "br", hl: "pt-br", api_key: env.serpApi.apiKey });
     // Google Shopping via SerpApi pode retornar uma lista vazia no Brasil quando
@@ -212,15 +218,15 @@ export class SerpApiProductSearchProvider implements ProductSearchProvider {
     try {
       response = await fetch(`https://serpapi.com/search.json?${params}`, { signal: AbortSignal.timeout(engine === "google_shopping_light" ? 20_000 : 30_000) });
     } catch (error) {
-      this.shoppingDiagnostics.push({ phrase, engine, status: "request_failed", rawCount: 0, parsedCount: 0, error: error instanceof Error ? error.name : "unknown" });
+      this.shoppingDiagnostics.push({ phrase, engine, status: "request_failed", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: error instanceof Error ? error.name : "unknown" });
       throw new AppError("A busca nas lojas demorou mais que o esperado. Tente novamente.", 503);
     }
-    if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, error: String(response.status) }); throw new Error("Não foi possível consultar o Google Shopping agora."); }
+    if (!response.ok) { this.shoppingDiagnostics.push({ phrase, engine, status: "http_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: String(response.status) }); throw new Error("Não foi possível consultar o Google Shopping agora."); }
     const body = await response.json() as { shopping_results?: SerpResult[]; inline_shopping_results?: SerpResult[]; categorized_shopping_results?: Array<{ shopping_results?: SerpResult[] }>; error?: string };
-    if (body.error) { this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, error: body.error.slice(0, 160) }); throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503); }
+    if (body.error) { this.shoppingDiagnostics.push({ phrase, engine, status: "provider_error", rawCount: 0, parsedCount: 0, durationMs: Date.now() - startedAt, error: body.error.slice(0, 160) }); throw new AppError("A fonte de shopping não conseguiu concluir a busca.", 503); }
     const raw = [...(body.shopping_results || []), ...(body.inline_shopping_results || []), ...(body.categorized_shopping_results || []).flatMap((category) => category.shopping_results || [])];
     const { results, detailCandidates } = this.parseShoppingItems(raw, query, phrase, this.id);
-    this.shoppingDiagnostics.push({ phrase, engine, status: "ok", rawCount: raw.length, parsedCount: results.length });
+    this.shoppingDiagnostics.push({ phrase, engine, status: "ok", rawCount: raw.length, parsedCount: results.length, durationMs: Date.now() - startedAt });
     return { results, detailCandidates, rawCount: raw.length };
   }
 

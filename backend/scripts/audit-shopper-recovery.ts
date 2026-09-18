@@ -8,7 +8,7 @@ import { discoverProducts } from "../src/services/shopperDiscoveryService.js";
 
 process.env.NODE_ENV = "production";
 
-const queries = [
+const defaultQueries = [
   "kit shampoo e condicionador wella 1l invigo",
   "crocs feminino preto tamanho 36",
   "notebook lenovo i5 16gb",
@@ -16,6 +16,9 @@ const queries = [
   "ração golden gatos castrados 10kg",
   "air fryer 5 litros",
 ];
+const requestedQuery = process.argv.indexOf("--query");
+const queries = requestedQuery >= 0 ? [process.argv[requestedQuery + 1]].filter(Boolean) : defaultQueries;
+if (requestedQuery >= 0 && !queries.length) throw new Error("Informe uma consulta após --query.");
 
 type Counts = { shoppingResults: number; inlineShoppingResults: number; categorizedShoppingResults: number; organicResults: number; immersiveProducts: number; productPricing: number; detailStores: number };
 type NetworkCall = { id: number; engine: string; phrase: string | null; startedAt: number; endedAt?: number; durationMs?: number; httpStatus?: number; status: "pending" | "ok" | "http_error" | "provider_error" | "request_failed"; error?: string; counts: Counts };
@@ -34,7 +37,7 @@ if (!outputPath) throw new Error("Informe um caminho após --output.");
 
 // This mode exits before installing the fetch tracer or reading the API key.
 if (process.argv.includes("--check")) {
-  assert.equal(queries.length, 6);
+  assert.equal(queries.length, requestedQuery >= 0 ? 1 : 6);
   assert.equal(new Set(queries).size, queries.length);
   assert.equal(total([{ id: 1, engine: "google", phrase: "teste", startedAt: 0, status: "ok", counts: { ...emptyCounts(), immersiveProducts: 2 } }], "immersiveProducts"), 2);
   console.log(JSON.stringify({ check: "ok", networkCalls: 0, queries: queries.length, outputPath }));
@@ -119,7 +122,7 @@ async function auditQuery(message: string) {
     const duplicates = diagnostics.filter((row) => row.stage === "deduplication");
     const immersiveCandidates = provider.googleDetailCandidates.map((candidate) => ({ productId: candidate.productId, title: candidate.title, relevance: candidate.relevance, sourcePosition: candidate.sourcePosition, detail: stages.find((call) => call.stage === "google_immersive_product" && call.productId === candidate.productId) || null }));
     return {
-      query: message, interpretedQuery: query.query, maxPrice: query.maxPrice, totalMs: finishedAt - startedAt, error: null,
+      query: message, interpretedQuery: query.query, maxPrice: query.maxPrice, totalMs: finishedAt - startedAt, error: null, pipelineCounts: result.metrics.stageCounts, pipelineTimings: result.metrics.timingsMs,
       counts: {
         shoppingResults: total(network, "shoppingResults"), inlineShoppingResults: total(network, "inlineShoppingResults"), categorizedShoppingResults: total(network, "categorizedShoppingResults"), organicResults: total(network, "organicResults"), immersiveProducts: total(network, "immersiveProducts"), productPricing: total(network, "productPricing"),
         rawCandidatesIncludingImmersive: total(network, "shoppingResults") + total(network, "inlineShoppingResults") + total(network, "categorizedShoppingResults") + total(network, "organicResults") + total(network, "immersiveProducts") + total(network, "productPricing"),
@@ -129,8 +132,8 @@ async function auditQuery(message: string) {
         storePageRequestsStarted: stages.filter((call) => call.stage === "google_immersive_store_page").length,
         storePageRequestsCompleted: stages.filter((call) => call.stage === "google_immersive_store_page" && call.status === "ok").length,
         detailCandidatesSkipped: detailSkipped.length,
-        offersBeforeDeduplication: searchRows.length + detailOfferRows.length,
-        offersAfterDeduplication: result.metrics.uniqueResults,
+        offersBeforeDeduplication: result.metrics.stageCounts.afterCompatibility,
+        offersAfterDeduplication: result.metrics.stageCounts.afterDeduplication,
         rejectedBeforeRanking: diagnostics.filter((row) => row.stage === "offer" && row.offerMatch === "FAIL").length,
         rejectedAtRanking: diagnostics.filter((row) => row.stage === "ranking").length,
         duplicateOffers: duplicates.length,
@@ -140,6 +143,7 @@ async function auditQuery(message: string) {
       stageTimings: stages,
       networkCalls: network,
       waitAndFallback: { shoppingWaitMs: result.metrics.shoppingWaitMs, sourcesExcludedByWait: result.metrics.sourcesExcludedByWait, pendingAtSearchEnd: stages.filter((call) => call.excludedBecauseStillPending), failedSearches: result.metrics.failedSearches, fallbackQueries: result.metrics.queries.slice(1), shoppingDiagnostics: result.metrics.sources.shopping },
+      parser: provider.parseDiagnostics,
       immersiveCandidates,
       detailCandidatesSkipped: detailSkipped,
       duplicates,
@@ -149,14 +153,14 @@ async function auditQuery(message: string) {
     };
   } catch (error) {
     const finishedAt = Date.now();
-    return { query: message, interpretedQuery: query.query, totalMs: finishedAt - startedAt, error: errorText(error), stageTimings: trace.stages.map((call) => ({ ...call, excludedBecauseStillPending: call.status === "pending" })), networkCalls: trace.network.map((call) => ({ ...call, excludedBecauseStillPending: call.status === "pending" })), sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, immersiveCandidates: provider.googleDetailCandidates.map((item) => ({ productId: item.productId, title: item.title, relevance: item.relevance })) };
+    return { query: message, interpretedQuery: query.query, totalMs: finishedAt - startedAt, error: errorText(error), stageTimings: trace.stages.map((call) => ({ ...call, excludedBecauseStillPending: call.status === "pending" })), networkCalls: trace.network.map((call) => ({ ...call, excludedBecauseStillPending: call.status === "pending" })), sources: { google: provider.googleDiagnostics, shopping: provider.shoppingDiagnostics }, parser: provider.parseDiagnostics, immersiveCandidates: provider.googleDetailCandidates.map((item) => ({ productId: item.productId, title: item.title, relevance: item.relevance })) };
   } finally {
     activeTrace = null;
   }
 }
 
-const probe = await probeSerpApi();
-if (probe.status !== 200 || probe.error) {
+const probe = process.argv.includes("--no-probe") ? null : await probeSerpApi();
+if (probe && (probe.status !== 200 || probe.error)) {
   const error = `SerpAPI probe failed: HTTP ${probe.status} ${probe.error || ""}`.trim();
   await writeFile(outputPath, JSON.stringify({ probe, results: [], error }, null, 2));
   console.error(error);

@@ -7,6 +7,31 @@ import type { SearchedProduct } from "../services/productSearchProvider.js";
 afterEach(() => vi.restoreAllMocks());
 
 describe("Personal Shopper search flow", () => {
+  it("keeps already received compatible offers with an unstated measure through final cards", async () => {
+    const query = interpretShopperIntent("notebook lenovo i5 16gb", null);
+    const provider = new SerpApiProductSearchProvider();
+    const item = (title: string, url: string, store: string): SearchedProduct => ({ id: url, provider: "fixture", title, productTitle: title, price: 2900, previousPrice: null, currency: "BRL", store, brand: null, imageUrl: null, productUrl: url, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 75, budget: 50, style: 50, completeness: 60, total: 75 }, reason: "" });
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([item("Notebook Lenovo i5", "https://a.example/notebook", "Loja A")]);
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: [item("Notebook Lenovo i5 8GB", "https://b.example/notebook", "Loja B")], detailCandidates: [], rawCount: 1 });
+    const result = await discoverProducts(query, provider);
+    expect(result.results.map((offer) => offer.store)).toEqual(["Loja A"]);
+    expect(result.metrics.stageCounts).toMatchObject({ afterCompatibility: 1, afterDeduplication: 1, finalOffers: 1 });
+    expect(result.metrics.stageCounts.beforeCompatibility).toBeGreaterThan(1);
+    expect(result.metrics.timingsMs.total).toBeGreaterThanOrEqual(0);
+  });
+  it("does not cap commercially distinct offers already returned by a search source", async () => {
+    const query = interpretShopperIntent("panela tramontina 24cm", null);
+    const provider = new SerpApiProductSearchProvider();
+    const offers: SearchedProduct[] = Array.from({ length: 15 }, (_, index) => ({ id: `offer-${index}`, provider: "fixture", title: "Panela Tramontina 24cm", productTitle: "Panela Tramontina 24cm", price: 100 + index, previousPrice: null, currency: "BRL", store: `Loja ${index}`, brand: null, imageUrl: null, productUrl: `https://store-${index}.example/panela`, rating: null, reviewCount: null, shipping: null, availability: null, discountPercent: null, match: { query: 100, budget: 50, style: 50, completeness: 60, total: 90 }, reason: "" }));
+    vi.spyOn(provider, "searchGoogleResults").mockResolvedValue([]);
+    vi.spyOn(provider, "searchDetailed").mockResolvedValue({ results: offers, detailCandidates: [], rawCount: offers.length });
+    const details = vi.spyOn(provider, "offersFor");
+    const result = await discoverProducts(query, provider);
+    expect(result.results).toHaveLength(15);
+    expect(result.variations.flatMap((variation) => variation.offers)).toHaveLength(15);
+    expect(result.metrics.stageCounts.finalOffers).toBe(15);
+    expect(details).not.toHaveBeenCalled();
+  });
   it("uses commercial offers in the regular Google shopping block and keeps immersive cards as candidates", async () => {
     const query = interpretShopperIntent("panela tramontina 24cm", null);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({

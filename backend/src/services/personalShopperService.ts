@@ -32,23 +32,32 @@ export const personalShopperService = {
   async listConversations(userId: string) { return prisma.shopperConversation.findMany({ where: { userId }, select: { id: true, title: true, updatedAt: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: "desc" }, take: 30 }); },
   async getConversation(userId: string, id: string) { const conversation = await prisma.shopperConversation.findFirst({ where: { id, userId }, include: { messages: { orderBy: { createdAt: "asc" } }, searches: { orderBy: { createdAt: "asc" } } } }); if (!conversation) throw new AppError("Conversa não encontrada.", 404); const latest = conversation.searches.at(-1); const results = Array.isArray(latest?.results) ? latest.results as unknown as SearchedProduct[] : []; return { ...conversation, variations: groupVariations(results) }; },
   async message(userId: string, conversationId: string | undefined, message: string) {
+    const startedAt = Date.now();
     const conversation = conversationId ? await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } }) : await prisma.shopperConversation.create({ data: { userId, title: message.slice(0, 80) } });
+    const conversationLoadedAt = Date.now();
     if (!conversation) throw new AppError("Conversa não encontrada.", 404);
     const previous = conversation.context ? querySchema.safeParse(conversation.context).data || null : null;
     await prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "user", content: message } });
+    const messageSavedAt = Date.now();
     const interpreted = await aiQuery(message, previous).catch(() => null);
+    const aiCompletedAt = Date.now();
     const query = querySchema.parse(interpretShopperIntent(message, previous, interpreted));
+    const intentCompletedAt = Date.now();
     const provider = new SerpApiProductSearchProvider();
     if (!provider.available()) throw new AppError("Busca externa ainda não está configurada. Configure SERPAPI_API_KEY no backend.", 503);
     const cached = shopperSearchCache.get(conversation.id, query);
     const discovery = cached ? null : await discoverProducts(query, provider);
+    const discoveryCompletedAt = Date.now();
     const raw = cached || discovery!.results;
     const results = raw.filter((item) => matchesRequiredIntent(item, query));
     const variations = groupVariations(results);
+    const groupingCompletedAt = Date.now();
     if (!cached) shopperSearchCache.set(conversation.id, query, raw);
     const answer = results.length ? `Encontrei ${variations.length} variação${variations.length === 1 ? "" : "ões"} e ${results.length} oferta${results.length === 1 ? "" : "s"} nas fontes consultadas.` : answerFor(query, results);
     await prisma.$transaction([prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }), prisma.shopperMessage.create({ data: { conversationId: conversation.id, role: "assistant", content: answer, structuredData: json({ query, resultIds: results.map((item) => item.id) }) } }), prisma.shopperSearch.create({ data: { conversationId: conversation.id, provider: provider.id, query: json(query), results: json(results) } })]);
-    return { conversationId: conversation.id, query, answer, results, variations, cacheHit: Boolean(cached), metrics: discovery?.metrics || null, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+    const timingsMs = { total: Date.now() - startedAt, conversation: conversationLoadedAt - startedAt, saveUserMessage: messageSavedAt - conversationLoadedAt, aiIntent: aiCompletedAt - messageSavedAt, queryInterpretation: intentCompletedAt - aiCompletedAt, discovery: discoveryCompletedAt - intentCompletedAt, grouping: groupingCompletedAt - discoveryCompletedAt, persistence: Date.now() - groupingCompletedAt, discoveryMilestones: discovery?.metrics.timingsMs || null };
+    console.info("[shopper.perf]", { ...timingsMs, offerCount: results.length, variationCount: variations.length, searchCalls: discovery?.metrics.searchCalls ?? 0, detailCalls: discovery?.metrics.detailCalls ?? 0, storePageCalls: discovery?.metrics.storePageCalls ?? 0, cacheHit: Boolean(cached) });
+    return { conversationId: conversation.id, query, answer, results, variations, cacheHit: Boolean(cached), metrics: discovery?.metrics || null, timingsMs, provider: provider.id, suggestions: query.maxPrice != null && !results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async action(userId: string, conversationId: string, resultId: string, action: "save" | "add-to-planner", options: { category?: string; priority?: string; purchaseIntent?: string }) {
     const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });

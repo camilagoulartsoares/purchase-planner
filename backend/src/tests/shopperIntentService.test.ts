@@ -70,6 +70,18 @@ describe("generic shopper intent", () => {
     expect(matchesQueryAttributes(withoutGender, query).coverage).toBeGreaterThanOrEqual(.7);
     expect(matchesQueryAttributes("Crocs Classic Clog Rosa tamanho 37", query).eligible).toBe(false);
   });
+  it("keeps an unstated measurement as unknown at final ranking without accepting a contradiction", () => {
+    for (const [request, unknown, conflict] of [
+      ["panela tramontina antiaderente 24cm", "Panela Tramontina antiaderente", "Panela Tramontina antiaderente 20cm"],
+      ["notebook lenovo i5 16gb", "Notebook Lenovo i5", "Notebook Lenovo i5 8GB"],
+      ["ração golden gatos castrados 10kg", "Ração Golden gatos castrados", "Ração Golden gatos castrados 500g"],
+    ]) {
+      const query = interpretShopperIntent(request, null);
+      expect(matchesQueryAttributes(unknown, query).eligible).toBe(true);
+      expect(matchesRequiredIntent(item(unknown), query)).toBe(true);
+      expect(matchesRequiredIntent(item(conflict), query)).toBe(false);
+    }
+  });
 
   it("rejects an explicit competing color without requiring every offer to state a color", () => {
     const query = interpretShopperIntent("sandália feminina preta tamanho 36", null);

@@ -192,8 +192,11 @@ export function matchesQueryAttributes(rawText: string, query: ShopperQuery) {
   const confirmed = requested.filter((term) => actual.some((candidate) => tokenMatches(term, candidate)));
   const numeric = requested.filter((term) => /\d/.test(term));
   const coverage = confirmed.length / Math.max(1, requested.length);
+  const missing = requested.filter((term) => !confirmed.includes(term));
   return {
-    eligible: coverage >= .7 && numeric.every((term) => confirmed.includes(term)),
+    // An absent measurement is unknown only when every other query term is
+    // present. Explicit contradictions are rejected before ranking.
+    eligible: coverage >= .7 && (numeric.every((term) => confirmed.includes(term)) || missing.every((term) => numeric.includes(term))),
     coverage,
     confirmed,
     numeric,
