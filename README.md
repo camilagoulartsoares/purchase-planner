@@ -100,6 +100,18 @@ O provider inicial é o Google Shopping via SerpApi. Os resultados podem incluir
 
 Mercado Livre e Shopee permanecem desacoplados pela interface `ProductSearchProvider`, permitindo adicionar integrações diretas no futuro sem alterar o chat, os cards, Meus achados ou o Planner.
 
+### Atualização e consumo de chamadas do Personal Shopper
+
+A memória pode responder imediatamente, mas não bloqueia descobertas comerciais novas. Uma pesquisa normal reutiliza a memória por até `SHOPPER_FULL_DISCOVERY_TTL_MS` (padrão: 2 horas); depois disso, executa uma descoberta completa. O botão **Atualizar preços** revisa ofertas conhecidas, enquanto **Buscar novas promoções** força uma descoberta completa, protegida por `SHOPPER_FORCED_DISCOVERY_COOLDOWN_MS` (padrão: 10 minutos). Solicitações simultâneas equivalentes compartilham a mesma execução externa.
+
+Os limites são tetos configuráveis, não uma suposição sobre a cota do provedor:
+
+- Pesquisa normal dentro do TTL: 0 chamadas externas quando os preços estão atuais; se os preços vencerem `SHOPPER_PRICE_TTL_MS`, usa o teto de atualização. Fora do TTL de descoberta: até `SHOPPER_DISCOVERY_MAX_CALLS` (padrão 8).
+- Atualização de preços: até `SHOPPER_REFRESH_MAX_CALLS` (padrão 4), priorizando detalhes de produtos conhecidos.
+- Busca completa: até `SHOPPER_DISCOVERY_MAX_CALLS` (padrão 8); durante o cooldown: 0.
+
+Buscas expandidas só são executadas quando a consulta exata não atinge a cobertura configurada. Os resultados anteriores permanecem disponíveis se o provedor falhar.
+
 ## Alertas pessoais no WhatsApp (Evolution API)
 
 Os alertas de promoção usam uma instância externa da **Evolution API** conectada ao WhatsApp Web por QR Code. Esta opção substitui a antiga tentativa de usar a WhatsApp Cloud API da Meta; nenhuma chave ou token da Meta é necessário para o envio.

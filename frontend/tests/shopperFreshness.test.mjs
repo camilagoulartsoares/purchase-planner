@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatOfferCheckedAt, sanitizeShopperUserError } from "../src/utils/shopperFreshness.ts";
+import { formatOfferCheckedAt, formatShopperAge, sanitizeShopperUserError } from "../src/utils/shopperFreshness.ts";
 
 test("formats verification time in human language without cache jargon", () => {
   const now = new Date("2026-09-18T18:00:00");
@@ -14,4 +14,11 @@ test("hides technical provider errors from the shopper user", () => {
   assert.equal(sanitizeShopperUserError("SerpAPI quota HTTP 429"), "Não foi possível buscar novas ofertas agora. Tente novamente mais tarde.");
   assert.equal(sanitizeShopperUserError("Configure SERPAPI_API_KEY no backend."), "Não foi possível buscar novas ofertas agora. Tente novamente mais tarde.");
   assert.equal(sanitizeShopperUserError(null, "refresh"), "Não foi possível atualizar os preços agora.");
+});
+
+test("formats price verification and full discovery ages independently", () => {
+  const now = new Date("2026-09-18T18:00:00Z");
+  assert.equal(formatShopperAge("2026-09-18T17:45:00Z", now), "há 15 minutos");
+  assert.equal(formatShopperAge("2026-09-18T15:00:00Z", now), "há 3 horas");
+  assert.equal(formatShopperAge(null, now), null);
 });

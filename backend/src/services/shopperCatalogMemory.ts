@@ -74,7 +74,7 @@ export function createInMemoryShopperCatalogStore(): ShopperCatalogStore {
     async saveOffer(catalogProductId, record) {
       const product = products.get(catalogProductId);
       if (!product) return;
-      product.offers = [...product.offers.filter((item) => item.offerKey !== record.offerKey), clone(record)];
+      product.offers = [...product.offers.filter((item) => item.offerKey !== record.offerKey && !(item.payload.productUrl === record.payload.productUrl && item.payload.store === record.payload.store)), clone(record)];
     },
     async linkQueryProduct(queryId, productId) {
       const query = queries.get(queryId);
@@ -140,6 +140,9 @@ export const prismaShopperCatalogStore: ShopperCatalogStore = {
   },
   async saveOffer(catalogProductId, record) {
     const payload = record.payload;
+    await prisma.shopperCatalogOffer.deleteMany({
+      where: { catalogProductId, productUrl: payload.productUrl, store: payload.store || "", NOT: { offerKey: record.offerKey } },
+    });
     await prisma.shopperCatalogOffer.upsert({
       where: { catalogProductId_offerKey: { catalogProductId, offerKey: record.offerKey } },
       update: {
@@ -185,7 +188,7 @@ export function catalogIdentityKey(item: SearchedProduct) {
 }
 
 export function offerMemoryKey(item: SearchedProduct) {
-  return `${item.productUrl}|${item.store || ""}|${item.price ?? ""}`;
+  return `${item.productUrl}|${item.store || ""}`;
 }
 
 export type CatalogRecall = {
@@ -193,8 +196,10 @@ export type CatalogRecall = {
   reason: string;
   offers: SearchedProduct[];
   products: CatalogProductRecord[];
+  discoveredAt: string | null;
   mapExpiresAt: string | null;
   oldestPriceCheckedAt: string | null;
+  newestPriceCheckedAt: string | null;
 };
 
 function withFreshness(item: SearchedProduct, now = Date.now()): SearchedProduct {
@@ -217,20 +222,22 @@ export function createShopperCatalogMemory(store: ShopperCatalogStore = prismaSh
           const evaluation = evaluateProductMatch(item.title, query);
           return evaluation.eligible && !hardConflicts.has(evaluation.reason || "");
         });
-      if (!related.length) return { used: false, reason: selected ? "compatible_map_without_live_products" : "no_compatible_memory", offers: [], products: [], mapExpiresAt: selected?.mapExpiresAt || null, oldestPriceCheckedAt: null };
+      if (!related.length) return { used: false, reason: selected ? "compatible_map_without_live_products" : "no_compatible_memory", offers: [], products: [], discoveredAt: selected?.discoveredAt || null, mapExpiresAt: selected?.mapExpiresAt || null, oldestPriceCheckedAt: null, newestPriceCheckedAt: null };
       const offers = related.flatMap((product) => product.offers.map((offer) => withFreshness({ ...offer.payload, checkedAt: offer.priceCheckedAt }, timestamp)));
-      if (!offers.length) return { used: false, reason: "compatible_products_without_offers", offers: [], products: related, mapExpiresAt: selected?.mapExpiresAt || null, oldestPriceCheckedAt: null };
-      const oldest = related.flatMap((product) => product.offers.map((offer) => offer.priceCheckedAt)).sort()[0] || null;
+      if (!offers.length) return { used: false, reason: "compatible_products_without_offers", offers: [], products: related, discoveredAt: selected?.discoveredAt || null, mapExpiresAt: selected?.mapExpiresAt || null, oldestPriceCheckedAt: null, newestPriceCheckedAt: null };
+      const checks = related.flatMap((product) => product.offers.map((offer) => offer.priceCheckedAt)).sort();
       return {
         used: true,
         reason: selected ? "compatible_intent_map" : "compatible_product_identity",
         offers,
         products: related,
+        discoveredAt: selected?.discoveredAt || null,
         mapExpiresAt: selected?.mapExpiresAt || null,
-        oldestPriceCheckedAt: oldest,
+        oldestPriceCheckedAt: checks[0] || null,
+        newestPriceCheckedAt: checks.at(-1) || null,
       };
     },
-    async remember(userId: string, query: ShopperQuery, offers: SearchedProduct[], candidates: Array<{ productId: string; token: string; title: string }> = []) {
+    async remember(userId: string, query: ShopperQuery, offers: SearchedProduct[], candidates: Array<{ productId: string; token: string; title: string }> = [], options: { fullDiscovery?: boolean; discoveredAt?: string | null } = {}) {
       const timestamp = now();
       const productIds: string[] = [];
       const byIdentity = new Map<string, SearchedProduct[]>();
@@ -265,7 +272,7 @@ export function createShopperCatalogMemory(store: ShopperCatalogStore = prismaSh
         originalQuery: query.query,
         intentKey: productIntentKey(query),
         intent: query,
-        discoveredAt: new Date(timestamp).toISOString(),
+        discoveredAt: options.fullDiscovery === false && options.discoveredAt ? options.discoveredAt : new Date(timestamp).toISOString(),
         mapExpiresAt: new Date(timestamp + shopperRuntime.memory.queryMapTtlMs).toISOString(),
       }, productIds);
     },

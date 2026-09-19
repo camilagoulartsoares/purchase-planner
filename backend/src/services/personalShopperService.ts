@@ -11,7 +11,7 @@ import { discoverProducts, groupVariations, presentShopperOffers } from "./shopp
 import { interpretShopperIntent } from "./shopperIntentService.js";
 import { createShopperCatalogMemory, shopperCatalogMemory } from "./shopperCatalogMemory.js";
 import { shopperSearchCache } from "./shopperSearchCache.js";
-import { resolveShopperRefresh, resolveShopperSearch } from "./shopperLookupService.js";
+import { resolveShopperDiscovery, resolveShopperRefresh, resolveShopperSearch, type ShopperLookupResult } from "./shopperLookupService.js";
 import { prisma } from "../config/prisma.js";
 
 const querySchema = z.object({ query: z.string().min(2).max(250), category: z.string().nullable().default(null), maxPrice: z.number().positive().max(100_000).nullable().default(null), minPrice: z.number().nonnegative().nullable().default(null), maxPriceIsHard: z.boolean().default(false), currency: z.literal("BRL").default("BRL"), colors: z.array(z.string()).max(5).default([]), size: z.string().max(30).nullable().default(null), brands: z.array(z.string()).max(5).default([]), requiredBrands: z.array(z.string()).default([]), requiredLine: z.string().nullable().default(null), requiredComponents: z.array(z.array(z.string())).default([]), requiredVolumes: z.array(z.string()).default([]), requiredModelTerms: z.array(z.string()).default([]), requiredKit: z.boolean().default(false), usage: z.string().max(80).nullable().default(null), style: z.array(z.string()).max(5).default([]), exclude: z.array(z.string()).max(5).default([]), originalOnly: z.boolean().default(false), sortPreference: z.enum(["best_match", "lowest_price", "best_rated"]).default("best_match") });
@@ -40,6 +40,10 @@ function freshnessSummary(results: SearchedProduct[]) {
   return { oldestCheckedAt: times[0] || null, newestCheckedAt: times.at(-1) || null, agedCount: results.filter((item) => item.priceStatus === "aged").length, freshCount: results.filter((item) => item.priceStatus === "fresh").length };
 }
 
+function commercialFreshness(lookup: ShopperLookupResult) {
+  return { pricesCheckedAt: lookup.pricesCheckedAt, fullDiscoveryAt: lookup.fullDiscoveryAt, memoryOnly: lookup.memoryOnly, newOfferCount: lookup.newOfferCount };
+}
+
 async function persistTurn(conversation: { id: string; title: string | null }, query: ShopperQuery, results: SearchedProduct[], answer: string, providerId: string) {
   await prisma.$transaction([
     prisma.shopperConversation.update({ where: { id: conversation.id }, data: { context: json(query), title: conversation.title || query.query.slice(0, 80) } }),
@@ -57,7 +61,8 @@ export const personalShopperService = {
     const raw = Array.isArray(latest?.results) ? latest.results as unknown as SearchedProduct[] : [];
     const query = latest?.query ? querySchema.safeParse(latest.query).data || null : null;
     const presented = query ? presentShopperOffers(raw, query) : { results: raw, variations: groupVariations(raw) };
-    return { ...conversation, variations: presented.variations, freshness: freshnessSummary(presented.results) };
+    const recalled = query ? await shopperCatalogMemory.recall(userId, query) : null;
+    return { ...conversation, variations: presented.variations, freshness: freshnessSummary(presented.results), commercialFreshness: { pricesCheckedAt: recalled?.newestPriceCheckedAt || null, fullDiscoveryAt: recalled?.discoveredAt || null, memoryOnly: true, newOfferCount: 0 } };
   },
   async message(userId: string, conversationId: string | undefined, message: string, deps: ShopperServiceDeps = {}) {
     const startedAt = Date.now();
@@ -74,13 +79,13 @@ export const personalShopperService = {
     const catalog = deps.catalog || shopperCatalogMemory;
     const provider = deps.provider || new SerpApiProductSearchProvider();
     const lookup = await resolveShopperSearch(userId, query, { catalog, provider, discover: deps.discover });
-    if (lookup.shouldRemember) await catalog.remember(userId, query, lookup.rememberOffers, lookup.rememberCandidates);
+    if (lookup.shouldRemember) await catalog.remember(userId, query, lookup.rememberOffers, lookup.rememberCandidates, { fullDiscovery: lookup.rememberFullDiscovery, discoveredAt: lookup.previousDiscoveryAt });
     shopperSearchCache.set(conversation.id, query, lookup.results);
     const groupingCompletedAt = Date.now();
     await persistTurn(conversation, query, lookup.results, lookup.answer, lookup.provider);
     const timingsMs = { total: Date.now() - startedAt, conversation: conversationLoadedAt - startedAt, saveUserMessage: messageSavedAt - conversationLoadedAt, aiIntent: aiCompletedAt - messageSavedAt, queryInterpretation: intentCompletedAt - aiCompletedAt, discovery: groupingCompletedAt - intentCompletedAt, grouping: 0, persistence: Date.now() - groupingCompletedAt };
     console.info("[shopper.perf]", { ...timingsMs, offerCount: lookup.results.length, variationCount: lookup.variations.length, searchCalls: lookup.metrics.searchCalls, detailCalls: lookup.metrics.detailCalls, storePageCalls: lookup.metrics.storePageCalls, cacheHit: lookup.cacheHit, stopReason: lookup.metrics.stopReason, failureKind: lookup.failureKind });
-    return { conversationId: conversation.id, query, answer: lookup.answer, results: lookup.results, variations: lookup.variations, freshness: freshnessSummary(lookup.results), cacheHit: lookup.cacheHit, metrics: lookup.metrics, timingsMs, provider: lookup.provider, suggestions: query.maxPrice != null && !lookup.results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+    return { conversationId: conversation.id, query, answer: lookup.answer, results: lookup.results, variations: lookup.variations, freshness: freshnessSummary(lookup.results), commercialFreshness: commercialFreshness(lookup), cacheHit: lookup.cacheHit, metrics: lookup.metrics, timingsMs, provider: lookup.provider, suggestions: query.maxPrice != null && !lookup.results.length ? ["Ver similares", "Aumentar orçamento", "Continuar apenas original"] : ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async refresh(userId: string, conversationId: string, deps: ShopperServiceDeps = {}) {
     const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });
@@ -90,11 +95,24 @@ export const personalShopperService = {
     const catalog = deps.catalog || shopperCatalogMemory;
     const provider = deps.provider || new SerpApiProductSearchProvider();
     const lookup = await resolveShopperRefresh(userId, query, { catalog, provider, discover: deps.discover });
-    if (lookup.shouldRemember) await catalog.remember(userId, query, lookup.rememberOffers, lookup.rememberCandidates);
+    if (lookup.shouldRemember) await catalog.remember(userId, query, lookup.rememberOffers, lookup.rememberCandidates, { fullDiscovery: false, discoveredAt: lookup.previousDiscoveryAt });
     shopperSearchCache.set(conversation.id, query, lookup.results);
     await persistTurn(conversation, query, lookup.results, lookup.answer, lookup.provider);
     console.info("[shopper.refresh]", { offerCount: lookup.results.length, searchCalls: lookup.metrics.searchCalls, detailCalls: lookup.metrics.detailCalls, storePageCalls: lookup.metrics.storePageCalls, stopReason: lookup.metrics.stopReason, failureKind: lookup.failureKind });
-    return { conversationId: conversation.id, query, answer: lookup.answer, results: lookup.results, variations: lookup.variations, freshness: freshnessSummary(lookup.results), cacheHit: lookup.cacheHit, metrics: lookup.metrics, provider: lookup.provider, suggestions: ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+    return { conversationId: conversation.id, query, answer: lookup.answer, results: lookup.results, variations: lookup.variations, freshness: freshnessSummary(lookup.results), commercialFreshness: commercialFreshness(lookup), cacheHit: lookup.cacheHit, metrics: lookup.metrics, provider: lookup.provider, suggestions: ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
+  },
+  async discover(userId: string, conversationId: string, deps: ShopperServiceDeps = {}) {
+    const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });
+    if (!conversation) throw new AppError("Conversa não encontrada.", 404);
+    const query = conversation.context ? querySchema.safeParse(conversation.context).data : null;
+    if (!query) throw new AppError("Não há uma pesquisa recente para atualizar.", 400);
+    const catalog = deps.catalog || shopperCatalogMemory;
+    const provider = deps.provider || new SerpApiProductSearchProvider();
+    const lookup = await resolveShopperDiscovery(userId, query, { catalog, provider, discover: deps.discover });
+    if (lookup.shouldRemember) await catalog.remember(userId, query, lookup.rememberOffers, lookup.rememberCandidates, { fullDiscovery: true });
+    shopperSearchCache.set(conversation.id, query, lookup.results);
+    await persistTurn(conversation, query, lookup.results, lookup.answer, lookup.provider);
+    return { conversationId: conversation.id, query, answer: lookup.answer, results: lookup.results, variations: lookup.variations, freshness: freshnessSummary(lookup.results), commercialFreshness: commercialFreshness(lookup), cacheHit: lookup.cacheHit, metrics: lookup.metrics, provider: lookup.provider, suggestions: ["Mais barato", "Outra cor", "Compare os dois primeiros"] };
   },
   async action(userId: string, conversationId: string, resultId: string, action: "save" | "add-to-planner", options: { category?: string; priority?: string; purchaseIntent?: string }) {
     const conversation = await prisma.shopperConversation.findFirst({ where: { id: conversationId, userId } });

@@ -34,7 +34,7 @@ describe("shopper last local review", () => {
     const search = vi.spyOn(provider, "searchDetailed").mockRejectedValue(new ShopperProviderError("quota", "HTTP 429"));
     vi.spyOn(provider, "available").mockReturnValue(true);
     const result = await resolveShopperSearch("user-1", query, { catalog, provider });
-    expect(search).not.toHaveBeenCalled();
+    expect(search).toHaveBeenCalledOnce();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].store).toBe("Loja A");
     expect(result.results[0].checkedAt).toBe("2026-09-10T12:00:00.000Z");

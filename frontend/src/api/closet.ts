@@ -223,7 +223,7 @@ export async function fetchShopperConversations() {
 
 export async function fetchShopperConversation(id: string) {
   const res = await api.get(`/personal-shopper/conversations/${id}`);
-  return res.data.data as { id: string; messages: Array<{ role: "user" | "assistant"; content: string; createdAt: string }>; searches: Array<{ results: ShopperReply["results"] }>; variations: ShopperReply["variations"] };
+  return res.data.data as { id: string; messages: Array<{ role: "user" | "assistant"; content: string; createdAt: string }>; searches: Array<{ results: ShopperReply["results"] }>; variations: ShopperReply["variations"]; commercialFreshness?: ShopperReply["commercialFreshness"] };
 }
 
 export async function sendShopperMessage(message: string, conversationId?: string) {
@@ -233,6 +233,11 @@ export async function sendShopperMessage(message: string, conversationId?: strin
 
 export async function refreshShopperPrices(conversationId: string) {
   const res = await api.post(`/personal-shopper/conversations/${conversationId}/refresh`, {}, { timeout: 90000 });
+  return res.data.data as ShopperReply;
+}
+
+export async function discoverShopperPromotions(conversationId: string) {
+  const res = await api.post(`/personal-shopper/conversations/${conversationId}/discover`, {}, { timeout: 90000 });
   return res.data.data as ShopperReply;
 }
 

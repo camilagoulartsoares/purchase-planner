@@ -22,6 +22,8 @@ export const shopperRuntime = {
     identityTtlMs: envInt("SHOPPER_IDENTITY_TTL_MS", 21 * dayMs),
     queryMapTtlMs: envInt("SHOPPER_QUERY_MAP_TTL_MS", 10 * dayMs),
     priceTtlMs: envInt("SHOPPER_PRICE_TTL_MS", dayMs),
+    fullDiscoveryTtlMs: envInt("SHOPPER_FULL_DISCOVERY_TTL_MS", 2 * 60 * 60 * 1000),
+    forcedDiscoveryCooldownMs: envInt("SHOPPER_FORCED_DISCOVERY_COOLDOWN_MS", 10 * 60 * 1000),
   },
   budget: {
     discovery: {
